@@ -5,7 +5,7 @@ declare global {
 	namespace App {
 		// interface Error {}
 		interface Locals {
-			TRPC: () => ReturnType<Router['createCaller']>;
+			TRPC: ReturnType<Router['createCaller']>;
 		}
 		// interface PageData {}
 		// interface Platform {}

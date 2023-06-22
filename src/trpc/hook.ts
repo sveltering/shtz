@@ -1,10 +1,10 @@
 import { TRPC } from '$lib';
 
-let t = new TRPC({
+const t = new TRPC({
 	origin: 'http://localhost:5173',
 	path: '/trpc',
 	bypassOrigin: 'http://localhost:5173',
-	context: async function (event) {
+	context: function (event) {
 		return {
 			session: 'Random String'
 		};

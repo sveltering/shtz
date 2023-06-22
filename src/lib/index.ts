@@ -10,7 +10,7 @@ type keyValue = { [key: string]: any };
 type asyncCallableFunction = () => Promise<any>;
 type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 type SyncReturnType<T extends CallableFunction> = T extends (...args: any) => infer R ? R : any;
-type createContextFn_T<T> = (event: RequestEvent) => Promise<T>;
+type createContextFn_T<T> = (event: RequestEvent) => Promise<T> | T;
 
 interface TRPCOptions_I<T> {
 	origin: string;
@@ -55,12 +55,17 @@ export class TRPC<T extends object> {
 		const options = this.options;
 		return async function (event: RequestEvent) {
 			const localsKey = options.localsKey;
+			const contextFnConsturctor = options.context.constructor.name;
 			if (options.locals === 'always') {
-				//@ts-ignore
-				event.locals[localsKey] = router.createCaller(await options.context(event));
+				if (contextFnConsturctor === 'AsyncFunction') {
+					//@ts-ignore
+					event.locals[localsKey] = router.createCaller(await options.context(event));
+				} else if (contextFnConsturctor === 'Function') {
+					//@ts-ignore
+					event.locals[localsKey] = router.createCaller(options.context(event));
+				}
 			} //
 			else if (options.locals === 'callable') {
-				const contextFnConsturctor = options.context.constructor.name;
 				if (contextFnConsturctor === 'AsyncFunction') {
 					//@ts-ignore
 					event.locals[localsKey] = async () => router.createCaller(await options.context(event));
@@ -111,6 +116,11 @@ export class TRPC<T extends object> {
 					...options?.resolveOptions
 				});
 			}
+
+			if (!result?.headers) {
+				result.headers = {};
+			}
+
 			if (options?.beforeResponse) {
 				await options?.beforeResponse(event, $this.pipe, result);
 			}
