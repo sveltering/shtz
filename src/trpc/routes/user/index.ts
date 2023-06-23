@@ -1,4 +1,4 @@
-import { t } from '../../init';
+import { signedInProcedure, t } from '../../init';
 
 export default t.router({
 	welcome: t.procedure.query(function ({ ctx }) {

@@ -1,10 +1,11 @@
 import type { PageLoad } from './$types';
 import { loadClient } from '../trpc/loadClient';
+import { browserClient } from '../trpc/browserClient';
 
 export const load = (async (event) => {
 	let data;
 	try {
-		data = await loadClient(event).hello.query();
+		data = browserClient.hello.query();
 	} catch (e) {
 		data = 'error';
 	}

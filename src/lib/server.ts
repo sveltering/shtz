@@ -73,10 +73,10 @@ export class TRPC<T extends object> {
 		this._routes = routes;
 	}
 
-	hook<R extends AnyRouter>(router: R) {
+	hook(router: AnyRouter) {
 		this._routes = router;
 		const options = this.options;
-		return async function (event: RequestEvent) {
+		return async function (event: RequestEvent): Promise<false | Response> {
 			const pipe: keyValueType = {};
 			const localsKey = options.localsKey;
 			const contextFnConsturctor = options.context.constructor.name;
