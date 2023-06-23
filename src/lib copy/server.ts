@@ -34,7 +34,6 @@ export class TRPC<T extends object> {
 	options: TRPCOptions_I<T>;
 	//OTHER
 	tRPCInner: SyncReturnType<SyncReturnType<typeof initTRPC.context<T>>['create']>;
-	routes: any;
 	constructor(options: TRPCOptions_I<T>) {
 		if (typeof window !== 'undefined') {
 			throw new Error('new TRPC() should only be used within the server environment.');
@@ -198,10 +197,11 @@ Your context function is synchronous. Either:
 	};
 };
 
-export const syncServerClientCreate = function <R extends AnyRouter>(
-	t: TRPC<any>
-): (event: RequestEvent) => ReturnType<R['createCaller']> {
-	if (console?.warn && t.context.constructor.name === 'AsyncFunction') {
+export const syncServerClientCreate = function <R extends functionType>(
+	createCaller: R,
+	context: any
+): (event: RequestEvent) => ReturnType<R> {
+	if (console?.warn && context.constructor.name === 'AsyncFunction') {
 		console.warn(
 			`Message from \`syncServerClientCreate()\`
 	Your context function is asynchronous. Either:
@@ -211,7 +211,7 @@ export const syncServerClientCreate = function <R extends AnyRouter>(
 		);
 	}
 
-	return function (event: RequestEvent): ReturnType<R['createCaller']> {
-		return t.routes.createCaller(t.context(event, false));
+	return function (event: RequestEvent): ReturnType<R> {
+		return createCaller(context(event, false));
 	};
 };

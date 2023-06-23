@@ -1,5 +1,5 @@
-import { syncServerClientCreate } from '$lib/server-clients';
+import type { Router } from './hooks.js';
+import { syncServerClientCreate } from '$lib/server';
 import { t } from './init';
-import { routes } from './hooks';
 
-export const serverClient = syncServerClientCreate(routes.createCaller, t.options.context);
+export const serverClient = syncServerClientCreate<Router>(t);
