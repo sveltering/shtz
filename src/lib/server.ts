@@ -34,7 +34,7 @@ export class TRPC<T extends object> {
 	options: TRPCOptions_I<T>;
 	//OTHER
 	tRPCInner: SyncReturnType<SyncReturnType<typeof initTRPC.context<T>>['create']>;
-	routes: any;
+	_routes?: AnyRouter;
 	constructor(options: TRPCOptions_I<T>) {
 		if (typeof window !== 'undefined') {
 			throw new Error('new TRPC() should only be used within the server environment.');
@@ -69,8 +69,12 @@ export class TRPC<T extends object> {
 		);
 	}
 
+	set routes(routes: AnyRouter) {
+		this._routes = routes;
+	}
+
 	hook<R extends AnyRouter>(router: R) {
-		const $this = this;
+		this._routes = router;
 		const options = this.options;
 		return async function (event: RequestEvent) {
 			const pipe: keyValueType = {};
@@ -179,11 +183,10 @@ Consider either:
 
 type functionType = (...args: any) => any;
 
-export const asyncServerClientCreate = function <R extends functionType>(
-	createCaller: R,
-	context: any
-): (event: RequestEvent) => Promise<ReturnType<R>> {
-	if (console?.warn && context.constructor.name === 'Function') {
+export const asyncServerClientCreate = function <R extends AnyRouter>(
+	t: TRPC<any>
+): (event: RequestEvent) => Promise<ReturnType<R['createCaller']>> {
+	if (console?.warn && t.context.constructor.name === 'Function') {
 		console.warn(
 			`Message from \`asyncServerClientCreate()\`
 Your context function is synchronous. Either:
@@ -193,8 +196,20 @@ Your context function is synchronous. Either:
 		);
 	}
 
-	return async function (event: RequestEvent): Promise<ReturnType<R>> {
-		return createCaller(await context(event, false));
+	if (!t?._routes) {
+		throw new Error(
+			`You must set your final routes.
+This is achieved by either
+1. Creating hooks with \`t.hooks(routes)\`
+OR
+2. Setting it on the TRPC object using \`t.routes = routes\``
+		);
+	}
+
+	return async function (event: RequestEvent): Promise<ReturnType<R['createCaller']>> {
+		return t?._routes?.createCaller?.(await t.context(event, false)) as ReturnType<
+			R['createCaller']
+		>;
 	};
 };
 
@@ -212,6 +227,6 @@ export const syncServerClientCreate = function <R extends AnyRouter>(
 	}
 
 	return function (event: RequestEvent): ReturnType<R['createCaller']> {
-		return t.routes.createCaller(t.context(event, false));
+		return t?._routes?.createCaller(t.context(event, false)) as ReturnType<R['createCaller']>;
 	};
 };
