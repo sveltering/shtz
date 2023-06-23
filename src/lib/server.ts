@@ -1,25 +1,30 @@
 // Reexport your entry components here
 import type { RequestEvent } from '@sveltejs/kit';
-import { initTRPC, type AnyRouter } from '@trpc/server';
+import { initTRPC, TRPCError, type AnyRouter } from '@trpc/server';
 import { resolveHTTPResponse } from '@trpc/server/http';
 import type { HTTPResponse } from '@trpc/server/dist/http/internals/types';
 import type { HTTPHeaders } from '@trpc/client';
 import { parse as parseURL } from 'url';
 
-type keyValue = { [key: string]: any };
+type keyValueType = { [key: string]: any };
+type pipeType = false | keyValueType;
+
 type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 type SyncReturnType<T extends CallableFunction> = T extends (...args: any) => infer R ? R : any;
-type createContextFn_T<T> = (event: RequestEvent, pipe: keyValue) => Promise<T> | T;
+type createContextType<T> = (event: RequestEvent, pipe: pipeType) => Promise<T> | T;
+
+type TRPCErrorOpts = ConstructorParameters<typeof TRPCError>[0];
 
 interface TRPCOptions_I<T> {
 	origin: string;
 	bypassOrigin?: string;
 	path: string;
-	context: createContextFn_T<T>;
-	beforeResolve?: (event: RequestEvent, pipe: keyValue) => any;
-	resolveError?: (event: RequestEvent, pipe: keyValue) => any;
-	beforeResponse?: (event: RequestEvent, pipe: keyValue, result: HTTPResponse) => any;
+	context: createContextType<T>;
+	beforeResolve?: (event: RequestEvent, pipe: pipeType) => any;
+	resolveError?: (event: RequestEvent, pipe: pipeType) => any;
+	beforeResponse?: (event: RequestEvent, pipe: pipeType, result: HTTPResponse) => any;
 	resolveOptions?: ArgumentTypes<typeof resolveHTTPResponse>[0];
+	createOptions?: ArgumentTypes<typeof initTRPC.create>[0];
 	locals?: 'always' | 'callable' | 'never';
 	localsKey?: string;
 }
@@ -34,7 +39,7 @@ export class TRPC<T extends object> {
 			throw new Error('new TRPC() should only be used within the server environment.');
 		}
 		this.options = { locals: 'always', localsKey: 'TRPC', ...options };
-		this.tRPCInner = initTRPC.context<T>().create();
+		this.tRPCInner = initTRPC.context<T>().create(this.options?.createOptions || {});
 		return this;
 	}
 
@@ -48,34 +53,46 @@ export class TRPC<T extends object> {
 		return this.tRPCInner.procedure;
 	}
 
+	error(message: string | TRPCErrorOpts, code?: TRPCErrorOpts['code']) {
+		return new TRPCError(
+			typeof message === 'string'
+				? {
+						code: code || 'BAD_REQUEST',
+						message
+				  }
+				: message
+		);
+	}
+
 	hook<R extends AnyRouter>(router: R) {
 		const $this = this;
 		const options = this.options;
 		return async function (event: RequestEvent) {
-			const pipe: keyValue = {};
+			const pipe: keyValueType = {};
 			const localsKey = options.localsKey;
 			const contextFnConsturctor = options.context.constructor.name;
 
 			const URL = event.url;
 			const pathName = URL.pathname;
+
 			if (!pathName.startsWith(options.path)) {
 				if (options.locals === 'always') {
 					if (contextFnConsturctor === 'AsyncFunction') {
 						//@ts-ignore
-						event.locals[localsKey] = router.createCaller(await options.context(event, pipe));
+						event.locals[localsKey] = router.createCaller(await options.context(event, false));
 					} else if (contextFnConsturctor === 'Function') {
 						//@ts-ignore
-						event.locals[localsKey] = router.createCaller(options.context(event, pipe));
+						event.locals[localsKey] = router.createCaller(options.context(event, false));
 					}
 				} //
 				else if (options.locals === 'callable') {
 					if (contextFnConsturctor === 'AsyncFunction') {
 						//@ts-ignore
 						event.locals[localsKey] = async () =>
-							router.createCaller(await options.context(event, pipe));
+							router.createCaller(await options.context(event, false));
 					} else if (contextFnConsturctor === 'Function') {
 						//@ts-ignore
-						event.locals[localsKey] = () => router.createCaller(options.context(event, pipe));
+						event.locals[localsKey] = () => router.createCaller(options.context(event, false));
 					}
 				}
 				return false;
@@ -92,8 +109,8 @@ export class TRPC<T extends object> {
 				const errorMessage = await options.resolveError?.(event, pipe);
 				if (errorMessage) {
 					const path = parseURL(request.url)
-						.pathname?.replace(options.path + '/', '')
-						.replaceAll('/', '.');
+						.pathname?.substring?.(options.path.length + 1)
+						?.replaceAll?.('/', '.');
 					result = {
 						body: `[{"error":{"message":"${errorMessage}","code":-32600,"data":{"code":"BAD_REQUEST","httpStatus":400,"path":"${path}"}}}]`,
 						status: 400,
@@ -134,8 +151,14 @@ export class TRPC<T extends object> {
 
 	handleFetch() {
 		const options = this.options;
-		if (!options.bypassOrigin) {
-			throw new Error('No bypass origin set, are you sure you need to handle fetch?');
+		if (!options.bypassOrigin && console?.warn) {
+			console.warn(
+				`Message from \`handleFetch()\`
+No bypass origin has been set, are you sure you need to handle fetch?
+Consider either:
+	1. Setting bypassOrigin option for \`new TRPC()\`
+	2. Using browserClient instead of loadClient to remove overhead`
+			);
 		}
 		return function (request: Request) {
 			if (request.url.startsWith(options.origin)) {
