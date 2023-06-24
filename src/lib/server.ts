@@ -10,16 +10,16 @@ type keyValueType = { [key: string]: any };
 type pipeType = false | keyValueType;
 
 type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
-type SyncReturnType<T extends CallableFunction> = T extends (...args: any) => infer R ? R : any;
-type createContextType<T> = (event: RequestEvent, pipe: pipeType) => Promise<T> | T;
+type SyncReturnType<T extends Function> = T extends (...args: any) => infer R ? R : any;
+type createContextType<T> = (event?: RequestEvent, pipe?: pipeType) => Promise<T> | T;
 
 type TRPCErrorOpts = ConstructorParameters<typeof TRPCError>[0];
 
 interface TRPCOptions_I<T> {
-	origin: string;
-	bypassOrigin?: string;
 	path: string;
-	context: createContextType<T>;
+	origin?: string;
+	bypassOrigin?: string;
+	context?: createContextType<T>;
 	beforeResolve?: (event: RequestEvent, pipe: pipeType) => any;
 	resolveError?: (event: RequestEvent, pipe: pipeType) => any;
 	beforeResponse?: (event: RequestEvent, pipe: pipeType, result: HTTPResponse) => any;
@@ -29,9 +29,13 @@ interface TRPCOptions_I<T> {
 	localsKey?: string;
 }
 
+interface TRPCOptionsFinal_I<T> {
+	context: createContextType<T>;
+}
+
 export class TRPC<T extends object> {
 	//OPTIONS
-	options: TRPCOptions_I<T>;
+	options: TRPCOptions_I<T> & TRPCOptionsFinal_I<T>;
 	//OTHER
 	tRPCInner: SyncReturnType<SyncReturnType<typeof initTRPC.context<T>>['create']>;
 	_routes?: AnyRouter;
@@ -39,7 +43,12 @@ export class TRPC<T extends object> {
 		if (typeof window !== 'undefined') {
 			throw new Error('new TRPC() should only be used within the server environment.');
 		}
-		this.options = { locals: 'never', localsKey: 'TRPC', ...options };
+		this.options = {
+			context: () => ({} as any),
+			locals: 'never',
+			localsKey: 'TRPC',
+			...options
+		};
 		this.tRPCInner = initTRPC.context<T>().create(this.options?.createOptions || {});
 		return this;
 	}
@@ -160,19 +169,16 @@ export class TRPC<T extends object> {
 
 	handleFetch() {
 		const options = this.options;
-		if (!options.bypassOrigin && console?.warn) {
-			console.warn(
+		if (!options?.origin || !options?.bypassOrigin) {
+			throw new Error(
 				`Message from \`handleFetch()\`
-No bypass origin has been set, are you sure you need to handle fetch?
-Consider either:
-	1. Setting bypassOrigin option for \`new TRPC()\`
-	2. Using browserClient instead of loadClient to remove overhead`
+No origin or bypass origin has been set, are you sure you need to handle fetch?`
 			);
 		}
 		return function (request: Request) {
-			if (request.url.startsWith(options.origin)) {
+			if (request.url.startsWith(options.origin as string)) {
 				return new Request(
-					options.bypassOrigin + request.url.substring(options.origin.length),
+					options.bypassOrigin + request.url.substring((options.origin as string).length),
 					request
 				);
 			}

@@ -1,6 +1,6 @@
 {
-  "name": "trpc",
-  "version": "0.0.1",
+  "name": "@sveltering/trpc",
+  "version": "0.0.2",
   "devDependencies": {
     "@playwright/test": "^1.28.1",
     "@sveltejs/adapter-auto": "^1.0.0-next.90",
@@ -21,8 +21,13 @@
     "vitest": "^0.25.3"
   },
   "type": "module",
+  "dependencies": {
+    "@trpc/client": "^10.31.0",
+    "@trpc/server": "^10.31.0"
+  },
   "exports": {
     "./package.json": "./package.json",
-    ".": "./index.js"
+    "./browser": "./browser.js",
+    "./server": "./server.js"
   }
 }
