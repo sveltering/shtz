@@ -1,3 +1,4 @@
+import { browser } from '$app/environment';
 import type { LoadEvent } from '@sveltejs/kit';
 import type { AnyRouter } from '@trpc/server';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
@@ -23,42 +24,26 @@ export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T ext
 
 interface ClientOptions_I {
 	url: string;
-	browserOnly?: boolean;
 	transformer?: ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
 	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
 }
 
-interface ClientOptions_I_not_browserOnly extends ClientOptions_I {
-	browserOnly: false;
-}
-
-type browserOnlyClientCreateType<T extends AnyRouter> = RecursiveReplaceFunctionReturns<
-	ReturnType<typeof createTRPCProxyClient<T>>
->;
-type browserClientCreateType<T extends AnyRouter> = ReturnType<typeof createTRPCProxyClient<T>>;
-
-function browserClientCreate<T extends AnyRouter>(
-	options: ClientOptions_I_not_browserOnly
-): browserClientCreateType<T>;
-function browserClientCreate<T extends AnyRouter>(
+export const browserClientCreate = function <T extends AnyRouter>(
 	options: ClientOptions_I
-): browserOnlyClientCreateType<T>;
-function browserClientCreate<T extends AnyRouter>(options: ClientOptions_I) {
-	const { url, batchLinkOptions, browserOnly } = options;
-	let onlyBrowser = browserOnly === false ? false : true;
+): RecursiveReplaceFunctionReturns<ReturnType<typeof createTRPCProxyClient<T>>> {
+	const { url, batchLinkOptions } = options;
 
-	if (onlyBrowser && typeof window === 'undefined') {
+	if (!browser) {
 		return new Proxy({}, handlers) as unknown as any;
 	}
+
 	//@ts-ignore
 	return createTRPCProxyClient<T>({
 		links: [httpBatchLink({ ...batchLinkOptions, url })]
 	});
-}
+};
 
-export { browserClientCreate };
-
-interface LClientOptions_I extends Omit<ClientOptions_I, 'browserOnly'> {
+interface LClientOptions_I extends ClientOptions_I {
 	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' | 'fetch'>;
 }
 export const loadClientCreate = function <T extends AnyRouter>(options: LClientOptions_I) {
@@ -72,6 +57,7 @@ export const loadClientCreate = function <T extends AnyRouter>(options: LClientO
 	};
 };
 
+// https://stackoverflow.com/questions/44441259/determining-if-get-handler-in-proxy-object-is-handling-a-function-call
 const handlers: any = {
 	get: (target: any, name: any) => {
 		const prop = target[name];

@@ -28,23 +28,18 @@ interface ClientOptions_I {
 	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
 }
 
+interface ClientOptions_I_browserOnly extends ClientOptions_I {
+	browserOnly: true;
+}
 interface ClientOptions_I_not_browserOnly extends ClientOptions_I {
 	browserOnly: false;
 }
 
-type browserOnlyClientCreateType<T extends AnyRouter> = RecursiveReplaceFunctionReturns<
-	ReturnType<typeof createTRPCProxyClient<T>>
->;
-type browserClientCreateType<T extends AnyRouter> = ReturnType<typeof createTRPCProxyClient<T>>;
-
-function browserClientCreate<T extends AnyRouter>(
-	options: ClientOptions_I_not_browserOnly
-): browserClientCreateType<T>;
-function browserClientCreate<T extends AnyRouter>(
+export const browserClientCreate = function <T extends AnyRouter>(
 	options: ClientOptions_I
-): browserOnlyClientCreateType<T>;
-function browserClientCreate<T extends AnyRouter>(options: ClientOptions_I) {
+): RecursiveReplaceFunctionReturns<ReturnType<typeof createTRPCProxyClient<T>>> {
 	const { url, batchLinkOptions, browserOnly } = options;
+
 	let onlyBrowser = browserOnly === false ? false : true;
 
 	if (onlyBrowser && typeof window === 'undefined') {
@@ -54,9 +49,7 @@ function browserClientCreate<T extends AnyRouter>(options: ClientOptions_I) {
 	return createTRPCProxyClient<T>({
 		links: [httpBatchLink({ ...batchLinkOptions, url })]
 	});
-}
-
-export { browserClientCreate };
+};
 
 interface LClientOptions_I extends Omit<ClientOptions_I, 'browserOnly'> {
 	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' | 'fetch'>;
