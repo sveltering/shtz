@@ -83,7 +83,6 @@ export const storeClient = storeClientCreate<Router>({
 	always: true,
 	url: 'http://localhost:5173/trpc'
 });
-
 ```
 
 
@@ -138,3 +137,30 @@ export const storeClient = storeClientCreate<Router>({
 # 🚧🚧🚧🚧 Work in progess 🚧🚧🚧🚧
 
 ## In depth setup guide with explanations
+
+### Installing dependencies
+### Directory Structure
+### Setup directory alias
+### Understanding tRPC
+### TRPC class and options
+### TRPC abstraction getters/methods
+### TRPC hooks method
+### TRPC handleFetch method
+### Procedures/middleware
+### Routes
+### serverClient
+### asyncServerClient
+### browserClient
+### storeClient
+### loadClient
+
+## In depth usage guide with explanations
+### TRPC hooks method
+### TRPC handleFetch method
+### Procedures/middleware
+### Routes
+### serverClient
+### asyncServerClient
+### browserClient
+### storeClient
+### loadClient
