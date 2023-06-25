@@ -28,6 +28,7 @@
   "exports": {
     "./package.json": "./package.json",
     "./browser": "./browser.js",
+    "./command": "./command.js",
     "./server": "./server.js"
   }
 }

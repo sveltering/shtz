@@ -1,16 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { browserClient, type EndpointReturnType } from '../trpc/browserClient';
+	import { writable } from 'svelte/store';
+	import { storeClient } from '../trpc/browserClient';
 
-	let welcomeMessage: EndpointReturnType<typeof browserClient.welcomeMessage.query>;
-	(async function () {
-		const start = Date.now();
-		welcomeMessage = await browserClient.welcomeMessage.query();
-		const end = Date.now();
-		console.log(`Execution time: ${end - start} ms`);
-	})();
+	let welcomeMessage = storeClient.welcomeMessage.query();
 </script>
 
-{#if welcomeMessage}
-	{welcomeMessage}
-{/if}
+{$welcomeMessage.response}

@@ -5,6 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 dependencies:
+  '@sveltering/custom-store':
+    specifier: ^0.0.30
+    version: 0.0.30
   '@trpc/client':
     specifier: ^10.31.0
     version: 10.31.0(@trpc/server@10.31.0)
@@ -465,6 +468,10 @@ packages:
     transitivePeerDependencies:
       - supports-color
     dev: true
+
+  /@sveltering/custom-store@0.0.30:
+    resolution: {integrity: sha512-iM5hyb5wf+RhxZV5n/Chs9JAdrRO2aGEF49OzVvNAlZtPEV612cthzba4GUmJ1X6Kfqf1bXlfMdAsclDnljr5g==}
+    dev: false
 
   /@trpc/client@10.31.0(@trpc/server@10.31.0):
     resolution: {integrity: sha512-VCqbJEvFJb8C4hQFw7AD+dkQTjgEdV/QAzO4D+/cX5e93u5NpfNXI+PKS0QFXwG/zqgwQwVV6OkYc/D/MFwA6g==}

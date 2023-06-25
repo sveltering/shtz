@@ -1,54 +1,28 @@
-import type { LoadEvent } from '@sveltejs/kit';
 import type { AnyRouter } from '@trpc/server';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
+import { writable } from 'svelte/store';
 
-type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
+import type {
+	browserClientOpt,
+	browserClientOptF,
+	browserFCC,
+	browserOCC,
+	loadClientOpt,
+	loadCC,
+	storeClientOpt,
+	storeCC,
+	EndpointReturnType
+} from './browser.types';
 
-type ReplaceFunctionReturn<Fn> = Fn extends (...a: infer A) => Promise<infer R>
-	? (...a: A) => Promise<R | undefined>
-	: Fn;
+function undefinedFn() {}
 
-type RecursiveReplaceFunctionReturns<Obj extends object> = {
-	[Key in keyof Obj]: Obj[Key] extends Function
-		? ReplaceFunctionReturn<Obj[Key]>
-		: Obj[Key] extends { [Key2: string]: any }
-		? RecursiveReplaceFunctionReturns<Obj[Key]>
-		: Obj[Key];
-};
-export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T extends (
-	...args: any
-) => Promise<infer R>
-	? R
-	: any;
-
-interface ClientOptions_I {
-	url: string;
-	browserOnly?: boolean;
-	transformer?: ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
-	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
-}
-
-interface ClientOptions_I_not_browserOnly extends ClientOptions_I {
-	browserOnly: false;
-}
-
-type browserOnlyClientCreateType<T extends AnyRouter> = RecursiveReplaceFunctionReturns<
-	ReturnType<typeof createTRPCProxyClient<T>>
->;
-type browserClientCreateType<T extends AnyRouter> = ReturnType<typeof createTRPCProxyClient<T>>;
-
-function browserClientCreate<T extends AnyRouter>(
-	options: ClientOptions_I_not_browserOnly
-): browserClientCreateType<T>;
-function browserClientCreate<T extends AnyRouter>(
-	options: ClientOptions_I
-): browserOnlyClientCreateType<T>;
-function browserClientCreate<T extends AnyRouter>(options: ClientOptions_I) {
+function browserClientCreate<T extends AnyRouter>(options: browserClientOptF): browserFCC<T>;
+function browserClientCreate<T extends AnyRouter>(options: browserClientOpt): browserOCC<T>;
+function browserClientCreate<T extends AnyRouter>(options: browserClientOpt) {
 	const { url, batchLinkOptions, browserOnly } = options;
-	let onlyBrowser = browserOnly === false ? false : true;
 
-	if (onlyBrowser && typeof window === 'undefined') {
-		return new Proxy({}, handlers) as unknown as any;
+	if (browserOnly !== false && typeof window === 'undefined') {
+		return browserPseudoClient();
 	}
 	//@ts-ignore
 	return createTRPCProxyClient<T>({
@@ -56,27 +30,68 @@ function browserClientCreate<T extends AnyRouter>(options: ClientOptions_I) {
 	});
 }
 
-export { browserClientCreate };
-
-interface LClientOptions_I extends Omit<ClientOptions_I, 'browserOnly'> {
-	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' | 'fetch'>;
-}
-export const loadClientCreate = function <T extends AnyRouter>(options: LClientOptions_I) {
+function loadClientCreate<T extends AnyRouter>(options: loadClientOpt): loadCC<T> {
 	const { url, batchLinkOptions } = options;
-
-	return function ({ fetch }: LoadEvent) {
+	return function ({ fetch }) {
 		//@ts-ignore
 		return createTRPCProxyClient<T>({
 			links: [httpBatchLink({ ...batchLinkOptions, url, fetch })]
 		});
 	};
-};
+}
 
-const handlers: any = {
-	get: (target: any, name: any) => {
-		const prop = target[name];
-		return new Proxy(function () {
-			return undefined;
-		}, handlers);
+function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
+	const { url, batchLinkOptions } = options;
+
+	if (typeof window === 'undefined') {
+		return storePseudoClient() as unknown as storeCC<T>;
 	}
-};
+
+	//@ts-ignore
+	let proxyClient = createTRPCProxyClient<T>({
+		links: [httpBatchLink({ ...batchLinkOptions, url })]
+	});
+	return outerProxy(proxyClient, []) as unknown as storeCC<T>;
+}
+
+function browserPseudoClient(): any {
+	return new Proxy(undefinedFn, { get: () => browserPseudoClient() });
+}
+
+function storePseudoClient(): any {
+	return new Proxy(undefinedFn, {
+		get: () => storePseudoClient(),
+		apply: () => writable({ error: false, response: undefined, loading: true })
+	});
+}
+function outerProxy(callback: any, path: string[]) {
+	const proxy: unknown = new Proxy(undefinedFn, {
+		get(_obj, key) {
+			if (typeof key !== 'string' || key === 'then') {
+				return undefined;
+			}
+			return outerProxy(callback, [...path, key]);
+		},
+		apply(_1, _2, args) {
+			let endpoint = callback;
+			for (let i = 0, iLen = path.length; i < iLen; i++) {
+				endpoint = endpoint[path[i] as keyof typeof endpoint];
+			}
+			let store = writable({ error: false, response: undefined, loading: true });
+			endpoint(...args)
+				.then((response: any) => {
+					store.set({ error: false, response, loading: false });
+				})
+				.catch((error: any) => {
+					store.set({ error, response: undefined, loading: false });
+				});
+
+			return store;
+		}
+	});
+
+	return proxy;
+}
+
+export { browserClientCreate, storeClientCreate, loadClientCreate };
+export type { EndpointReturnType };

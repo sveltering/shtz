@@ -33,6 +33,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@sveltering/custom-store": "^0.0.30",
 		"@trpc/client": "^10.31.0",
 		"@trpc/server": "^10.31.0"
 	}
