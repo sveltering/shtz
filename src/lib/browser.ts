@@ -11,6 +11,7 @@ import type {
 	loadCC,
 	storeClientOpt,
 	storeCC,
+	storeResponseValue,
 	EndpointReturnType
 } from './browser.types';
 
@@ -77,13 +78,17 @@ function outerProxy(callback: any, path: string[]) {
 			for (let i = 0, iLen = path.length; i < iLen; i++) {
 				endpoint = endpoint[path[i] as keyof typeof endpoint];
 			}
-			let store = writable({ error: false, response: undefined, loading: true });
+			let store: storeResponseValue<unknown> = writable({
+				loading: true,
+				error: false,
+				success: false
+			});
 			endpoint(...args)
 				.then((response: any) => {
-					store.set({ error: false, response, loading: false });
+					store.set({ loading: false, response, error: false, success: true });
 				})
-				.catch((error: any) => {
-					store.set({ error, response: undefined, loading: false });
+				.catch((message: any) => {
+					store.set({ loading: false, error: true, message, success: false });
 				});
 
 			return store;

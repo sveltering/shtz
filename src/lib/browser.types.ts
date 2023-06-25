@@ -15,12 +15,28 @@ type RecursiveReplaceFunctionReturnsOrUndefined<Obj extends object> = {
 		: Obj[Key];
 };
 
+export type storeResponseValue<V> = Writable<
+	| {
+			loading: true;
+			error: false;
+			success: false;
+	  }
+	| {
+			loading: false;
+			response: V;
+			error: false;
+			success: true;
+	  }
+	| {
+			loading: false;
+			error: true;
+			message: any;
+			success: false;
+	  }
+>;
+
 type ReplaceFunctionReturnStore<Fn> = Fn extends (...a: infer A) => Promise<infer R>
-	? (...a: A) => Writable<{
-			loading: boolean;
-			response: R | undefined;
-			error: boolean;
-	  }>
+	? (...a: A) => storeResponseValue<R>
 	: Fn;
 
 type RecursiveReplaceFunctionReturnsStore<Obj extends object> = {

@@ -1,10 +1,9 @@
 <script lang="ts">
-	import { browserClient } from '../trpc/browserClient';
+	import { storeClient } from '../trpc/browserClient';
 
-	let welcomeMessage;
-	(async function () {
-		welcomeMessage = await browserClient.welcomeMessage.query();
-	})();
+	let welcomeMessage = storeClient.welcomeMessage.query();
 </script>
 
-{welcomeMessage}
+{#if $welcomeMessage.success}
+	{$welcomeMessage.response}
+{/if}
