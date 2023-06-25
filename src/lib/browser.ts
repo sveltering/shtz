@@ -14,8 +14,6 @@ import type {
 	EndpointReturnType
 } from './browser.types';
 
-function undefinedFn() {}
-
 function browserClientCreate<T extends AnyRouter>(options: browserClientOptF): browserFCC<T>;
 function browserClientCreate<T extends AnyRouter>(options: browserClientOpt): browserOCC<T>;
 function browserClientCreate<T extends AnyRouter>(options: browserClientOpt) {
@@ -54,20 +52,22 @@ function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeC
 	return outerProxy(proxyClient, []) as unknown as storeCC<T>;
 }
 
+function noop() {}
+
 function browserPseudoClient(): any {
-	return new Proxy(undefinedFn, { get: () => browserPseudoClient() });
+	return new Proxy(noop, { get: () => browserPseudoClient() });
 }
 
 function storePseudoClient(): any {
-	return new Proxy(undefinedFn, {
+	return new Proxy(noop, {
 		get: () => storePseudoClient(),
 		apply: () => writable({ error: false, response: undefined, loading: true })
 	});
 }
 function outerProxy(callback: any, path: string[]) {
-	const proxy: unknown = new Proxy(undefinedFn, {
+	const proxy: unknown = new Proxy(noop, {
 		get(_obj, key) {
-			if (typeof key !== 'string' || key === 'then') {
+			if (typeof key !== 'string') {
 				return undefined;
 			}
 			return outerProxy(callback, [...path, key]);
