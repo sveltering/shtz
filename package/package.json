@@ -1,6 +1,6 @@
 {
   "name": "@sveltering/trpc",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "devDependencies": {
     "@playwright/test": "^1.28.1",
     "@sveltejs/adapter-auto": "^1.0.0-next.90",
@@ -30,7 +30,6 @@
     "./package.json": "./package.json",
     "./browser": "./browser.js",
     "./browser.types": "./browser.types.js",
-    "./command": "./command.js",
     "./server": "./server.js"
   }
 }
