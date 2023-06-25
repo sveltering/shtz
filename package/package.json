@@ -22,12 +22,14 @@
   },
   "type": "module",
   "dependencies": {
+    "@sveltering/custom-store": "^0.0.30",
     "@trpc/client": "^10.31.0",
     "@trpc/server": "^10.31.0"
   },
   "exports": {
     "./package.json": "./package.json",
     "./browser": "./browser.js",
+    "./browser.types": "./browser.types.js",
     "./command": "./command.js",
     "./server": "./server.js"
   }

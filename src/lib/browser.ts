@@ -39,18 +39,29 @@ function loadClientCreate<T extends AnyRouter>(options: loadClientOpt): loadCC<T
 	};
 }
 
-function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
-	const { url, batchLinkOptions } = options;
+function storeClientCreate<T extends AnyRouter, B extends boolean = false>(
+	options: storeClientOpt<B>
+): storeCC<T, false>;
+function storeClientCreate<T extends AnyRouter, B extends boolean = true>(
+	options: storeClientOpt<B>
+): storeCC<T, true>;
+function storeClientCreate<T extends AnyRouter, B extends boolean>(
+	options: storeClientOpt<B>
+): storeCC<T, B> {
+	const { url, batchLinkOptions, always = false } = options;
 
 	if (typeof window === 'undefined') {
-		return storePseudoClient() as unknown as storeCC<T>;
+		return storePseudoClient(always) as unknown as storeCC<T, B>;
 	}
 
-	//@ts-ignore
-	let proxyClient = createTRPCProxyClient<T>({
-		links: [httpBatchLink({ ...batchLinkOptions, url })]
-	});
-	return outerProxy(proxyClient, []) as unknown as storeCC<T>;
+	return outerProxy(
+		//@ts-ignore
+		createTRPCProxyClient<T>({
+			links: [httpBatchLink({ ...batchLinkOptions, url })]
+		}),
+		[],
+		options
+	) as unknown as storeCC<T, B>;
 }
 
 function noop() {}
@@ -59,35 +70,94 @@ function browserPseudoClient(): any {
 	return new Proxy(noop, { get: () => browserPseudoClient() });
 }
 
-function storePseudoClient(): any {
+function storePseudoClient(always: boolean): any {
+	if (always) {
+		return new Proxy(noop, {
+			get: () => storePseudoClient(always),
+			apply: () =>
+				writable({
+					loading: true,
+					error: false,
+					success: false,
+					response: undefined,
+					message: undefined
+				})
+		});
+	}
 	return new Proxy(noop, {
-		get: () => storePseudoClient(),
-		apply: () => writable({ error: false, response: undefined, loading: true })
+		get: () => storePseudoClient(always),
+		apply: () => writable({ loading: true, error: false, success: false })
 	});
 }
-function outerProxy(callback: any, path: string[]) {
+function outerProxy(callback: any, path: string[], options: any) {
 	const proxy: unknown = new Proxy(noop, {
 		get(_obj, key) {
 			if (typeof key !== 'string') {
 				return undefined;
 			}
-			return outerProxy(callback, [...path, key]);
+			return outerProxy(callback, [...path, key], options);
 		},
 		apply(_1, _2, args) {
 			let endpoint = callback;
 			for (let i = 0, iLen = path.length; i < iLen; i++) {
 				endpoint = endpoint[path[i] as keyof typeof endpoint];
 			}
-			let store: storeResponseValue<unknown> = writable({
+			if (options?.always === true) {
+				let store: storeResponseValue<unknown, true> = writable({
+					loading: true,
+					error: false,
+					success: false,
+					response: undefined,
+					message: undefined
+				});
+				endpoint(...args)
+					.then(async (response: any) => {
+						if (options?.interceptResponse) {
+							response = await options.interceptResponse(
+								response,
+								[...path].slice(0, -1).join('.')
+							);
+						}
+						store.set({
+							loading: false,
+							response,
+							error: false,
+							success: true,
+							message: undefined
+						});
+					})
+					.catch(async (message: any) => {
+						if (options?.interceptError) {
+							message = await options.interceptError(message, [...path].slice(0, -1).join('.'));
+						}
+						store.set({
+							loading: false,
+							error: true,
+							message,
+							success: false,
+							response: undefined
+						});
+					});
+
+				return store;
+			}
+
+			let store: storeResponseValue<unknown, false> = writable({
 				loading: true,
 				error: false,
 				success: false
 			});
 			endpoint(...args)
-				.then((response: any) => {
+				.then(async (response: any) => {
+					if (options?.interceptResponse) {
+						response = await options.interceptResponse(response, [...path].slice(0, -1).join('.'));
+					}
 					store.set({ loading: false, response, error: false, success: true });
 				})
-				.catch((message: any) => {
+				.catch(async (message: any) => {
+					if (options?.interceptError) {
+						message = await options.interceptError(message, [...path].slice(0, -1).join('.'));
+					}
 					store.set({ loading: false, error: true, message, success: false });
 				});
 

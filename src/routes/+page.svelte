@@ -4,6 +4,4 @@
 	let welcomeMessage = storeClient.welcomeMessage.query();
 </script>
 
-{#if $welcomeMessage.success}
-	{$welcomeMessage.response}
-{/if}
+{$welcomeMessage?.response ?? $welcomeMessage?.message ?? 'Loading...'}

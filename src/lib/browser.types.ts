@@ -15,35 +15,59 @@ type RecursiveReplaceFunctionReturnsOrUndefined<Obj extends object> = {
 		: Obj[Key];
 };
 
-export type storeResponseValue<V> = Writable<
-	| {
-			loading: true;
-			error: false;
-			success: false;
-	  }
-	| {
-			loading: false;
-			response: V;
-			error: false;
-			success: true;
-	  }
-	| {
-			loading: false;
-			error: true;
-			message: any;
-			success: false;
-	  }
->;
+export type storeResponseValue<V, B> = [B] extends [false]
+	? Writable<
+			| {
+					loading: true;
+					error: false;
+					success: false;
+			  }
+			| {
+					loading: false;
+					response: V;
+					error: false;
+					success: true;
+			  }
+			| {
+					loading: false;
+					error: true;
+					message: any;
+					success: false;
+			  }
+	  >
+	: Writable<
+			| {
+					loading: true;
+					error: false;
+					success: false;
+					response: undefined;
+					message: undefined;
+			  }
+			| {
+					loading: false;
+					response: V;
+					error: false;
+					success: true;
+					message: undefined;
+			  }
+			| {
+					loading: false;
+					error: true;
+					message: any;
+					success: false;
+					response: undefined;
+			  }
+	  >;
 
-type ReplaceFunctionReturnStore<Fn> = Fn extends (...a: infer A) => Promise<infer R>
-	? (...a: A) => storeResponseValue<R>
+type ReplaceFunctionReturnStore<Fn, B> = Fn extends (...a: infer A) => Promise<infer R>
+	? (...a: A) => storeResponseValue<R, B>
 	: Fn;
 
-type RecursiveReplaceFunctionReturnsStore<Obj extends object> = {
+type RecursiveReplaceFunctionReturnsStore<Obj extends object, B extends boolean> = {
 	[Key in keyof Obj]: Obj[Key] extends Function
-		? ReplaceFunctionReturnStore<Obj[Key]>
+		? ReplaceFunctionReturnStore<Obj[Key], B>
 		: Obj[Key] extends { [Key2: string]: any }
-		? RecursiveReplaceFunctionReturnsStore<Obj[Key]>
+		? RecursiveReplaceFunctionReturnsStore<Obj[Key], B>
 		: Obj[Key];
 };
 
@@ -72,10 +96,15 @@ export type loadCC<T extends AnyRouter> = (
 	event: LoadEvent
 ) => ReturnType<typeof createTRPCProxyClient<T>>;
 
-export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'>;
+export type storeClientOpt<B> = Omit<browserClientOpt, 'browserOnly'> & {
+	always?: B;
+	interceptResponse?: (response: any, path: string) => Promise<{}> | {};
+	interceptError?: (message: any, path: string) => Promise<{}> | {};
+};
 
-export type storeCC<T extends AnyRouter> = RecursiveReplaceFunctionReturnsStore<
-	ReturnType<typeof createTRPCProxyClient<T>>
+export type storeCC<T extends AnyRouter, B extends boolean> = RecursiveReplaceFunctionReturnsStore<
+	ReturnType<typeof createTRPCProxyClient<T>>,
+	B
 >;
 
 export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T extends (
