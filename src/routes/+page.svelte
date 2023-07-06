@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { storeClient } from '../trpc/browserClient';
+	import type { PageData } from './$types';
 
-	let welcomeMessage = storeClient.welcomeMessage.query();
+	export let data: PageData;
 </script>
 
-{$welcomeMessage?.response ?? $welcomeMessage?.message ?? 'Loading...'}
+Home

@@ -10,10 +10,12 @@ type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A
 type SyncReturnType<T extends Function> = T extends (...args: any) => infer R ? R : any;
 type createContextType<T> = (event?: RequestEvent, pipe?: pipeType) => Promise<T> | T;
 type TRPCErrorOpts = ConstructorParameters<typeof TRPCError>[0];
-interface TRPCOptions_I<T> {
+interface fetchOptions {
+    origin: string;
+    bypassOrigin: string;
+}
+interface TRPCBaseOptions_I<T> {
     path: string;
-    origin?: string;
-    bypassOrigin?: string;
     context?: createContextType<T>;
     beforeResolve?: (event: RequestEvent, pipe: pipeType) => any;
     resolveError?: (event: RequestEvent, pipe: pipeType) => any;
@@ -23,6 +25,7 @@ interface TRPCOptions_I<T> {
     locals?: 'always' | 'callable' | 'never';
     localsKey?: string;
 }
+type TRPCOptions_I<T> = TRPCBaseOptions_I<T> | (TRPCBaseOptions_I<T> & fetchOptions);
 interface TRPCOptionsFinal_I<T> {
     context: createContextType<T>;
 }

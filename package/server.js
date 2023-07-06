@@ -121,7 +121,7 @@ export class TRPC {
     }
     handleFetch() {
         const options = this.options;
-        if (!options?.origin || !options?.bypassOrigin) {
+        if (!('bypassOrigin' in options)) {
             throw new Error(`Message from \`handleFetch()\`
 No origin or bypass origin has been set, are you sure you need to handle fetch?`);
         }

@@ -112,3 +112,55 @@ export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T ext
 ) => Promise<infer R>
 	? R
 	: any;
+
+export type storeCC2<T extends AnyRouter, B extends boolean> = RecursiveReplaceFunctionReturnsStore<
+	ReturnType<typeof createTRPCProxyClient<T>>,
+	B
+>;
+
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ */
+
+export type EndpointsToStore<T> = T extends object //
+	? {
+			[K in keyof T & string as [K] extends ['query' | 'mutate'] // If key in object is "query" or "mutate"
+				? T[K] extends (...args: any) => any // If key in object is "query" or "mutate"
+					? 'store' //if object[key] is a function type rename key to "store"
+					: K //if object[key] is not function type, keep original type
+				: K]: [K] extends ['query' | 'mutate'] // If key in object is "query" or "mutate"
+				? T[K] extends (...args: any) => any //if object[key] is a function type
+					? ReturnType<T[K]> //if object[key] is a function type replace type
+					: EndpointsToStore<T[K]> //if object[key] is not function type check for nested types
+				: EndpointsToStore<T[K]>;
+	  }
+	: T;

@@ -12,13 +12,21 @@ type pipeType = false | keyValueType;
 type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 type SyncReturnType<T extends Function> = T extends (...args: any) => infer R ? R : any;
 type createContextType<T> = (event?: RequestEvent, pipe?: pipeType) => Promise<T> | T;
+type RequireAllOrNone<ObjectType, KeysType extends keyof ObjectType = never> = (
+	| Required<Pick<ObjectType, KeysType>>
+	| Partial<Record<KeysType, never>>
+) &
+	Omit<ObjectType, KeysType>;
 
 type TRPCErrorOpts = ConstructorParameters<typeof TRPCError>[0];
 
-interface TRPCOptions_I<T> {
+interface fetchOptions {
+	origin: string;
+	bypassOrigin: string;
+}
+
+interface TRPCBaseOptions_I<T> {
 	path: string;
-	origin?: string;
-	bypassOrigin?: string;
 	context?: createContextType<T>;
 	beforeResolve?: (event: RequestEvent, pipe: pipeType) => any;
 	resolveError?: (event: RequestEvent, pipe: pipeType) => any;
@@ -29,13 +37,16 @@ interface TRPCOptions_I<T> {
 	localsKey?: string;
 }
 
-interface TRPCOptionsFinal_I<T> {
+type TRPCOptions_I<T> = TRPCBaseOptions_I<T> &
+	RequireAllOrNone<fetchOptions, 'origin' | 'bypassOrigin'>;
+
+interface TRPCContextFn<T> {
 	context: createContextType<T>;
 }
 
 export class TRPC<T extends object> {
 	//OPTIONS
-	options: TRPCOptions_I<T> & TRPCOptionsFinal_I<T>;
+	options: TRPCOptions_I<T> & TRPCContextFn<T>;
 	//OTHER
 	tRPCInner: SyncReturnType<SyncReturnType<typeof initTRPC.context<T>>['create']>;
 	_routes?: AnyRouter;
@@ -169,7 +180,7 @@ export class TRPC<T extends object> {
 
 	handleFetch() {
 		const options = this.options;
-		if (!options?.origin || !options?.bypassOrigin) {
+		if (!('bypassOrigin' in options)) {
 			throw new Error(
 				`Message from \`handleFetch()\`
 No origin or bypass origin has been set, are you sure you need to handle fetch?`
