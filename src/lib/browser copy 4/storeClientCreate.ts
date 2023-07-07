@@ -150,7 +150,7 @@ const storeClientMethods = {
 	$multiple: function (opts: Omit<callEndpointOpts, 'store'>) {
 		let store: $multipleStore<any, any[], any> = writable({
 			loading: true,
-			responses: opts.args.length ? {} : [],
+			responses: [],
 			call: (...args: any[]) => {
 				callEndpoint({ ...opts, args, store });
 			}

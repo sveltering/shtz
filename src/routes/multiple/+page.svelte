@@ -2,8 +2,10 @@
 	import { storeClient, browserClient } from '../../trpc/browserClient';
 
 	let welcomeMessage = storeClient.welcomeName.query.$multiple(function (input) {
-		return input.name;
+		return 'hi';
 	});
+
+	welcomeMessage;
 </script>
 
 Multiple store
