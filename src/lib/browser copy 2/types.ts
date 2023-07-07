@@ -2,6 +2,7 @@ import type { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
 import type { LoadEvent } from '@sveltejs/kit';
 import type { Writable } from 'svelte/store';
+import type { EndpointsToStore } from './storeClientCreate.types';
 
 /*
  *
@@ -25,8 +26,6 @@ export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T ext
 type RouterReturnType<T extends AnyRouter> = ReturnType<typeof createTRPCProxyClient<T>>;
 
 type Flatten<T> = T extends object ? { [K in keyof T]: Flatten<T[K]> } : T;
-
-type FunctionType = (...args: any) => any;
 
 /*
  *
@@ -97,38 +96,5 @@ export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
 	interceptResponse?: (response: any, path: string) => Promise<{}> | {};
 	interceptError?: (message: any, path: string) => Promise<{}> | {};
 };
-
-type RemoveQueries<Obj extends object, Key extends keyof Obj> = Obj[Key] extends FunctionType
-	? ReturnType<Obj[Key]>
-	: RemoveProcedures<Obj[Key]>;
-type RemoveMutates<Obj extends object, Key extends keyof Obj> = Obj[Key] extends FunctionType
-	? ReturnType<Obj[Key]>
-	: RemoveProcedures<Obj[Key]>;
-
-type ChangeKeyNames<Obj extends object, Key extends keyof Obj> = Obj[Key] extends FunctionType
-	? [Key] extends ['subscribe']
-		? never
-		: [Key] extends ['query']
-		? 'qstore'
-		: [Key] extends ['mutate']
-		? 'mstore'
-		: Key
-	: Key;
-
-type ChangeProcedures<Obj extends object, Key extends keyof Obj> = Obj[Key] extends FunctionType
-	? [Key] extends ['query']
-		? RemoveQueries<Obj, Key>
-		: [Key] extends ['mutate']
-		? RemoveMutates<Obj, Key>
-		: RemoveProcedures<Obj[Key]>
-	: RemoveProcedures<Obj[Key]>;
-
-type RemoveProcedures<Obj> = Obj extends object
-	? {
-			[Key in keyof Obj as ChangeKeyNames<Obj, Key>]: ChangeProcedures<Obj, Key>;
-	  }
-	: Obj;
-
-type EndpointsToStore<T extends object> = RemoveProcedures<T>;
 
 export type storeCC<T extends AnyRouter> = EndpointsToStore<RouterReturnType<T>>;

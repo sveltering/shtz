@@ -21,8 +21,6 @@ function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeC
 	) as unknown as storeCC<T>;
 }
 
-function noop() {}
-
 function outerProxy(callback: any, path: string[], options: any) {
 	const proxy: unknown = new Proxy(noop, {
 		get(_obj, key) {
@@ -37,13 +35,13 @@ function outerProxy(callback: any, path: string[], options: any) {
 				endpoint = endpoint[path[i] as keyof typeof endpoint];
 			}
 			let methodName = path[path.length - 1];
-			console.log(methodName);
 		}
 	});
 
 	return proxy;
 }
 
+function noop() {}
 function storePseudoClient(): any {
 	return new Proxy(noop, {
 		get: () => storePseudoClient(),

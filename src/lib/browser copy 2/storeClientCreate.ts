@@ -1,9 +1,9 @@
 import type { AnyRouter } from '@trpc/server';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
-import { get, writable } from 'svelte/store';
+import { writable, type Writable } from 'svelte/store';
 
 import type { storeClientOpt, storeCC } from './types';
-import type { $nowStore, $laterStore } from './storeClientCreate.types';
+import type { storeResponseValue } from './storeClientCreate.types';
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;
@@ -38,7 +38,6 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 				method = path[i + 1];
 			}
 			return storeClientMethods[method as keyof typeof storeClientMethods]({
-				method,
 				endpoint,
 				args,
 				options,
@@ -54,73 +53,48 @@ function noop() {}
 function storePseudoClient(): any {
 	return new Proxy(noop, {
 		get: () => storePseudoClient(),
-		apply: () =>
-			writable({
-				loading: true,
-				success: false,
-				error: false,
-				response: undefined,
-				call: () => undefined
-			})
+		apply: () => writable({ loading: true, error: false, success: false })
 	});
 }
 
 type callEndpointOpts = {
-	method: string;
 	endpoint: CallableFunction;
 	args: any[];
-	store: $nowStore<any> | $laterStore<any, any[]>;
+	store: storeResponseValue<any>;
 	options: storeClientOpt;
 	path: string[];
 };
 function callEndpoint(opts: callEndpointOpts) {
-	const { endpoint, args, store, options, path, method } = opts;
+	const { endpoint, args, store, options, path } = opts;
+
 	endpoint(...args)
 		.then(async (response: any) => {
 			if (options?.interceptResponse) {
 				response = await options.interceptResponse(response, [...path].slice(0, -1).join('.'));
 			}
-
-			let newStoreValue: any = { loading: false, response, error: false, success: true };
-			if (method === '$later') {
-				newStoreValue.call = get(store).call;
-			}
-			store.set(newStoreValue as any);
+			store.set({ loading: false, response, error: false, success: true });
 		})
 		.catch(async (error: any) => {
 			if (options?.interceptError) {
 				error = await options.interceptError(error, [...path].slice(0, -1).join('.'));
 			}
-
-			let newStoreValue: any = { loading: false, error, success: false, response: undefined };
-			if (method === '$later') {
-				newStoreValue.call = get(store).call;
-			}
-			store.set(newStoreValue as any);
+			store.set({ loading: false, error, success: false, response: undefined });
 		});
 }
 
 const storeClientMethods = {
 	$now: function (opts: Omit<callEndpointOpts, 'store'>) {
-		let store: $nowStore<unknown> = writable({
+		const { endpoint, args, options } = opts;
+
+		let store: storeResponseValue<unknown> = writable({
 			response: undefined,
 			loading: true,
 			error: false,
 			success: false
 		});
+
 		callEndpoint({ ...opts, store });
-		return store;
-	},
-	$later: function (opts: Omit<callEndpointOpts, 'store'>) {
-		let store: $laterStore<unknown, unknown[]> = writable({
-			response: undefined,
-			loading: true,
-			error: false,
-			success: false,
-			call: (...args: any[]) => {
-				callEndpoint({ ...opts, args, store });
-			}
-		});
+
 		return store;
 	}
 };

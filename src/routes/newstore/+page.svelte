@@ -1,7 +1,16 @@
 <script lang="ts">
-	import { storeClient } from '../../trpc/browserClient';
+	import { storeClient, browserClient } from '../../trpc/browserClient';
 
-	let store = storeClient.user.welcome;
+	let welcomeMessage = storeClient.welcomeName.query.$later();
+
+	$welcomeMessage.call({ name: 'Yusaf One' });
+	setTimeout(function () {
+		$welcomeMessage.call({ name: 'Yusaf Two' });
+	}, 3000);
 </script>
 
 New store
+
+{#if $welcomeMessage?.success}
+	{$welcomeMessage.response}
+{/if}
