@@ -2,7 +2,7 @@ import type { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
 import type { LoadEvent } from '@sveltejs/kit';
 import type { Writable } from 'svelte/store';
-import type { EndpointsToStore } from './storeClientCreate.types';
+import type { EndpointsToStore, EndpointsToStore2 } from './storeClientCreate.types';
 
 /*
  *
@@ -98,3 +98,5 @@ export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
 };
 
 export type storeCC<T extends AnyRouter> = EndpointsToStore<RouterReturnType<T>>;
+
+export type storeCC2<T extends AnyRouter> = EndpointsToStore2<RouterReturnType<T>>;

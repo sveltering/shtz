@@ -9,7 +9,7 @@
 	}, 3000);
 </script>
 
-New store
+Many store
 
 {#if $welcomeMessage?.success}
 	{$welcomeMessage.response}
