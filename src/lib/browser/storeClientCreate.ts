@@ -2,25 +2,8 @@ import type { AnyRouter } from '@trpc/server';
 import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { get, writable } from 'svelte/store';
 
-import type { storeClientOpt, storeCC, storeCC2 } from './types';
+import type { storeClientOpt, storeCC } from './types';
 import type { $onceStore, $manyStore, $multipleStore } from './storeClientCreate.types';
-
-function storeClientCreate2<T extends AnyRouter>(options: storeClientOpt): storeCC2<T> {
-	const { url, batchLinkOptions } = options;
-
-	if (typeof window === 'undefined') {
-		return storePseudoClient() as unknown as storeCC2<T>;
-	}
-
-	return outerProxy(
-		//@ts-ignore
-		createTRPCProxyClient<T>({
-			links: [httpBatchLink({ ...batchLinkOptions, url })]
-		}),
-		[],
-		options
-	) as unknown as storeCC2<T>;
-}
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;
@@ -163,4 +146,3 @@ const storeClientMethods = {
 };
 
 export { storeClientCreate };
-export { storeClientCreate2 };

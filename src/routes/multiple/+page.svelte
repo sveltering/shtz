@@ -1,10 +1,8 @@
 <script lang="ts">
-	import { storeClient, storeClient2, browserClient } from '../../trpc/browserClient';
-
-	let help = storeClient2.welcomeName;
+	import { storeClient, browserClient } from '../../trpc/browserClient';
 
 	let welcomeMessage = storeClient.welcomeName.query.$multiple(function (input) {
-		return input;
+		return input.name;
 	});
 </script>
 

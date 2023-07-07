@@ -2,7 +2,7 @@ import type { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
 import type { LoadEvent } from '@sveltejs/kit';
 import type { Writable } from 'svelte/store';
-import type { EndpointsToStore, EndpointsToStore2 } from './storeClientCreate.types';
+import type { EndpointsToStore } from './storeClientCreate.types';
 
 /*
  *
@@ -50,14 +50,14 @@ type RecursiveReplaceFunctionReturnsOrUndefined<Obj extends object> = {
 		: Obj[Key];
 };
 
-interface browserClientOpt {
+export interface browserClientOpt {
 	url: string;
 	browserOnly?: boolean;
 	transformer?: ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
 	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
 }
 
-interface browserClientOptF extends browserClientOpt {
+export interface browserClientOptF extends browserClientOpt {
 	browserOnly: false;
 }
 
@@ -98,5 +98,3 @@ export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
 };
 
 export type storeCC<T extends AnyRouter> = EndpointsToStore<RouterReturnType<T>>;
-
-export type storeCC2<T extends AnyRouter> = EndpointsToStore2<RouterReturnType<T>>;
