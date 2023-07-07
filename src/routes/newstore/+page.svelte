@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { storeClient, browserClient } from '../../trpc/browserClient';
 
-	let welcomeMessage = storeClient.welcomeName.query.$later();
+	let welcomeMessage = storeClient.welcomeName.query.$many();
 
 	$welcomeMessage.call({ name: 'Yusaf One' });
 	setTimeout(function () {

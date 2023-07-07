@@ -9,7 +9,7 @@ type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (
 	? R
 	: any;
 
-export type $nowStore<V> = Writable<
+export type $onceStore<V> = Writable<
 	| {
 			//Loading
 			loading: true;
@@ -33,7 +33,7 @@ export type $nowStore<V> = Writable<
 	  }
 >;
 
-export type $laterStore<V, A extends any[]> = Writable<{
+export type $manyStore<V, A extends any[]> = Writable<{
 	//Loading
 	loading: true;
 	success: false;
@@ -42,6 +42,11 @@ export type $laterStore<V, A extends any[]> = Writable<{
 	call: (...args: A) => undefined;
 }>;
 
+export type $multipleStore<V, K> = K extends string
+	? Writable<{ [key: string]: $onceStore<V> }>
+	: K extends number
+	? Writable<$onceStore<V>[]>
+	: never;
 /*
  *
  *
@@ -54,8 +59,8 @@ export type $laterStore<V, A extends any[]> = Writable<{
  */
 
 type NewStoreProcedures<Fn extends FunctionType> = Prettify<{
-	$now: (...args: ArgumentTypes<Fn>) => $nowStore<AsyncReturnType<Fn>>;
-	$later: () => $laterStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
+	$once: (...args: ArgumentTypes<Fn>) => $onceStore<AsyncReturnType<Fn>>;
+	$many: () => $manyStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
 	$multiple: '$multiple';
 }>;
 

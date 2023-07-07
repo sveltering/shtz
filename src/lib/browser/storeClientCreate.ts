@@ -3,7 +3,7 @@ import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { get, writable } from 'svelte/store';
 
 import type { storeClientOpt, storeCC } from './types';
-import type { $nowStore, $laterStore } from './storeClientCreate.types';
+import type { $onceStore, $manyStore } from './storeClientCreate.types';
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;
@@ -51,17 +51,27 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 }
 
 function noop() {}
-function storePseudoClient(): any {
+function storePseudoClient(path: string[] = []): any {
 	return new Proxy(noop, {
-		get: () => storePseudoClient(),
-		apply: () =>
-			writable({
+		get(_obj, key) {
+			if (typeof key !== 'string') {
+				return undefined;
+			}
+			return storePseudoClient([...path, key]);
+		},
+		apply: () => {
+			console.log(path);
+			if (path[path.length - 1] === '$multiple') {
+				return writable([]);
+			}
+			return writable({
 				loading: true,
 				success: false,
 				error: false,
 				response: undefined,
 				call: () => undefined
-			})
+			});
+		}
 	});
 }
 
@@ -69,7 +79,7 @@ type callEndpointOpts = {
 	method: string;
 	endpoint: CallableFunction;
 	args: any[];
-	store: $nowStore<any> | $laterStore<any, any[]>;
+	store: $onceStore<any> | $manyStore<any, any[]>;
 	options: storeClientOpt;
 	path: string[];
 };
@@ -82,8 +92,8 @@ function callEndpoint(opts: callEndpointOpts) {
 			}
 
 			let newStoreValue: any = { loading: false, response, error: false, success: true };
-			if (method === '$later') {
-				newStoreValue.call = get(store).call;
+			if (method === '$many') {
+				newStoreValue.call = (get(store) as any).call;
 			}
 			store.set(newStoreValue as any);
 		})
@@ -93,16 +103,16 @@ function callEndpoint(opts: callEndpointOpts) {
 			}
 
 			let newStoreValue: any = { loading: false, error, success: false, response: undefined };
-			if (method === '$later') {
-				newStoreValue.call = get(store).call;
+			if (method === '$many') {
+				newStoreValue.call = (get(store) as any).call;
 			}
 			store.set(newStoreValue as any);
 		});
 }
 
 const storeClientMethods = {
-	$now: function (opts: Omit<callEndpointOpts, 'store'>) {
-		let store: $nowStore<unknown> = writable({
+	$once: function (opts: Omit<callEndpointOpts, 'store'>) {
+		let store: $onceStore<unknown> = writable({
 			response: undefined,
 			loading: true,
 			error: false,
@@ -111,8 +121,8 @@ const storeClientMethods = {
 		callEndpoint({ ...opts, store });
 		return store;
 	},
-	$later: function (opts: Omit<callEndpointOpts, 'store'>) {
-		let store: $laterStore<unknown, unknown[]> = writable({
+	$many: function (opts: Omit<callEndpointOpts, 'store'>) {
+		let store: $manyStore<unknown, unknown[]> = writable({
 			response: undefined,
 			loading: true,
 			error: false,
