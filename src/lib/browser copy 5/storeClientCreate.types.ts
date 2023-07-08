@@ -15,7 +15,7 @@ type ProcedureInput<Obj extends object> = ProcedureHasInput<
 >;
 
 type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] } : Obj;
-export type FunctionType = (...args: any) => any;
+type FunctionType = (...args: any) => any;
 type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (
 	...args: any
@@ -131,10 +131,9 @@ type $revisableFnMake<Fn extends FunctionType> = () => $revisableStore<
 interface $multipleFnMake<Fn extends FunctionType> {
 	(): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, false, false>;
 
-	<X>(entryFn: (input: ProcedureInput<Fn>) => X): $multipleStoreArrayEntries<
+	(keyFn: (input: ProcedureInput<Fn>) => string): $multipleStoreObject<
 		AsyncReturnType<Fn>,
 		ArgumentTypes<Fn>,
-		X,
 		false,
 		false
 	>;

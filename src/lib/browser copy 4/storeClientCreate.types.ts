@@ -15,7 +15,7 @@ type ProcedureInput<Obj extends object> = ProcedureHasInput<
 >;
 
 type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] } : Obj;
-export type FunctionType = (...args: any) => any;
+type FunctionType = (...args: any) => any;
 type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (
 	...args: any
@@ -46,13 +46,11 @@ type $onceStoreInner<V> =
 			response: undefined;
 	  };
 
-type $multipleStoreInner<V, Rb extends boolean> = Prettify<
-	Rb extends true
-		? $onceStoreInner<V> & {
-				remove: () => void;
-		  }
-		: $onceStoreInner<V>
->;
+type $multipleStoreInner<V, Rb extends boolean> = Rb extends true
+	? $onceStoreInner<V> & {
+			remove: () => void;
+	  }
+	: $onceStoreInner<V>;
 
 export type $onceStore<V> = Writable<$onceStoreInner<V>>;
 
@@ -67,12 +65,12 @@ export type $revisableStore<V, A extends any[]> = Writable<{
 
 export type $multipleStore<V, A extends any[], K> = K extends string
 	? Writable<{
-			loading?: true;
+			loading: true;
 			responses: { [key: string]: $onceStoreInner<V> };
 			call: (...args: A) => undefined;
 	  }>
 	: Writable<{
-			loading?: true;
+			loading: true;
 			responses: $onceStoreInner<V>[];
 			call: (...args: A) => undefined;
 	  }>;
@@ -105,10 +103,9 @@ export type $multipleStoreArray<
 export type $multipleStoreArrayEntries<
 	V,
 	A extends any[],
-	X extends any,
 	Lb extends boolean,
 	Rb extends boolean
-> = $multipleStoreWritableMake<[X, $multipleStoreInner<V, Rb>][], A, Lb>;
+> = $multipleStoreWritableMake<[string, $multipleStoreInner<V, Rb>][], A, Lb>;
 
 /*
  *
@@ -130,30 +127,27 @@ type $revisableFnMake<Fn extends FunctionType> = () => $revisableStore<
 >;
 interface $multipleFnMake<Fn extends FunctionType> {
 	(): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, false, false>;
-
-	<X>(entryFn: (input: ProcedureInput<Fn>) => X): $multipleStoreArrayEntries<
+	(keyFn: (input: ProcedureInput<Fn>) => string): $multipleStoreObject<
 		AsyncReturnType<Fn>,
 		ArgumentTypes<Fn>,
-		X,
 		false,
 		false
 	>;
-
 	<Lb extends boolean, Rb extends boolean>(opts: {
 		loading?: Lb;
-		remove?: Rb;
+		removeable?: Rb;
+		entries?: false;
 		key: (input: ProcedureInput<Fn>) => string;
 	}): $multipleStoreObject<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb>;
-
-	<Lb extends boolean, Rb extends boolean, X>(opts: {
-		loading?: Lb;
-		remove?: Rb;
-		entry: (input: ProcedureInput<Fn>) => X;
-	}): $multipleStoreArrayEntries<AsyncReturnType<Fn>, ArgumentTypes<Fn>, X, Lb, Rb>;
-
 	<Lb extends boolean, Rb extends boolean>(opts: {
 		loading?: Lb;
-		remove?: Rb;
+		removeable?: Rb;
+		entries?: true;
+		key: (input: ProcedureInput<Fn>) => string;
+	}): $multipleStoreArrayEntries<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb>;
+	<Lb extends boolean, Rb extends boolean>(opts: {
+		loading?: Lb;
+		removeable?: Rb;
 	}): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb>;
 }
 

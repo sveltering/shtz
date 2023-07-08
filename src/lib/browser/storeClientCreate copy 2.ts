@@ -272,57 +272,36 @@ function callEndpoint(opts: callEndpointOpts) {
 			let errorResponse: any = {};
 
 			if (is$once) {
-				errorResponse = { loading: false, response: undefined, error, success: true };
+				errorResponse = { loading: false, error, success: false, response: undefined };
 			} //
 			else if (is$revisable) {
-				errorResponse = { loading: false, response: undefined, error, success: true };
+				errorResponse = { loading: false, error, success: false, response: undefined };
 				errorResponse.call = (get(store as Writable<any>) as any).call;
 			} //
 			else if (is$multiple) {
 				errorResponse = get(store as Writable<any>) as any;
-
-				const individualErrorResponse = {
+				errorResponse.responses[index$multiple] = {
 					loading: false,
 					response: undefined,
 					error,
-					success: true,
-					...($multipleHasRemove ? { remove: errorResponse.responses[index$multiple].remove } : {})
+					success: true
 				};
-
-				if (is$multipleEntriesArray) {
-					errorResponse.responses[index$multiple][1] = individualErrorResponse;
-				} //
-				else {
-					errorResponse.responses[index$multiple][0] = individualErrorResponse;
-				}
-
-				if ($multipleHasLoading) {
-					let allResponses = errorResponse.responses;
-					let loading = false;
-					for (let key in allResponses) {
-						if (allResponses[key].loading) {
-							loading = true;
-							break;
-						}
+				let allResponses = errorResponse.responses;
+				let loading = false;
+				for (let key in allResponses) {
+					if (allResponses[key].loading) {
+						loading = true;
+						break;
 					}
-					errorResponse.loading = loading;
 				}
+				errorResponse.loading = loading;
 			}
 			store.set(errorResponse as any);
 		});
 }
 
 function removeResponse(from: Writable<any>, index: any, isObject: boolean) {
-	return function () {
-		let storeInner = get(from) as any;
-		if (isObject && storeInner.responses.hasOwnProperty(index)) {
-			delete storeInner.responses[index];
-		} //
-		else if (!!storeInner.responses?.[index]) {
-			storeInner.responses.splice(index, 1);
-		}
-		from.set(storeInner);
-	};
+	return function () {};
 }
 
 const storeClientMethods = {

@@ -3,12 +3,7 @@ import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { get, writable, type Writable } from 'svelte/store';
 
 import type { storeClientOpt, storeCC } from './types';
-import type {
-	FunctionType,
-	$onceStore,
-	$revisableStore,
-	$multipleStore
-} from './storeClientCreate.types';
+import type { $onceStore, $revisableStore, $multipleStore } from './storeClientCreate.types';
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;
@@ -49,26 +44,17 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 			const is$revisable = method === '$revisable';
 			const is$multiple = method === '$multiple';
 
-			let is$multipleObject = false,
-				is$multipleEntriesArray = false,
-				is$multipleArray = false,
-				$multipleGetKeyFn = undefined,
-				$multipleGetEntryFn = undefined,
-				$multipleHasLoading = false,
-				$multipleHasRemove = false;
+			const is$multipleObject =
+				is$multiple &&
+				hasArguments &&
+				(typeof args[0] === 'function' || args[0]?.hasOwnProperty('key'));
 
-			if (is$multiple) {
-				is$multipleObject = hasArguments && !!args[0]?.hasOwnProperty?.('key');
-				is$multipleEntriesArray =
-					hasArguments && (typeof args[0] === 'function' || !!args[0]?.hasOwnProperty?.('entry'));
-				is$multipleArray = !is$multipleObject && !is$multipleEntriesArray;
+			const is$multipleArray = !is$multipleObject && !args?.[0]?.hasOwnProperty('entry');
+			const is$multipleEntriesArray = !is$multipleObject && !!args?.[0]?.hasOwnProperty('entry');
 
-				$multipleGetKeyFn = is$multipleObject ? args[0]?.key : undefined;
-				$multipleGetEntryFn = is$multipleEntriesArray ? args[0]?.entry || args[0] : undefined;
+			const $multipleHasLoading = is$multiple && hasArguments && args?.[0]?.loading === true;
+			const $multipleHasRemove = is$multiple && hasArguments && args?.[0]?.remove === true;
 
-				$multipleHasLoading = hasArguments && args?.[0]?.loading === true;
-				$multipleHasRemove = hasArguments && args?.[0]?.remove === true;
-			}
 			return storeClientMethods[method as keyof typeof storeClientMethods]({
 				method,
 				endpoint,
@@ -81,8 +67,6 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 				is$multipleArray,
 				is$multipleEntriesArray,
 				is$multipleObject,
-				$multipleGetKeyFn,
-				$multipleGetEntryFn,
 				$multipleHasLoading,
 				$multipleHasRemove
 			} satisfies $methodOpts);
@@ -106,7 +90,8 @@ function storePseudoClient(path: string[] = []): any {
 			const hasArguments = !!args.length;
 			const is$multiple = method === '$multiple';
 			if (is$multiple) {
-				const is$multipleObject = is$multiple && hasArguments && !!args[0]?.hasOwnProperty?.('key');
+				const is$multipleObject =
+					hasArguments && (typeof args[0] === 'function' || args[0]?.hasOwnProperty('key'));
 				const $multipleHasLoading = is$multiple && hasArguments && args?.[0]?.loading === true;
 				return writable({
 					...($multipleHasLoading ? { loading: true } : {}),
@@ -138,8 +123,6 @@ type $methodOpts = {
 	is$multipleArray: boolean;
 	is$multipleEntriesArray: boolean;
 	is$multipleObject: boolean;
-	$multipleGetKeyFn: FunctionType | undefined;
-	$multipleGetEntryFn: FunctionType | undefined;
 	$multipleHasLoading: boolean;
 	$multipleHasRemove: boolean;
 };
@@ -149,26 +132,20 @@ type callEndpointOpts = $methodOpts & {
 };
 function callEndpoint(opts: callEndpointOpts) {
 	const {
-		method,
 		endpoint,
 		args,
 		options,
 		path,
+		endpointArgs,
+		store,
 		is$once,
 		is$revisable,
 		is$multiple,
 		is$multipleArray,
 		is$multipleEntriesArray,
-		is$multipleObject,
-		$multipleGetKeyFn,
-		$multipleGetEntryFn,
-		$multipleHasLoading,
-		$multipleHasRemove,
-		endpointArgs,
-		store
+		is$multipleObject
 	} = opts;
 
-	let index$multiple: string | number;
 	if (is$revisable) {
 		let storeInner = get(store as any) as any;
 		storeInner = {
@@ -179,40 +156,29 @@ function callEndpoint(opts: callEndpointOpts) {
 			call: storeInner.call
 		};
 		store.set(storeInner);
-	} //
-	else if (is$multiple) {
+	}
+	let index$multiple: string | number;
+	if (is$multiple) {
 		let storeInner = get(store as any) as any;
-
-		if ($multipleHasLoading) {
-			storeInner.loading = true;
-		}
-
-		if (is$multipleObject) {
-			index$multiple = ($multipleGetKeyFn as FunctionType)(endpointArgs[0]);
-		} //
-		else {
-			index$multiple = storeInner.responses.length;
-		}
-		const loadingResponse = {
-			response: undefined,
-			loading: true,
-			error: false,
-			success: false,
-			...($multipleHasRemove
-				? { remove: removeResponse(store, index$multiple, is$multipleObject) }
-				: {})
-		};
-		if (is$multipleEntriesArray) {
-			const entry = ($multipleGetEntryFn as FunctionType)(endpointArgs[0]);
-			storeInner.responses.push([entry, loadingResponse]);
-		} //
-		else if (is$multipleArray) {
-			storeInner.responses.push(loadingResponse);
+		storeInner.loading = true;
+		if (is$multipleArray) {
+			storeInner.responses.push({
+				response: undefined,
+				loading: true,
+				error: false,
+				success: false
+			});
+			index$multiple = storeInner.responses.length - 1;
 		} //
 		else if (is$multipleObject) {
-			storeInner.responses[index$multiple] = loadingResponse;
+			index$multiple = args[0](endpointArgs[0]);
+			storeInner.responses[index$multiple] = {
+				response: undefined,
+				loading: true,
+				error: false,
+				success: false
+			};
 		}
-
 		store.set(storeInner);
 	}
 	endpoint(...endpointArgs)
@@ -221,108 +187,69 @@ function callEndpoint(opts: callEndpointOpts) {
 				response = await options.interceptResponse(response, [...path].slice(0, -1).join('.'));
 			}
 
-			let successResponse: any = {};
+			let newStoreValue: any = {};
 
 			if (is$once) {
-				successResponse = { loading: false, response, error: false, success: true };
+				newStoreValue = { loading: false, response, error: false, success: true };
 			} //
 			else if (is$revisable) {
-				successResponse = { loading: false, response, error: false, success: true };
-				successResponse.call = (get(store as Writable<any>) as any).call;
+				newStoreValue = { loading: false, response, error: false, success: true };
+				newStoreValue.call = (get(store as Writable<any>) as any).call;
 			} //
 			else if (is$multiple) {
-				successResponse = get(store as Writable<any>) as any;
-
-				const individualSuccessResponse = {
+				newStoreValue = get(store as Writable<any>) as any;
+				newStoreValue.responses[index$multiple] = {
 					loading: false,
 					response,
 					error: false,
-					success: true,
-					...($multipleHasRemove
-						? { remove: successResponse.responses[index$multiple].remove }
-						: {})
+					success: true
 				};
-
-				if (is$multipleEntriesArray) {
-					successResponse.responses[index$multiple][1] = individualSuccessResponse;
-				} //
-				else {
-					successResponse.responses[index$multiple][0] = individualSuccessResponse;
-				}
-
-				if ($multipleHasLoading) {
-					let allResponses = successResponse.responses;
-					let loading = false;
-					for (let key in allResponses) {
-						if (allResponses[key].loading) {
-							loading = true;
-							break;
-						}
+				let allResponses = newStoreValue.responses;
+				let loading = false;
+				for (let key in allResponses) {
+					if (allResponses[key].loading) {
+						loading = true;
+						break;
 					}
-					successResponse.loading = loading;
 				}
+				newStoreValue.loading = loading;
 			}
-			store.set(successResponse as any);
+			store.set(newStoreValue as any);
 		})
 		.catch(async (error: any) => {
 			if (options?.interceptError) {
 				error = await options.interceptError(error, [...path].slice(0, -1).join('.'));
 			}
 
-			let errorResponse: any = {};
+			let newStoreValue: any = {};
 
 			if (is$once) {
-				errorResponse = { loading: false, response: undefined, error, success: true };
+				newStoreValue = { loading: false, error, success: false, response: undefined };
 			} //
 			else if (is$revisable) {
-				errorResponse = { loading: false, response: undefined, error, success: true };
-				errorResponse.call = (get(store as Writable<any>) as any).call;
+				newStoreValue = { loading: false, error, success: false, response: undefined };
+				newStoreValue.call = (get(store as Writable<any>) as any).call;
 			} //
 			else if (is$multiple) {
-				errorResponse = get(store as Writable<any>) as any;
-
-				const individualErrorResponse = {
+				newStoreValue = get(store as Writable<any>) as any;
+				newStoreValue.responses[index$multiple] = {
 					loading: false,
 					response: undefined,
 					error,
-					success: true,
-					...($multipleHasRemove ? { remove: errorResponse.responses[index$multiple].remove } : {})
+					success: true
 				};
-
-				if (is$multipleEntriesArray) {
-					errorResponse.responses[index$multiple][1] = individualErrorResponse;
-				} //
-				else {
-					errorResponse.responses[index$multiple][0] = individualErrorResponse;
-				}
-
-				if ($multipleHasLoading) {
-					let allResponses = errorResponse.responses;
-					let loading = false;
-					for (let key in allResponses) {
-						if (allResponses[key].loading) {
-							loading = true;
-							break;
-						}
+				let allResponses = newStoreValue.responses;
+				let loading = false;
+				for (let key in allResponses) {
+					if (allResponses[key].loading) {
+						loading = true;
+						break;
 					}
-					errorResponse.loading = loading;
 				}
+				newStoreValue.loading = loading;
 			}
-			store.set(errorResponse as any);
+			store.set(newStoreValue as any);
 		});
-}
-
-function removeResponse(from: Writable<any>, index: any, isObject: boolean) {
-	return function () {
-		let storeInner = get(from) as any;
-		if (isObject && storeInner.responses.hasOwnProperty(index)) {
-			delete storeInner.responses[index];
-		} //
-		else if (!!storeInner.responses?.[index]) {
-			storeInner.responses.splice(index, 1);
-		}
-		from.set(storeInner);
-	};
 }
 
 const storeClientMethods = {
@@ -350,7 +277,6 @@ const storeClientMethods = {
 	},
 	$multiple: function (opts: $methodOpts) {
 		const { $multipleHasLoading, is$multipleObject } = opts;
-		console.clear();
 		console.log(opts);
 		let store: $multipleStore<any, any[], any> = writable({
 			...($multipleHasLoading ? { loading: true } : {}),
