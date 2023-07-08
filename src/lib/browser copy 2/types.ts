@@ -50,14 +50,14 @@ type RecursiveReplaceFunctionReturnsOrUndefined<Obj extends object> = {
 		: Obj[Key];
 };
 
-interface browserClientOpt {
+export interface browserClientOpt {
 	url: string;
 	browserOnly?: boolean;
 	transformer?: ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
 	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
 }
 
-interface browserClientOptF extends browserClientOpt {
+export interface browserClientOptF extends browserClientOpt {
 	browserOnly: false;
 }
 

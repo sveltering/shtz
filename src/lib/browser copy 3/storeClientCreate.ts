@@ -3,7 +3,7 @@ import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { get, writable, type Writable } from 'svelte/store';
 
 import type { storeClientOpt, storeCC } from './types';
-import type { $onceStore, $manyStore, $multipleStore } from './storeClientCreate.types';
+import type { $onceStore, $revisableStore, $multipleStore } from './storeClientCreate.types';
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;
@@ -40,6 +40,7 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 			return storeClientMethods[method as keyof typeof storeClientMethods]({
 				method,
 				endpoint,
+				endpointArgs: [],
 				args,
 				options,
 				path: path.slice(0, -1)
@@ -59,10 +60,13 @@ function storePseudoClient(path: string[] = []): any {
 			}
 			return storePseudoClient([...path, key]);
 		},
-		apply: () => {
-			console.log(path);
+		apply: (_1, _2, args) => {
 			if (path[path.length - 1] === '$multiple') {
-				return writable([]);
+				return writable({
+					loading: true,
+					responses: args.length ? {} : [],
+					call: () => undefined
+				});
 			}
 			return writable({
 				loading: true,
@@ -79,28 +83,87 @@ type callEndpointOpts = {
 	method: string;
 	endpoint: CallableFunction;
 	args: any[];
-	store: $onceStore<any> | $manyStore<any, any[]> | $multipleStore<any, any[], any>;
+	endpointArgs: any[];
+	store: $onceStore<any> | $revisableStore<any, any[]> | $multipleStore<any, any[], any>;
 	options: storeClientOpt;
 	path: string[];
 };
 function callEndpoint(opts: callEndpointOpts) {
-	const { endpoint, args, store, options, path, method } = opts;
-	endpoint(...args)
+	const { endpoint, args, endpointArgs, store, options, path, method } = opts;
+
+	const is$once = method === '$once';
+	const is$revisable = method === '$revisable';
+	const is$multiple = method === '$multiple';
+	const is$multipleArray = is$multiple && !args.length;
+	const is$multipleObject = is$multiple && !!args.length;
+
+	if (is$revisable) {
+		let storeInner = get(store as any) as any;
+		storeInner = {
+			response: undefined,
+			loading: true,
+			error: false,
+			success: false,
+			call: storeInner.call
+		};
+		store.set(storeInner);
+	}
+	let index$multiple: string | number;
+	if (is$multiple) {
+		let storeInner = get(store as any) as any;
+		storeInner.loading = true;
+		if (is$multipleArray) {
+			storeInner.responses.push({
+				response: undefined,
+				loading: true,
+				error: false,
+				success: false
+			});
+			index$multiple = storeInner.responses.length - 1;
+		} //
+		else if (is$multipleObject) {
+			index$multiple = args[0](endpointArgs[0]);
+			storeInner.responses[index$multiple] = {
+				response: undefined,
+				loading: true,
+				error: false,
+				success: false
+			};
+		}
+		store.set(storeInner);
+	}
+	endpoint(...endpointArgs)
 		.then(async (response: any) => {
 			if (options?.interceptResponse) {
 				response = await options.interceptResponse(response, [...path].slice(0, -1).join('.'));
 			}
 
-			let newStoreValue: any;
+			let newStoreValue: any = {};
 
-			if (method === 'once') {
+			if (is$once) {
 				newStoreValue = { loading: false, response, error: false, success: true };
 			} //
-			else if (method === '$multiple') {
-				console.log(opts);
-			} //
-			else if (method === '$many') {
+			else if (is$revisable) {
+				newStoreValue = { loading: false, response, error: false, success: true };
 				newStoreValue.call = (get(store as Writable<any>) as any).call;
+			} //
+			else if (is$multiple) {
+				newStoreValue = get(store as Writable<any>) as any;
+				newStoreValue.responses[index$multiple] = {
+					loading: false,
+					response,
+					error: false,
+					success: true
+				};
+				let allResponses = newStoreValue.responses;
+				let loading = false;
+				for (let key in allResponses) {
+					if (allResponses[key].loading) {
+						loading = true;
+						break;
+					}
+				}
+				newStoreValue.loading = loading;
 			}
 			store.set(newStoreValue as any);
 		})
@@ -109,50 +172,67 @@ function callEndpoint(opts: callEndpointOpts) {
 				error = await options.interceptError(error, [...path].slice(0, -1).join('.'));
 			}
 
-			let newStoreValue: any;
+			let newStoreValue: any = {};
 
-			if (method === 'once') {
+			if (is$once) {
 				newStoreValue = { loading: false, error, success: false, response: undefined };
 			} //
-			else if (method === '$multiple') {
-				console.log(opts);
-			} //
-			else if (method === '$many') {
+			else if (is$revisable) {
+				newStoreValue = { loading: false, error, success: false, response: undefined };
 				newStoreValue.call = (get(store as Writable<any>) as any).call;
+			} //
+			else if (is$multiple) {
+				newStoreValue = get(store as Writable<any>) as any;
+				newStoreValue.responses[index$multiple] = {
+					loading: false,
+					response: undefined,
+					error,
+					success: true
+				};
+				let allResponses = newStoreValue.responses;
+				let loading = false;
+				for (let key in allResponses) {
+					if (allResponses[key].loading) {
+						loading = true;
+						break;
+					}
+				}
+				newStoreValue.loading = loading;
 			}
 			store.set(newStoreValue as any);
 		});
 }
 
+type methodOpts = Omit<callEndpointOpts, 'store'>;
 const storeClientMethods = {
-	$once: function (opts: Omit<callEndpointOpts, 'store'>) {
+	$once: function (opts: methodOpts) {
 		let store: $onceStore<unknown> = writable({
 			response: undefined,
 			loading: true,
 			error: false,
 			success: false
 		});
-		callEndpoint({ ...opts, store });
+		callEndpoint({ ...opts, endpointArgs: opts?.args, store });
 		return store;
 	},
-	$many: function (opts: Omit<callEndpointOpts, 'store'>) {
-		let store: $manyStore<unknown, unknown[]> = writable({
+	$revisable: function (opts: methodOpts) {
+		let store: $revisableStore<unknown, unknown[]> = writable({
 			response: undefined,
 			loading: true,
 			error: false,
 			success: false,
-			call: (...args: any[]) => {
-				callEndpoint({ ...opts, args, store });
+			call: (...endpointArgs: any[]) => {
+				callEndpoint({ ...opts, endpointArgs, store });
 			}
 		});
 		return store;
 	},
-	$multiple: function (opts: Omit<callEndpointOpts, 'store'>) {
+	$multiple: function (opts: methodOpts) {
 		let store: $multipleStore<any, any[], any> = writable({
 			loading: true,
-			responses: [],
-			call: (...args: any[]) => {
-				callEndpoint({ ...opts, args, store });
+			responses: opts.args.length ? {} : [],
+			call: (...endpointArgs: any[]) => {
+				callEndpoint({ ...opts, endpointArgs, store });
 			}
 		});
 		return store;

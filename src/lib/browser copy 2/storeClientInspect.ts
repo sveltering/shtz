@@ -28,7 +28,7 @@ export type $onceStore<V> = Writable<
 	  }
 >;
 
-export type $manyStore<V, A extends any[]> = Writable<{
+export type $revisableStore<V, A extends any[]> = Writable<{
 	//Loading
 	loading: true;
 	success: false;
@@ -69,7 +69,7 @@ type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (
 
 type NewStoreProcedures2<Fn extends FunctionType, Obj extends object> = Prettify<{
 	$once: (...args: ArgumentTypes<Fn>) => $onceStore<AsyncReturnType<Fn>>;
-	$many: () => $manyStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
+	$revisable: () => $revisableStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
 	$multiple: (
 		keyFn?: FunctionType
 	) => $multipleStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>, number>;

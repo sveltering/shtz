@@ -46,9 +46,15 @@ type $onceStoreInner<V> =
 			response: undefined;
 	  };
 
+type $multipleStoreInner<V, Rb extends boolean> = Rb extends true
+	? $onceStoreInner<V> & {
+			remove: () => void;
+	  }
+	: $onceStoreInner<V>;
+
 export type $onceStore<V> = Writable<$onceStoreInner<V>>;
 
-export type $manyStore<V, A extends any[]> = Writable<{
+export type $revisableStore<V, A extends any[]> = Writable<{
 	//Loading
 	loading: true;
 	success: false;
@@ -69,16 +75,37 @@ export type $multipleStore<V, A extends any[], K> = K extends string
 			call: (...args: A) => undefined;
 	  }>;
 
-export type $multipleStoreObject<V, A extends any[]> = Writable<{
-	loading: true;
-	responses: { [key: string]: $onceStoreInner<V> };
-	call: (...args: A) => undefined;
-}>;
-export type $multipleStoreArray<V, A extends any[]> = Writable<{
-	loading: true;
-	responses: $onceStoreInner<V>[];
-	call: (...args: A) => undefined;
-}>;
+type $multipleStoreWritableMake<Resp, A extends any[], L> = L extends true
+	? Writable<{
+			loading: true;
+			responses: Resp;
+			call: (...args: A) => undefined;
+	  }>
+	: Writable<{
+			responses: Resp;
+			call: (...args: A) => undefined;
+	  }>;
+
+export type $multipleStoreObject<
+	V,
+	A extends any[],
+	Lb extends boolean,
+	Rb extends boolean
+> = $multipleStoreWritableMake<{ [key: string]: $multipleStoreInner<V, Rb> }, A, Lb>;
+
+export type $multipleStoreArray<
+	V,
+	A extends any[],
+	Lb extends boolean,
+	Rb extends boolean
+> = $multipleStoreWritableMake<$multipleStoreInner<V, Rb>[], A, Lb>;
+
+export type $multipleStoreArrayEntries<
+	V,
+	A extends any[],
+	Lb extends boolean,
+	Rb extends boolean
+> = $multipleStoreWritableMake<[string, $multipleStoreInner<V, Rb>][], A, Lb>;
 
 /*
  *
@@ -91,26 +118,51 @@ export type $multipleStoreArray<V, A extends any[]> = Writable<{
  * Standard
  */
 
-interface $multipleFn<Fn extends FunctionType> {
-	(): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
+type $onceFnMake<Fn extends FunctionType> = (
+	...args: ArgumentTypes<Fn>
+) => $onceStore<AsyncReturnType<Fn>>;
+type $revisableFnMake<Fn extends FunctionType> = () => $revisableStore<
+	AsyncReturnType<Fn>,
+	ArgumentTypes<Fn>
+>;
+interface $multipleFnMake<Fn extends FunctionType> {
+	(): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, false, false>;
 	(keyFn: (input: ProcedureInput<Fn>) => string): $multipleStoreObject<
 		AsyncReturnType<Fn>,
-		ArgumentTypes<Fn>
+		ArgumentTypes<Fn>,
+		false,
+		false
 	>;
+	<Lb extends boolean, Rb extends boolean>(opts: {
+		loading?: Lb;
+		removeable?: Rb;
+		entries?: false;
+		key: (input: ProcedureInput<Fn>) => string;
+	}): $multipleStoreObject<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb>;
+	<Lb extends boolean, Rb extends boolean>(opts: {
+		loading?: Lb;
+		removeable?: Rb;
+		entries?: true;
+		key: (input: ProcedureInput<Fn>) => string;
+	}): $multipleStoreArrayEntries<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb>;
+	<Lb extends boolean, Rb extends boolean>(opts: {
+		loading?: Lb;
+		removeable?: Rb;
+	}): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb>;
 }
 
-type NewStoreProcedures<Fn extends FunctionType, Obj extends object> = Prettify<{
-	$once: (...args: ArgumentTypes<Fn>) => $onceStore<AsyncReturnType<Fn>>;
-	$many: () => $manyStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
-	$multiple: $multipleFn<Fn>;
+type NewStoreProcedures<Fn extends FunctionType> = Prettify<{
+	$once: $onceFnMake<Fn>;
+	$revisable: $revisableFnMake<Fn>;
+	$multiple: $multipleFnMake<Fn>;
 }>;
 
 type ChangeQueriesType<Obj extends object, Key extends keyof Obj> = Obj[Key] extends FunctionType
-	? NewStoreProcedures<Obj[Key], Obj>
+	? NewStoreProcedures<Obj[Key]>
 	: ChangeAllProcedures<Obj[Key]>;
 
 type ChangeMutatesType<Obj extends object, Key extends keyof Obj> = Obj[Key] extends FunctionType
-	? NewStoreProcedures<Obj[Key], Obj>
+	? NewStoreProcedures<Obj[Key]>
 	: ChangeAllProcedures<Obj[Key]>;
 
 type ChangeProceduresType<Obj extends object, Key extends keyof Obj> = Obj[Key] extends FunctionType

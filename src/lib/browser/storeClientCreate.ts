@@ -3,7 +3,7 @@ import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { get, writable, type Writable } from 'svelte/store';
 
 import type { storeClientOpt, storeCC } from './types';
-import type { $onceStore, $manyStore, $multipleStore } from './storeClientCreate.types';
+import type { $onceStore, $revisableStore, $multipleStore } from './storeClientCreate.types';
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;
@@ -84,7 +84,7 @@ type callEndpointOpts = {
 	endpoint: CallableFunction;
 	args: any[];
 	endpointArgs: any[];
-	store: $onceStore<any> | $manyStore<any, any[]> | $multipleStore<any, any[], any>;
+	store: $onceStore<any> | $revisableStore<any, any[]> | $multipleStore<any, any[], any>;
 	options: storeClientOpt;
 	path: string[];
 };
@@ -92,12 +92,12 @@ function callEndpoint(opts: callEndpointOpts) {
 	const { endpoint, args, endpointArgs, store, options, path, method } = opts;
 
 	const is$once = method === '$once';
-	const is$many = method === '$many';
+	const is$revisable = method === '$revisable';
 	const is$multiple = method === '$multiple';
 	const is$multipleArray = is$multiple && !args.length;
 	const is$multipleObject = is$multiple && !!args.length;
 
-	if (is$many) {
+	if (is$revisable) {
 		let storeInner = get(store as any) as any;
 		storeInner = {
 			response: undefined,
@@ -143,7 +143,7 @@ function callEndpoint(opts: callEndpointOpts) {
 			if (is$once) {
 				newStoreValue = { loading: false, response, error: false, success: true };
 			} //
-			else if (is$many) {
+			else if (is$revisable) {
 				newStoreValue = { loading: false, response, error: false, success: true };
 				newStoreValue.call = (get(store as Writable<any>) as any).call;
 			} //
@@ -177,7 +177,7 @@ function callEndpoint(opts: callEndpointOpts) {
 			if (is$once) {
 				newStoreValue = { loading: false, error, success: false, response: undefined };
 			} //
-			else if (is$many) {
+			else if (is$revisable) {
 				newStoreValue = { loading: false, error, success: false, response: undefined };
 				newStoreValue.call = (get(store as Writable<any>) as any).call;
 			} //
@@ -203,8 +203,9 @@ function callEndpoint(opts: callEndpointOpts) {
 		});
 }
 
+type methodOpts = Omit<callEndpointOpts, 'store'>;
 const storeClientMethods = {
-	$once: function (opts: Omit<callEndpointOpts, 'store'>) {
+	$once: function (opts: methodOpts) {
 		let store: $onceStore<unknown> = writable({
 			response: undefined,
 			loading: true,
@@ -214,8 +215,8 @@ const storeClientMethods = {
 		callEndpoint({ ...opts, endpointArgs: opts?.args, store });
 		return store;
 	},
-	$many: function (opts: Omit<callEndpointOpts, 'store'>) {
-		let store: $manyStore<unknown, unknown[]> = writable({
+	$revisable: function (opts: methodOpts) {
+		let store: $revisableStore<unknown, unknown[]> = writable({
 			response: undefined,
 			loading: true,
 			error: false,
@@ -226,7 +227,7 @@ const storeClientMethods = {
 		});
 		return store;
 	},
-	$multiple: function (opts: Omit<callEndpointOpts, 'store'>) {
+	$multiple: function (opts: methodOpts) {
 		let store: $multipleStore<any, any[], any> = writable({
 			loading: true,
 			responses: opts.args.length ? {} : [],
