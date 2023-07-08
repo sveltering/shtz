@@ -182,7 +182,22 @@ function callEndpoint(opts: callEndpointOpts) {
 				newStoreValue.call = (get(store as Writable<any>) as any).call;
 			} //
 			else if (is$multiple) {
-				console.log(opts);
+				newStoreValue = get(store as Writable<any>) as any;
+				newStoreValue.responses[index$multiple] = {
+					loading: false,
+					response: undefined,
+					error,
+					success: true
+				};
+				let allResponses = newStoreValue.responses;
+				let loading = false;
+				for (let key in allResponses) {
+					if (allResponses[key].loading) {
+						loading = true;
+						break;
+					}
+				}
+				newStoreValue.loading = loading;
 			}
 			store.set(newStoreValue as any);
 		});
