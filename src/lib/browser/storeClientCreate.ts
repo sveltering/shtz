@@ -14,7 +14,7 @@ function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeC
 	const { url, batchLinkOptions } = options;
 
 	if (typeof window === 'undefined') {
-		return storePseudoClient() as unknown as storeCC<T>;
+		return pseudoOuterProxy() as unknown as storeCC<T>;
 	}
 
 	return outerProxy(
@@ -93,13 +93,13 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 }
 
 function noop() {}
-function storePseudoClient(path: string[] = []): any {
+function pseudoOuterProxy(path: string[] = []): any {
 	return new Proxy(noop, {
 		get(_obj, key) {
 			if (typeof key !== 'string') {
 				return undefined;
 			}
-			return storePseudoClient([...path, key]);
+			return pseudoOuterProxy([...path, key]);
 		},
 		apply: (_1, _2, args) => {
 			const method = path[path.length - 1];
