@@ -164,6 +164,7 @@ function callEndpoint(opts: callEndpointOpts) {
 		endpointArgs,
 		store
 	} = opts;
+
 	let track$multiple: { index: string | number } = {} as any;
 	let $multipleRemoveFn: { remove: FunctionType } | {} = {};
 	if (is$revisable) {
@@ -183,15 +184,15 @@ function callEndpoint(opts: callEndpointOpts) {
 		if ($multipleHasLoading) {
 			storeInner.loading = true;
 		}
+		if ($multipleHasRemove) {
+			$multipleRemoveFn = { remove: removeResponse(store, track$multiple, is$multipleObject) };
+		}
 
 		if (is$multipleObject) {
 			track$multiple.index = ($multipleGetKeyFn as FunctionType)(endpointArgs[0]);
 		} //
 		else {
 			track$multiple.index = storeInner.responses.length;
-		}
-		if ($multipleHasRemove) {
-			$multipleRemoveFn = { remove: removeResponse(store, track$multiple, is$multipleObject) };
 		}
 		const loadingResponse = {
 			response: undefined,
