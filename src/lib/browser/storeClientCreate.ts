@@ -165,6 +165,7 @@ function callEndpoint(opts: callEndpointOpts) {
 		store
 	} = opts;
 	let track$multiple: { index: string | number } = {} as any;
+	let $multipleRemoveFn: { remove: FunctionType } | {} = {};
 	if (is$revisable) {
 		let storeInner = get(store as any) as any;
 		storeInner = {
@@ -189,14 +190,15 @@ function callEndpoint(opts: callEndpointOpts) {
 		else {
 			track$multiple.index = storeInner.responses.length;
 		}
+		if ($multipleHasRemove) {
+			$multipleRemoveFn = { remove: removeResponse(store, track$multiple, is$multipleObject) };
+		}
 		const loadingResponse = {
 			response: undefined,
 			loading: true,
 			error: false,
 			success: false,
-			...($multipleHasRemove
-				? { remove: removeResponse(store, track$multiple, is$multipleObject) }
-				: {}),
+			...$multipleRemoveFn,
 			track$multiple
 		};
 		if (is$multipleEntriesArray) {
@@ -235,9 +237,7 @@ function callEndpoint(opts: callEndpointOpts) {
 					response,
 					error: false,
 					success: true,
-					...($multipleHasRemove
-						? { remove: removeResponse(store, track$multiple, is$multipleObject) }
-						: {}),
+					...$multipleRemoveFn,
 					track$multiple
 				};
 
@@ -284,9 +284,7 @@ function callEndpoint(opts: callEndpointOpts) {
 					response: undefined,
 					error,
 					success: true,
-					...($multipleHasRemove
-						? { remove: removeResponse(store, track$multiple, is$multipleObject) }
-						: {}),
+					...$multipleRemoveFn,
 					track$multiple
 				};
 
