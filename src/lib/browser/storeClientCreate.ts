@@ -149,9 +149,7 @@ type callEndpointOpts = $methodOpts & {
 };
 function callEndpoint(opts: callEndpointOpts) {
 	const {
-		method,
 		endpoint,
-		args,
 		options,
 		path,
 		is$once,
@@ -167,8 +165,7 @@ function callEndpoint(opts: callEndpointOpts) {
 		endpointArgs,
 		store
 	} = opts;
-
-	let index$multiple: string | number;
+	let track$multiple: { index: string | number } = {} as any;
 	if (is$revisable) {
 		let storeInner = get(store as any) as any;
 		storeInner = {
@@ -188,10 +185,10 @@ function callEndpoint(opts: callEndpointOpts) {
 		}
 
 		if (is$multipleObject) {
-			index$multiple = ($multipleGetKeyFn as FunctionType)(endpointArgs[0]);
+			track$multiple.index = ($multipleGetKeyFn as FunctionType)(endpointArgs[0]);
 		} //
 		else {
-			index$multiple = storeInner.responses.length;
+			track$multiple.index = storeInner.responses.length;
 		}
 		const loadingResponse = {
 			response: undefined,
@@ -199,8 +196,9 @@ function callEndpoint(opts: callEndpointOpts) {
 			error: false,
 			success: false,
 			...($multipleHasRemove
-				? { remove: removeResponse(store, index$multiple, is$multipleObject) }
-				: {})
+				? { remove: removeResponse(store, track$multiple, is$multipleObject) }
+				: {}),
+			track$multiple
 		};
 		if (is$multipleEntriesArray) {
 			const entry = ($multipleGetEntryFn as FunctionType)(endpointArgs[0]);
@@ -210,7 +208,7 @@ function callEndpoint(opts: callEndpointOpts) {
 			storeInner.responses.push(loadingResponse);
 		} //
 		else if (is$multipleObject) {
-			storeInner.responses[index$multiple] = loadingResponse;
+			storeInner.responses[track$multiple.index] = loadingResponse;
 		}
 
 		store.set(storeInner);
@@ -239,15 +237,16 @@ function callEndpoint(opts: callEndpointOpts) {
 					error: false,
 					success: true,
 					...($multipleHasRemove
-						? { remove: successResponse.responses[index$multiple].remove }
-						: {})
+						? { remove: removeResponse(store, track$multiple, is$multipleObject) }
+						: {}),
+					track$multiple
 				};
 
 				if (is$multipleEntriesArray) {
-					successResponse.responses[index$multiple][1] = individualSuccessResponse;
+					successResponse.responses[track$multiple.index][1] = individualSuccessResponse;
 				} //
 				else {
-					successResponse.responses[index$multiple][0] = individualSuccessResponse;
+					successResponse.responses[track$multiple.index] = individualSuccessResponse;
 				}
 
 				if ($multipleHasLoading) {
@@ -286,14 +285,17 @@ function callEndpoint(opts: callEndpointOpts) {
 					response: undefined,
 					error,
 					success: true,
-					...($multipleHasRemove ? { remove: errorResponse.responses[index$multiple].remove } : {})
+					...($multipleHasRemove
+						? { remove: removeResponse(store, track$multiple, is$multipleObject) }
+						: {}),
+					track$multiple
 				};
 
 				if (is$multipleEntriesArray) {
-					errorResponse.responses[index$multiple][1] = individualErrorResponse;
+					errorResponse.responses[track$multiple.index][1] = individualErrorResponse;
 				} //
 				else {
-					errorResponse.responses[index$multiple][0] = individualErrorResponse;
+					errorResponse.responses[track$multiple.index] = individualErrorResponse;
 				}
 
 				if ($multipleHasLoading) {
@@ -312,14 +314,26 @@ function callEndpoint(opts: callEndpointOpts) {
 		});
 }
 
-function removeResponse(from: Writable<any>, index: any, isObject: boolean) {
+function removeResponse(
+	from: Writable<any>,
+	track$multiple: { index: number | string },
+	isObject: boolean
+) {
 	return function () {
 		let storeInner = get(from) as any;
+		const index = track$multiple.index;
+
 		if (isObject && storeInner.responses.hasOwnProperty(index)) {
 			delete storeInner.responses[index];
 		} //
 		else if (!!storeInner.responses?.[index]) {
-			storeInner.responses.splice(index, 1);
+			let allResponses = storeInner.responses;
+			const isEntry = Array.isArray(allResponses.splice(index, 1));
+			for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+				const response = isEntry ? allResponses[i][1] : allResponses[i];
+				response.track$multiple.index = i;
+				response.remove = removeResponse(from, response.track$multiple, isObject);
+			}
 		}
 		from.set(storeInner);
 	};
@@ -350,8 +364,6 @@ const storeClientMethods = {
 	},
 	$multiple: function (opts: $methodOpts) {
 		const { $multipleHasLoading, is$multipleObject } = opts;
-		console.clear();
-		console.log(opts);
 		let store: $multipleStore<any, any[], any> = writable({
 			...($multipleHasLoading ? { loading: true } : {}),
 			responses: is$multipleObject ? {} : [],
