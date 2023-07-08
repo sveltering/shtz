@@ -252,10 +252,20 @@ function callEndpoint(opts: callEndpointOpts) {
 				if ($multipleHasLoading) {
 					let allResponses = successResponse.responses;
 					let loading = false;
-					for (let key in allResponses) {
-						if (allResponses[key].loading) {
-							loading = true;
-							break;
+					if (is$multipleEntriesArray) {
+						for (let key in allResponses) {
+							if (allResponses[key][1].loading) {
+								loading = true;
+								break;
+							}
+						}
+					} //
+					else {
+						for (let key in allResponses) {
+							if (allResponses[key].loading) {
+								loading = true;
+								break;
+							}
 						}
 					}
 					successResponse.loading = loading;
@@ -299,10 +309,20 @@ function callEndpoint(opts: callEndpointOpts) {
 				if ($multipleHasLoading) {
 					let allResponses = errorResponse.responses;
 					let loading = false;
-					for (let key in allResponses) {
-						if (allResponses[key].loading) {
-							loading = true;
-							break;
+					if (is$multipleEntriesArray) {
+						for (let key in allResponses) {
+							if (allResponses[key][1].loading) {
+								loading = true;
+								break;
+							}
+						}
+					} //
+					else {
+						for (let key in allResponses) {
+							if (allResponses[key].loading) {
+								loading = true;
+								break;
+							}
 						}
 					}
 					errorResponse.loading = loading;
@@ -327,10 +347,19 @@ function removeResponse(
 		else if (!!storeInner.responses?.[index]) {
 			let allResponses = storeInner.responses;
 			const isEntry = Array.isArray(allResponses.splice(index, 1));
-			for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-				const response = isEntry ? allResponses[i][1] : allResponses[i];
-				response.track$multiple.index = i;
-				response.remove = removeResponse(from, response.track$multiple, isObject);
+			if (isEntry) {
+				for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+					const response = allResponses[i][1];
+					response.track$multiple.index = i;
+					response.remove = removeResponse(from, response.track$multiple, isObject);
+				}
+			} //
+			else {
+				for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+					const response = allResponses[i];
+					response.track$multiple.index = i;
+					response.remove = removeResponse(from, response.track$multiple, isObject);
+				}
 			}
 		}
 		from.set(storeInner);
