@@ -13,11 +13,9 @@ export default t.router({
 			})
 		)
 		.query(async function ({ input, ctx }) {
-			if (input.name.length > 5) {
-				//throw t.error('MAJOR ERROR');
-			}
-			if (input.name === 'Yusaf Two') {
-				await sleep(2000);
+			await sleep(1000);
+			if (input.name === 'Yusaf 2') {
+				await sleep(5000);
 			}
 			return `welcome ${input.name}`;
 		}),
@@ -45,4 +43,7 @@ function sleep(ms: number) {
 	return new Promise((resolve) => {
 		setTimeout(resolve, ms);
 	});
+}
+function randomInteger(min: number, max: number) {
+	return Math.floor(Math.random() * (max - min + 1)) + min;
 }

@@ -122,8 +122,8 @@ function callEndpoint(opts: callEndpointOpts) {
 			index$multiple = storeInner.responses.length - 1;
 		} //
 		else if (is$multipleObject) {
-			index$multiple = args[0](endpointArgs);
-			storeInner[index$multiple] = {
+			index$multiple = args[0](endpointArgs[0]);
+			storeInner.responses[index$multiple] = {
 				response: undefined,
 				loading: true,
 				error: false,
