@@ -252,9 +252,18 @@ function callEndpoint(opts: callEndpointOpts) {
 				if ($multipleHasLoading) {
 					let allResponses = successResponse.responses;
 					let loading = false;
-					if (is$multipleEntriesArray) {
-						for (let key in allResponses) {
-							if (allResponses[key][1].loading) {
+
+					if (is$multipleArray) {
+						for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+							if (allResponses[i].loading) {
+								loading = true;
+								break;
+							}
+						}
+					} //
+					else if (is$multipleEntriesArray) {
+						for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+							if (allResponses[i][1].loading) {
 								loading = true;
 								break;
 							}
@@ -309,9 +318,18 @@ function callEndpoint(opts: callEndpointOpts) {
 				if ($multipleHasLoading) {
 					let allResponses = errorResponse.responses;
 					let loading = false;
-					if (is$multipleEntriesArray) {
-						for (let key in allResponses) {
-							if (allResponses[key][1].loading) {
+
+					if (is$multipleArray) {
+						for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+							if (allResponses[i].loading) {
+								loading = true;
+								break;
+							}
+						}
+					} //
+					else if (is$multipleEntriesArray) {
+						for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+							if (allResponses[i][1].loading) {
 								loading = true;
 								break;
 							}
