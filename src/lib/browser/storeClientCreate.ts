@@ -40,6 +40,7 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 			return storeClientMethods[method as keyof typeof storeClientMethods]({
 				method,
 				endpoint,
+				endpointArgs: [],
 				args,
 				options,
 				path: path.slice(0, -1)
@@ -59,10 +60,13 @@ function storePseudoClient(path: string[] = []): any {
 			}
 			return storePseudoClient([...path, key]);
 		},
-		apply: () => {
-			console.log(path);
+		apply: (_1, _2, args) => {
 			if (path[path.length - 1] === '$multiple') {
-				return writable([]);
+				return writable({
+					loading: true,
+					responses: args.length ? {} : [],
+					call: () => undefined
+				});
 			}
 			return writable({
 				loading: true,
@@ -79,28 +83,87 @@ type callEndpointOpts = {
 	method: string;
 	endpoint: CallableFunction;
 	args: any[];
+	endpointArgs: any[];
 	store: $onceStore<any> | $manyStore<any, any[]> | $multipleStore<any, any[], any>;
 	options: storeClientOpt;
 	path: string[];
 };
 function callEndpoint(opts: callEndpointOpts) {
-	const { endpoint, args, store, options, path, method } = opts;
-	endpoint(...args)
+	const { endpoint, args, endpointArgs, store, options, path, method } = opts;
+
+	const is$once = method === '$once';
+	const is$many = method === '$many';
+	const is$multiple = method === '$multiple';
+	const is$multipleArray = is$multiple && !args.length;
+	const is$multipleObject = is$multiple && !!args.length;
+
+	if (is$many) {
+		let storeInner = get(store as any) as any;
+		storeInner = {
+			response: undefined,
+			loading: true,
+			error: false,
+			success: false,
+			call: storeInner.call
+		};
+		store.set(storeInner);
+	}
+	let index$multiple: string | number;
+	if (is$multiple) {
+		let storeInner = get(store as any) as any;
+		storeInner.loading = true;
+		if (is$multipleArray) {
+			storeInner.responses.push({
+				response: undefined,
+				loading: true,
+				error: false,
+				success: false
+			});
+			index$multiple = storeInner.responses.length - 1;
+		} //
+		else if (is$multipleObject) {
+			index$multiple = args[0](endpointArgs);
+			storeInner[index$multiple] = {
+				response: undefined,
+				loading: true,
+				error: false,
+				success: false
+			};
+		}
+		store.set(storeInner);
+	}
+	endpoint(...endpointArgs)
 		.then(async (response: any) => {
 			if (options?.interceptResponse) {
 				response = await options.interceptResponse(response, [...path].slice(0, -1).join('.'));
 			}
 
-			let newStoreValue: any;
+			let newStoreValue: any = {};
 
-			if (method === '$once') {
+			if (is$once) {
 				newStoreValue = { loading: false, response, error: false, success: true };
 			} //
-			else if (method === '$many') {
+			else if (is$many) {
+				newStoreValue = { loading: false, response, error: false, success: true };
 				newStoreValue.call = (get(store as Writable<any>) as any).call;
 			} //
-			else if (method === '$multiple') {
-				console.log(opts);
+			else if (is$multiple) {
+				newStoreValue = get(store as Writable<any>) as any;
+				newStoreValue.responses[index$multiple] = {
+					loading: false,
+					response,
+					error: false,
+					success: true
+				};
+				let allResponses = newStoreValue.responses;
+				let loading = false;
+				for (let key in allResponses) {
+					if (allResponses[key].loading) {
+						loading = true;
+						break;
+					}
+				}
+				newStoreValue.loading = loading;
 			}
 			store.set(newStoreValue as any);
 		})
@@ -109,15 +172,16 @@ function callEndpoint(opts: callEndpointOpts) {
 				error = await options.interceptError(error, [...path].slice(0, -1).join('.'));
 			}
 
-			let newStoreValue: any;
+			let newStoreValue: any = {};
 
-			if (method === '$once') {
+			if (is$once) {
 				newStoreValue = { loading: false, error, success: false, response: undefined };
 			} //
-			else if (method === '$many') {
+			else if (is$many) {
+				newStoreValue = { loading: false, error, success: false, response: undefined };
 				newStoreValue.call = (get(store as Writable<any>) as any).call;
 			} //
-			else if (method === '$multiple') {
+			else if (is$multiple) {
 				console.log(opts);
 			}
 			store.set(newStoreValue as any);
@@ -132,7 +196,7 @@ const storeClientMethods = {
 			error: false,
 			success: false
 		});
-		callEndpoint({ ...opts, store });
+		callEndpoint({ ...opts, endpointArgs: opts?.args, store });
 		return store;
 	},
 	$many: function (opts: Omit<callEndpointOpts, 'store'>) {
@@ -141,8 +205,8 @@ const storeClientMethods = {
 			loading: true,
 			error: false,
 			success: false,
-			call: (...args: any[]) => {
-				callEndpoint({ ...opts, args, store });
+			call: (...endpointArgs: any[]) => {
+				callEndpoint({ ...opts, endpointArgs, store });
 			}
 		});
 		return store;
@@ -151,8 +215,8 @@ const storeClientMethods = {
 		let store: $multipleStore<any, any[], any> = writable({
 			loading: true,
 			responses: opts.args.length ? {} : [],
-			call: (...args: any[]) => {
-				callEndpoint({ ...opts, args, store });
+			call: (...endpointArgs: any[]) => {
+				callEndpoint({ ...opts, endpointArgs, store });
 			}
 		});
 		return store;

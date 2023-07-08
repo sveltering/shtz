@@ -11,6 +11,8 @@
 
 Many store
 
-{#if $welcomeMessage?.success}
+{#if $welcomeMessage?.loading}
+	Loading...
+{:else if $welcomeMessage.success}
 	{$welcomeMessage.response}
 {/if}

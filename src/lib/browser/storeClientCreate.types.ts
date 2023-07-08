@@ -91,33 +91,18 @@ export type $multipleStoreArray<V, A extends any[]> = Writable<{
  * Standard
  */
 
-type FunctionTypeArg<T> = (arg: T) => string;
-
-type MakeReturnType<F> = F extends (args: infer A) => any
-	? A extends () => string
-		? () => []
-		: () => { [key: string]: any }
-	: () => { [key: string]: any };
+interface $multipleFn<Fn extends FunctionType> {
+	(): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
+	(keyFn: (input: ProcedureInput<Fn>) => string): $multipleStoreObject<
+		AsyncReturnType<Fn>,
+		ArgumentTypes<Fn>
+	>;
+}
 
 type NewStoreProcedures<Fn extends FunctionType, Obj extends object> = Prettify<{
 	$once: (...args: ArgumentTypes<Fn>) => $onceStore<AsyncReturnType<Fn>>;
 	$many: () => $manyStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
-	$multiple: MakeReturnType<(args?: (input: any) => string) => string>;
-
-	// $multiple:
-	// | ((...args: any[]) => $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>>)
-	// | ((
-	// 		keyFn: FunctionTypeArg<ProcedureInput<Fn>>
-	//   ) => $multipleStoreObject<AsyncReturnType<Fn>, ArgumentTypes<Fn>>)
-	// | ((
-	// 		keyFn?: FunctionTypeArg<ProcedureInput<Fn>>
-	//   ) =>
-	// 		| $multipleStoreObject<AsyncReturnType<Fn>, ArgumentTypes<Fn>>
-	// 		| $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>>);
-	// (
-	// 	keyFn: FunctionTypeArg<ProcedureInput<Fn>>
-	// ) => $multipleStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>, string>;
-	// | (() => $multipleStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>, number>);
+	$multiple: $multipleFn<Fn>;
 }>;
 
 type ChangeQueriesType<Obj extends object, Key extends keyof Obj> = Obj[Key] extends FunctionType

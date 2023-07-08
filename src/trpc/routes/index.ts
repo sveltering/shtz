@@ -12,9 +12,12 @@ export default t.router({
 				name: z.coerce.string().min(5)
 			})
 		)
-		.query(function ({ input, ctx }) {
+		.query(async function ({ input, ctx }) {
 			if (input.name.length > 5) {
 				//throw t.error('MAJOR ERROR');
+			}
+			if (input.name === 'Yusaf Two') {
+				await sleep(2000);
 			}
 			return `welcome ${input.name}`;
 		}),
