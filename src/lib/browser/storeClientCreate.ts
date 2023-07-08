@@ -110,7 +110,6 @@ function storePseudoClient(path: string[] = []): any {
 				const $multipleHasLoading = is$multiple && hasArguments && args?.[0]?.loading === true;
 				return writable({
 					...($multipleHasLoading ? { loading: true } : {}),
-					loading: true,
 					responses: is$multipleObject ? {} : [],
 					call: () => undefined
 				});
