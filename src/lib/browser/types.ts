@@ -2,6 +2,7 @@ import type { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
 import type { LoadEvent } from '@sveltejs/kit';
 import type { EndpointsToStore } from './storeClientCreate.types';
+import type { TRPCClientError } from '@trpc/client';
 
 /*
  *
@@ -23,8 +24,6 @@ export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T ext
 	: any;
 
 type RouterReturnType<T extends AnyRouter> = ReturnType<typeof createTRPCProxyClient<T>>;
-
-type Flatten<T> = T extends object ? { [K in keyof T]: Flatten<T[K]> } : T;
 
 /*
  *
@@ -92,8 +91,8 @@ export type loadCC<T extends AnyRouter> = (event: LoadEvent) => RouterReturnType
  */
 
 export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
-	interceptResponse?: (response: any, path: string) => Promise<{}> | {};
-	interceptError?: (message: any, path: string) => Promise<{}> | {};
+	interceptData?: (data: any, path: string) => Promise<{}> | {};
+	interceptError?: (error: TRPCClientError<any>, path: string) => Promise<{}> | {};
 };
 
 export type storeCC<T extends AnyRouter> = EndpointsToStore<RouterReturnType<T>>;

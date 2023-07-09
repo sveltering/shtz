@@ -4,27 +4,28 @@ import type { Resolver } from '@trpc/client';
 import type { BuildProcedure } from '@trpc/server/src/core/internals/procedureBuilder';
 import type { OverwriteKnown } from '@trpc/server/src/core/internals/utils';
 
+type Flatten<T> = T extends object ? { [K in keyof T]: Flatten<T[K]> } : T;
 export type $onceStore<V> = Writable<
 	| {
 			//Loading
 			loading: true;
 			success: false;
 			error: false;
-			response: undefined;
+			data: undefined;
 	  }
 	| {
 			//Load Successfull
 			loading: false;
 			success: true;
 			error: false;
-			response: V;
+			data: V;
 	  }
 	| {
 			//Loading Error
 			loading: false;
 			success: false;
 			error: unknown;
-			response: undefined;
+			data: undefined;
 	  }
 >;
 
@@ -33,7 +34,7 @@ export type $revisableStore<V, A extends any[]> = Writable<{
 	loading: true;
 	success: false;
 	error: false;
-	response: undefined;
+	data: undefined;
 	call: (...args: A) => undefined;
 }>;
 

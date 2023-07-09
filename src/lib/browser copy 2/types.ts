@@ -1,7 +1,6 @@
 import type { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
 import type { LoadEvent } from '@sveltejs/kit';
-import type { Writable } from 'svelte/store';
 import type { EndpointsToStore } from './storeClientCreate.types';
 
 /*
@@ -24,8 +23,6 @@ export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T ext
 	: any;
 
 type RouterReturnType<T extends AnyRouter> = ReturnType<typeof createTRPCProxyClient<T>>;
-
-type Flatten<T> = T extends object ? { [K in keyof T]: Flatten<T[K]> } : T;
 
 /*
  *

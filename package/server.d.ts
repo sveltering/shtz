@@ -9,6 +9,7 @@ type pipeType = false | keyValueType;
 type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 type SyncReturnType<T extends Function> = T extends (...args: any) => infer R ? R : any;
 type createContextType<T> = (event?: RequestEvent, pipe?: pipeType) => Promise<T> | T;
+type RequireAllOrNone<ObjectType, KeysType extends keyof ObjectType = never> = (Required<Pick<ObjectType, KeysType>> | Partial<Record<KeysType, never>>) & Omit<ObjectType, KeysType>;
 type TRPCErrorOpts = ConstructorParameters<typeof TRPCError>[0];
 interface fetchOptions {
     origin: string;
@@ -25,12 +26,12 @@ interface TRPCBaseOptions_I<T> {
     locals?: 'always' | 'callable' | 'never';
     localsKey?: string;
 }
-type TRPCOptions_I<T> = TRPCBaseOptions_I<T> | (TRPCBaseOptions_I<T> & fetchOptions);
-interface TRPCOptionsFinal_I<T> {
+type TRPCOptions_I<T> = TRPCBaseOptions_I<T> & RequireAllOrNone<fetchOptions, 'origin' | 'bypassOrigin'>;
+interface TRPCContextFn<T> {
     context: createContextType<T>;
 }
 export declare class TRPC<T extends object> {
-    options: TRPCOptions_I<T> & TRPCOptionsFinal_I<T>;
+    options: TRPCOptions_I<T> & TRPCContextFn<T>;
     tRPCInner: SyncReturnType<SyncReturnType<typeof initTRPC.context<T>>['create']>;
     _routes?: AnyRouter;
     constructor(options: TRPCOptions_I<T>);

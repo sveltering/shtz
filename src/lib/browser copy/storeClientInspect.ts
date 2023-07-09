@@ -4,6 +4,7 @@ import type { Resolver } from '@trpc/client';
 import type { BuildProcedure } from '@trpc/server/src/core/internals/procedureBuilder';
 import type { OverwriteKnown } from '@trpc/server/src/core/internals/utils';
 
+type Flatten<T> = T extends object ? { [K in keyof T]: Flatten<T[K]> } : T;
 export type $onceStore<V> = Writable<
 	| {
 			//Loading
@@ -28,7 +29,7 @@ export type $onceStore<V> = Writable<
 	  }
 >;
 
-export type $manyStore<V, A extends any[]> = Writable<{
+export type $revisableStore<V, A extends any[]> = Writable<{
 	//Loading
 	loading: true;
 	success: false;
@@ -69,7 +70,7 @@ type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (
 
 type NewStoreProcedures2<Fn extends FunctionType, Obj extends object> = Prettify<{
 	$once: (...args: ArgumentTypes<Fn>) => $onceStore<AsyncReturnType<Fn>>;
-	$many: () => $manyStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
+	$revisable: () => $revisableStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
 	$multiple: (
 		keyFn?: FunctionType
 	) => $multipleStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>, number>;

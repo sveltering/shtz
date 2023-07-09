@@ -4,6 +4,7 @@ import type { Resolver } from '@trpc/client';
 import type { BuildProcedure } from '@trpc/server/src/core/internals/procedureBuilder';
 import type { OverwriteKnown } from '@trpc/server/src/core/internals/utils';
 
+type Flatten<T> = T extends object ? { [K in keyof T]: Flatten<T[K]> } : T;
 export type $onceStore<V> = Writable<
 	| {
 			//Loading

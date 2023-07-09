@@ -239,7 +239,13 @@ A lot of the concepts and features of tRPC are very circular. Kind of like the c
 	});
 	```
 
+	**loadClient**
+	
+	The `loadClient` is primarily designed to be used in `+page.ts` and `+layout.ts` files.
 
+
+
+	The `loadClient` is tightly linked to the `origin` and `originBypass` options on the TRPC object, and this is where it really has it's use.
 
 
 

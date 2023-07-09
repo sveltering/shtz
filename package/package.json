@@ -24,12 +24,31 @@
   "dependencies": {
     "@sveltering/custom-store": "^0.0.30",
     "@trpc/client": "^10.31.0",
-    "@trpc/server": "^10.31.0"
+    "@trpc/server": "^10.31.0",
+    "type-fest": "^3.12.0",
+    "zod": "^3.21.4"
   },
   "exports": {
     "./package.json": "./package.json",
+    "./browser/browserClientCreate": "./browser/browserClientCreate.js",
+    "./browser/loadClientCreate": "./browser/loadClientCreate.js",
+    "./browser/storeClientCreate": "./browser/storeClientCreate.js",
+    "./browser/storeClientCreate.types": "./browser/storeClientCreate.types.js",
+    "./browser/storeClientInspect": "./browser/storeClientInspect.js",
+    "./browser/types": "./browser/types.js",
+    "./browser copy/browserClientCreate": "./browser copy/browserClientCreate.js",
+    "./browser copy/loadClientCreate": "./browser copy/loadClientCreate.js",
+    "./browser copy/storeClientCreate": "./browser copy/storeClientCreate.js",
+    "./browser copy/storeClientCreate.types": "./browser copy/storeClientCreate.types.js",
+    "./browser copy/storeClientInspect": "./browser copy/storeClientInspect.js",
+    "./browser copy/types": "./browser copy/types.js",
+    "./browser copy 2/browserClientCreate": "./browser copy 2/browserClientCreate.js",
+    "./browser copy 2/loadClientCreate": "./browser copy 2/loadClientCreate.js",
+    "./browser copy 2/storeClientCreate": "./browser copy 2/storeClientCreate.js",
+    "./browser copy 2/storeClientCreate.types": "./browser copy 2/storeClientCreate.types.js",
+    "./browser copy 2/storeClientInspect": "./browser copy 2/storeClientInspect.js",
+    "./browser copy 2/types": "./browser copy 2/types.js",
     "./browser": "./browser.js",
-    "./browser.types": "./browser.types.js",
     "./server": "./server.js"
   }
 }
