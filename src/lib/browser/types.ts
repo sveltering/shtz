@@ -96,3 +96,4 @@ export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
 };
 
 export type storeCC<T extends AnyRouter> = EndpointsToStore<RouterReturnType<T>>;
+// consider using inferRouterInputs type

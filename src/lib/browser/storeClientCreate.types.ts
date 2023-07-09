@@ -6,12 +6,12 @@ import type { OverwriteKnown } from '@trpc/server/src/core/internals/utils';
 
 type ExtractResolver<Type> = Type extends Resolver<infer X> ? X : never;
 type ExtractBuild<Type> = Type extends BuildProcedure<'query', infer X, unknown> ? X : never;
-type ExtractoverWrite<Type> = Type extends OverwriteKnown<infer X, unknown> ? X : never;
+type ExtractOverwrite<Type> = Type extends OverwriteKnown<infer X, unknown> ? X : never;
 
 type ProcedureHasInput<T> = T extends Symbol ? never : T;
 
 type ProcedureInput<Obj extends object> = ProcedureHasInput<
-	ExtractoverWrite<ExtractBuild<ExtractResolver<Obj>>>['_input_in']
+	ExtractOverwrite<ExtractBuild<ExtractResolver<Obj>>>['_input_in']
 >;
 
 type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] } : Obj;
