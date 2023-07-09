@@ -24,7 +24,7 @@ Multiple store<br />
 	{#if response.loading}
 		Loading Name...
 	{:else if response.success}
-		{response.response}
+		{response.data}
 	{/if}
 	<br />
 {/each}

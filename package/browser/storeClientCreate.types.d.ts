@@ -2,17 +2,12 @@ import type { Writable } from 'svelte/store';
 import type { Resolver, TRPCClientError } from '@trpc/client';
 import type { BuildProcedure } from '@trpc/server/src/core/internals/procedureBuilder';
 import type { OverwriteKnown } from '@trpc/server/src/core/internals/utils';
+import type { storeClientOpt, ArgumentTypes, FunctionType, Prettify, AsyncReturnType } from './types';
 type ExtractResolver<Type> = Type extends Resolver<infer X> ? X : never;
-type ExtractBuild<Type> = Type extends BuildProcedure<'query', infer X, unknown> ? X : never;
-type ExtractoverWrite<Type> = Type extends OverwriteKnown<infer X, unknown> ? X : never;
+type ExtractBuild<Type> = Type extends BuildProcedure<'query' | 'mutation', infer X, unknown> ? X : never;
+type ExtractOverwrite<Type> = Type extends OverwriteKnown<infer X, unknown> ? X : never;
 type ProcedureHasInput<T> = T extends Symbol ? never : T;
-type ProcedureInput<Obj extends object> = ProcedureHasInput<ExtractoverWrite<ExtractBuild<ExtractResolver<Obj>>>['_input_in']>;
-type Prettify<Obj> = Obj extends object ? {
-    [Key in keyof Obj]: Obj[Key];
-} : Obj;
-export type FunctionType = (...args: any) => any;
-type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
-type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (...args: any) => Promise<infer R> ? R : any;
+type ProcedureInput<Obj extends object> = ProcedureHasInput<ExtractOverwrite<ExtractBuild<ExtractResolver<Obj>>>['_input_in']>;
 type $onceStoreInner<V> = {
     loading: true;
     success: false;
@@ -29,28 +24,21 @@ type $onceStoreInner<V> = {
     error: TRPCClientError<any>;
     data: undefined;
 };
-type $multipleStoreInner<V, Rb extends boolean> = Prettify<Rb extends true ? $onceStoreInner<V> & {
-    remove: () => void;
-} : $onceStoreInner<V>>;
-export type $onceStore<V> = Writable<$onceStoreInner<V>>;
-export type $revisableStore<V, A extends any[]> = Writable<{
-    loading: boolean;
+type staleInner = {
+    loading: false;
     success: false;
     error: false;
     data: undefined;
+};
+type $revisableStoreInner<V, A extends any[]> = ($onceStoreInner<V> | staleInner) & {
     call: (...args: A) => undefined;
-}>;
-export type $multipleStore<V, A extends any[], K> = K extends string ? Writable<{
-    loading?: boolean;
-    responses: {
-        [key: string]: $onceStoreInner<V>;
-    };
-    call: (...args: A) => undefined;
-}> : Writable<{
-    loading?: boolean;
-    responses: $onceStoreInner<V>[];
-    call: (...args: A) => undefined;
-}>;
+};
+type $multipleStoreInner<V, Rb extends boolean> = ($onceStoreInner<V> | staleInner) & Rb extends true ? {
+    remove: () => void;
+} : {};
+export type $onceStore<V> = Writable<$onceStoreInner<V>>;
+export type $revisableStore<V, A extends any[]> = Writable<$revisableStoreInner<V, A>>;
+export type $multipleStore<V, A extends any[]> = $multipleStoreObject<V, A, true | false, true | false> | $multipleStoreArray<V, A, true | false, true | false> | $multipleStoreArrayEntries<V, A, any, true | false, true | false>;
 type $multipleStoreWritableMake<Resp, A extends any[], L> = L extends true ? Writable<{
     loading: true;
     responses: Resp;
@@ -97,4 +85,123 @@ type ChangeAllProcedures<Obj> = Obj extends object ? {
     [Key in keyof Obj as RemoveSubscribeProcedures<Obj, Key>]: ChangeProceduresType<Obj, Key>;
 } : Obj;
 export type EndpointsToStore<T extends object> = ChangeAllProcedures<T>;
+export type $methodOpts2 = {
+    method: string;
+    endpoint: CallableFunction;
+    args: any[];
+    options: storeClientOpt;
+    path: string[];
+    is$once: boolean;
+    is$revisable: boolean;
+    is$multiple: boolean;
+    is$multipleArray: boolean;
+    is$multipleEntriesArray: boolean;
+    is$multipleObject: boolean;
+    $multipleGetKeyFn: FunctionType | undefined;
+    $multipleGetEntryFn: FunctionType | undefined;
+    $multipleHasLoading: boolean;
+    $multipleHasRemove: boolean;
+};
+export type $methodOptsMake = {
+    method: string;
+    endpoint: CallableFunction;
+    args: any[];
+    options: storeClientOpt;
+    path: string[];
+    is$once: boolean;
+    is$revisable: boolean;
+    is$multiple: boolean;
+    is$multipleArray: boolean;
+    is$multipleEntriesArray: boolean;
+    is$multipleObject: boolean;
+    $multipleGetKeyFn: undefined | FunctionType;
+    $multipleGetEntryFn: undefined | FunctionType;
+    $multipleHasLoading: boolean;
+    $multipleHasRemove: boolean;
+};
+export type $methodOpts<Lb extends boolean, Rb extends boolean> = {
+    method: string;
+    endpoint: CallableFunction;
+    args: any[];
+    options: storeClientOpt;
+    path: string[];
+    is$once: true;
+    is$revisable: false;
+    is$multiple: false;
+    is$multipleArray: false;
+    is$multipleEntriesArray: false;
+    is$multipleObject: false;
+    $multipleGetKeyFn: undefined;
+    $multipleGetEntryFn: undefined;
+    $multipleHasLoading: false;
+    $multipleHasRemove: false;
+} | {
+    method: string;
+    endpoint: CallableFunction;
+    args: any[];
+    options: storeClientOpt;
+    path: string[];
+    is$once: false;
+    is$revisable: true;
+    is$multiple: false;
+    is$multipleArray: false;
+    is$multipleEntriesArray: false;
+    is$multipleObject: false;
+    $multipleGetKeyFn: undefined;
+    $multipleGetEntryFn: undefined;
+    $multipleHasLoading: undefined;
+    $multipleHasRemove: undefined;
+} | {
+    method: string;
+    endpoint: CallableFunction;
+    args: any[];
+    options: storeClientOpt;
+    path: string[];
+    is$once: false;
+    is$revisable: false;
+    is$multiple: true;
+    is$multipleArray: true;
+    is$multipleEntriesArray: false;
+    is$multipleObject: false;
+    $multipleGetKeyFn: undefined;
+    $multipleGetEntryFn: undefined;
+    $multipleHasLoading: Lb;
+    $multipleHasRemove: Rb;
+} | {
+    method: string;
+    endpoint: CallableFunction;
+    args: any[];
+    options: storeClientOpt;
+    path: string[];
+    is$once: false;
+    is$revisable: false;
+    is$multiple: true;
+    is$multipleArray: false;
+    is$multipleEntriesArray: true;
+    is$multipleObject: false;
+    $multipleGetKeyFn: undefined;
+    $multipleGetEntryFn: FunctionType;
+    $multipleHasLoading: Lb;
+    $multipleHasRemove: Rb;
+} | {
+    method: string;
+    endpoint: CallableFunction;
+    args: any[];
+    options: storeClientOpt;
+    path: string[];
+    is$once: false;
+    is$revisable: false;
+    is$multiple: true;
+    is$multipleArray: false;
+    is$multipleEntriesArray: false;
+    is$multipleObject: true;
+    $multipleGetKeyFn: FunctionType;
+    $multipleGetEntryFn: undefined;
+    $multipleHasLoading: Lb;
+    $multipleHasRemove: Rb;
+};
+export type callEndpointOpts<Lb extends boolean, Rb extends boolean> = $methodOpts<Lb, Rb> & {
+    endpointArgs: any[];
+    store: $onceStore<any> | $revisableStore<any, any[]> | $multipleStore<any, any[]>;
+};
 export {};

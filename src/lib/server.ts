@@ -1,62 +1,23 @@
-// Reexport your entry components here
 import type { RequestEvent } from '@sveltejs/kit';
+import type { HTTPHeaders } from '@trpc/client';
+import type { TRPCOpts, TRPCContextFn, TRPCInner, TRPCErrorOpts } from './types';
 import { initTRPC, TRPCError, type AnyRouter } from '@trpc/server';
 import { resolveHTTPResponse } from '@trpc/server/http';
-import type { HTTPResponse } from '@trpc/server/dist/http/internals/types';
-import type { HTTPHeaders } from '@trpc/client';
 import { parse as parseURL } from 'url';
-
-type keyValueType = { [key: string]: any };
-type pipeType = false | keyValueType;
-
-type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
-type SyncReturnType<T extends Function> = T extends (...args: any) => infer R ? R : any;
-type createContextType<T> = (event?: RequestEvent, pipe?: pipeType) => Promise<T> | T;
-type RequireAllOrNone<ObjectType, KeysType extends keyof ObjectType = never> = (
-	| Required<Pick<ObjectType, KeysType>>
-	| Partial<Record<KeysType, never>>
-) &
-	Omit<ObjectType, KeysType>;
-
-type TRPCErrorOpts = ConstructorParameters<typeof TRPCError>[0];
-
-interface fetchOptions {
-	origin: string;
-	bypassOrigin: string;
-}
-
-interface TRPCBaseOptions_I<T> {
-	path: string;
-	context?: createContextType<T>;
-	beforeResolve?: (event: RequestEvent, pipe: pipeType) => any;
-	resolveError?: (event: RequestEvent, pipe: pipeType) => any;
-	beforeResponse?: (event: RequestEvent, pipe: pipeType, result: HTTPResponse) => any;
-	resolveOptions?: ArgumentTypes<typeof resolveHTTPResponse>[0];
-	createOptions?: ArgumentTypes<typeof initTRPC.create>[0];
-	locals?: 'always' | 'callable' | 'never';
-	localsKey?: string;
-}
-
-type TRPCOptions_I<T> = TRPCBaseOptions_I<T> &
-	RequireAllOrNone<fetchOptions, 'origin' | 'bypassOrigin'>;
-
-interface TRPCContextFn<T> {
-	context: createContextType<T>;
-}
 
 export class TRPC<T extends object> {
 	//OPTIONS
-	options: TRPCOptions_I<T> & TRPCContextFn<T>;
+	options: TRPCOpts<T> & TRPCContextFn<T>;
 	//OTHER
-	tRPCInner: SyncReturnType<SyncReturnType<typeof initTRPC.context<T>>['create']>;
+	tRPCInner: TRPCInner<T>;
 	_routes?: AnyRouter;
-	constructor(options: TRPCOptions_I<T>) {
+
+	constructor(options: TRPCOpts<T>) {
 		if (typeof window !== 'undefined') {
 			throw new Error('new TRPC() should only be used within the server environment.');
 		}
 		this.options = {
 			context: () => ({} as any),
-			locals: 'never',
 			localsKey: 'TRPC',
 			...options
 		};
@@ -97,7 +58,7 @@ export class TRPC<T extends object> {
 		this._routes = router;
 		const options = this.options;
 		return async function (event: RequestEvent): Promise<false | Response> {
-			const pipe: keyValueType = {};
+			const pipe: any = {};
 			const localsKey = options.localsKey;
 			const contextFnConsturctor = options.context.constructor.name;
 
@@ -105,6 +66,9 @@ export class TRPC<T extends object> {
 			const pathName = URL.pathname;
 
 			if (!pathName.startsWith(options.path)) {
+				if (!!options?.locals) {
+					return false;
+				}
 				if (options.locals === 'always') {
 					if (contextFnConsturctor === 'AsyncFunction') {
 						//@ts-ignore
@@ -197,8 +161,6 @@ No origin or bypass origin has been set, are you sure you need to handle fetch?`
 		};
 	}
 }
-
-type functionType = (...args: any) => any;
 
 export const asyncServerClientCreate = function <R extends AnyRouter>(
 	t: TRPC<any>

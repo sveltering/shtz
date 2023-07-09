@@ -2,6 +2,7 @@ import type { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
 import type { LoadEvent } from '@sveltejs/kit';
 import type { EndpointsToStore } from './storeClientCreate.types';
+import type { TRPCClientError } from '@trpc/client';
 export type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T extends (...args: any) => Promise<infer R> ? R : any;
 type RouterReturnType<T extends AnyRouter> = ReturnType<typeof createTRPCProxyClient<T>>;
@@ -11,15 +12,15 @@ type RecursiveReplaceFunctionReturnsOrUndefined<Obj extends object> = {
         [Key2: string]: any;
     } ? RecursiveReplaceFunctionReturnsOrUndefined<Obj[Key]> : Obj[Key];
 };
-export interface browserClientOpt {
+export type browserClientOpt = {
     url: string;
     browserOnly?: boolean;
     transformer?: ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
     batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
-}
-export interface browserClientOptF extends browserClientOpt {
+};
+export type browserClientOptF = browserClientOpt & {
     browserOnly: false;
-}
+};
 export type browserOCC<T extends AnyRouter> = RecursiveReplaceFunctionReturnsOrUndefined<RouterReturnType<T>>;
 export type browserFCC<T extends AnyRouter> = RouterReturnType<T>;
 export interface loadClientOpt extends Omit<browserClientOpt, 'browserOnly'> {
@@ -27,8 +28,8 @@ export interface loadClientOpt extends Omit<browserClientOpt, 'browserOnly'> {
 }
 export type loadCC<T extends AnyRouter> = (event: LoadEvent) => RouterReturnType<T>;
 export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
-    interceptResponse?: (response: any, path: string) => Promise<{}> | {};
-    interceptError?: (message: any, path: string) => Promise<{}> | {};
+    interceptData?: (data: any, path: string) => Promise<{}> | {};
+    interceptError?: (error: TRPCClientError<any>, path: string) => Promise<{}> | {};
 };
 export type storeCC<T extends AnyRouter> = EndpointsToStore<RouterReturnType<T>>;
 export {};

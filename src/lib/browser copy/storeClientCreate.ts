@@ -1,5 +1,5 @@
 import type { AnyRouter } from '@trpc/server';
-import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
+import { createTRPCProxyClient, httpBatchLink, type TRPCClientError } from '@trpc/client';
 import { get, writable, type Writable } from 'svelte/store';
 
 import type { storeClientOpt, storeCC } from './types';
@@ -118,7 +118,7 @@ function pseudoOuterProxy(path: string[] = []): any {
 				loading: true,
 				success: false,
 				error: false,
-				response: undefined,
+				data: undefined,
 				call: () => undefined
 			});
 		}
@@ -170,7 +170,7 @@ function callEndpoint(opts: callEndpointOpts) {
 	if (is$revisable) {
 		let storeInner = get(store as any) as any;
 		storeInner = {
-			response: undefined,
+			data: undefined,
 			loading: true,
 			error: false,
 			success: false,
@@ -195,7 +195,7 @@ function callEndpoint(opts: callEndpointOpts) {
 			track$multiple.index = storeInner.responses.length;
 		}
 		const loadingResponse = {
-			response: undefined,
+			data: undefined,
 			loading: true,
 			error: false,
 			success: false,
@@ -216,18 +216,18 @@ function callEndpoint(opts: callEndpointOpts) {
 		store.set(storeInner);
 	}
 	endpoint(...endpointArgs)
-		.then(async (response: any) => {
-			if (options?.interceptResponse) {
-				response = await options.interceptResponse(response, [...path].slice(0, -1).join('.'));
+		.then(async (data: any) => {
+			if (options?.interceptData) {
+				data = await options.interceptData(data, [...path].slice(0, -1).join('.'));
 			}
 
 			let successResponse: any = {};
 
 			if (is$once) {
-				successResponse = { loading: false, response, error: false, success: true };
+				successResponse = { loading: false, data, error: false, success: true };
 			} //
 			else if (is$revisable) {
-				successResponse = { loading: false, response, error: false, success: true };
+				successResponse = { loading: false, data, error: false, success: true };
 				successResponse.call = (get(store as Writable<any>) as any).call;
 			} //
 			else if (is$multiple) {
@@ -235,7 +235,7 @@ function callEndpoint(opts: callEndpointOpts) {
 
 				const individualSuccessResponse = {
 					loading: false,
-					response,
+					data,
 					error: false,
 					success: true,
 					...$multipleRemoveFn,
@@ -282,18 +282,18 @@ function callEndpoint(opts: callEndpointOpts) {
 			}
 			store.set(successResponse as any);
 		})
-		.catch(async (error: any) => {
+		.catch(async (error: TRPCClientError<any>) => {
 			if (options?.interceptError) {
-				error = await options.interceptError(error, [...path].slice(0, -1).join('.'));
+				error = (await options.interceptError(error, [...path].slice(0, -1).join('.'))) as any;
 			}
 
 			let errorResponse: any = {};
 
 			if (is$once) {
-				errorResponse = { loading: false, response: undefined, error, success: true };
+				errorResponse = { loading: false, data: undefined, error, success: false };
 			} //
 			else if (is$revisable) {
-				errorResponse = { loading: false, response: undefined, error, success: true };
+				errorResponse = { loading: false, data: undefined, error, success: false };
 				errorResponse.call = (get(store as Writable<any>) as any).call;
 			} //
 			else if (is$multiple) {
@@ -301,9 +301,9 @@ function callEndpoint(opts: callEndpointOpts) {
 
 				const individualErrorResponse = {
 					loading: false,
-					response: undefined,
+					data: undefined,
 					error,
-					success: true,
+					success: false,
 					...$multipleRemoveFn,
 					track$multiple
 				};
@@ -387,7 +387,7 @@ function removeResponse(
 const storeClientMethods = {
 	$once: function (opts: $methodOpts) {
 		let store: $onceStore<unknown> = writable({
-			response: undefined,
+			data: undefined,
 			loading: true,
 			error: false,
 			success: false
@@ -397,8 +397,8 @@ const storeClientMethods = {
 	},
 	$revisable: function (opts: $methodOpts) {
 		let store: $revisableStore<unknown, unknown[]> = writable({
-			response: undefined,
-			loading: true,
+			data: undefined,
+			loading: false,
 			error: false,
 			success: false,
 			call: (...endpointArgs: any[]) => {
@@ -410,7 +410,7 @@ const storeClientMethods = {
 	$multiple: function (opts: $methodOpts) {
 		const { $multipleHasLoading, is$multipleObject } = opts;
 		let store: $multipleStore<any, any[], any> = writable({
-			...($multipleHasLoading ? { loading: true } : {}),
+			...($multipleHasLoading ? { loading: false } : {}),
 			responses: is$multipleObject ? {} : [],
 			call: (...endpointArgs: any[]) => {
 				callEndpoint({ ...opts, endpointArgs, store });

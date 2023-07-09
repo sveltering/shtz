@@ -1,17 +1,17 @@
 import type { Writable } from 'svelte/store';
 
-import type { Resolver } from '@trpc/client';
+import type { Resolver, TRPCClientError } from '@trpc/client';
 import type { BuildProcedure } from '@trpc/server/src/core/internals/procedureBuilder';
 import type { OverwriteKnown } from '@trpc/server/src/core/internals/utils';
 
 type ExtractResolver<Type> = Type extends Resolver<infer X> ? X : never;
 type ExtractBuild<Type> = Type extends BuildProcedure<'query', infer X, unknown> ? X : never;
-type ExtractoverWrite<Type> = Type extends OverwriteKnown<infer X, unknown> ? X : never;
+type ExtractOverwrite<Type> = Type extends OverwriteKnown<infer X, unknown> ? X : never;
 
 type ProcedureHasInput<T> = T extends Symbol ? never : T;
 
 type ProcedureInput<Obj extends object> = ProcedureHasInput<
-	ExtractoverWrite<ExtractBuild<ExtractResolver<Obj>>>['_input_in']
+	ExtractOverwrite<ExtractBuild<ExtractResolver<Obj>>>['_input_in']
 >;
 
 type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] } : Obj;
@@ -29,21 +29,21 @@ type $onceStoreInner<V> =
 			loading: true;
 			success: false;
 			error: false;
-			response: undefined;
+			data: undefined;
 	  }
 	| {
 			//Load Successfull
 			loading: false;
 			success: true;
 			error: false;
-			response: V;
+			data: V;
 	  }
 	| {
 			//Loading Error
 			loading: false;
 			success: false;
-			error: unknown;
-			response: undefined;
+			error: TRPCClientError<any>;
+			data: undefined;
 	  };
 
 type $multipleStoreInner<V, Rb extends boolean> = Prettify<
@@ -58,21 +58,21 @@ export type $onceStore<V> = Writable<$onceStoreInner<V>>;
 
 export type $revisableStore<V, A extends any[]> = Writable<{
 	//Loading
-	loading: true;
+	loading: boolean;
 	success: false;
 	error: false;
-	response: undefined;
+	data: undefined;
 	call: (...args: A) => undefined;
 }>;
 
 export type $multipleStore<V, A extends any[], K> = K extends string
 	? Writable<{
-			loading?: true;
+			loading?: boolean;
 			responses: { [key: string]: $onceStoreInner<V> };
 			call: (...args: A) => undefined;
 	  }>
 	: Writable<{
-			loading?: true;
+			loading?: boolean;
 			responses: $onceStoreInner<V>[];
 			call: (...args: A) => undefined;
 	  }>;

@@ -25,13 +25,11 @@ Multiple store<br />
 	All Names Loading...<br />
 {/if}
 {#each $welcomeMessage.responses as [key, response]}
-	{#if response !== null}
-		{#if response.loading}
-			Loading Name ({key}) ...
-		{:else if response.success}
-			{response.response}
-			<button on:click={response.remove}>Remove</button>
-		{/if}
-		<br />
+	{#if response.loading}
+		Loading Name ({key}) ...
+	{:else if response.success}
+		{response.data}
+		<button on:click={response.remove}>Remove</button>
 	{/if}
+	<br />
 {/each}
