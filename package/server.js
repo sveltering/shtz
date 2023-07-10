@@ -51,7 +51,10 @@ export class TRPC {
             const contextFnConsturctor = options.context.constructor.name;
             const URL = event.url;
             const pathName = URL.pathname;
-            if (!!options?.locals && !pathName.startsWith(options.path)) {
+            if (!pathName.startsWith(options.path)) {
+                if (!!options?.locals) {
+                    return false;
+                }
                 if (options.locals === 'always') {
                     if (contextFnConsturctor === 'AsyncFunction') {
                         //@ts-ignore

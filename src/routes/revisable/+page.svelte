@@ -14,5 +14,5 @@ Many store
 {#if $welcomeMessage?.loading}
 	Loading...
 {:else if $welcomeMessage.success}
-	{$welcomeMessage.response}
+	{$welcomeMessage.data}
 {/if}

@@ -8,8 +8,7 @@ import type {
 	$revisableStore,
 	$multipleStore,
 	$methodOpts,
-	callEndpointOpts,
-	track$multipleOpts
+	callEndpointOpts
 } from './storeClientCreate.types';
 import type { FunctionType } from './types';
 
@@ -58,9 +57,7 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 				$multipleGetKeyFn = undefined,
 				$multipleGetEntryFn = undefined,
 				$multipleHasLoading = false,
-				$multipleHasRemove = false,
-				$multipleHasAbort = false,
-				$multipleHasAbortOnRemove = false;
+				$multipleHasRemove = false;
 
 			if (is$multiple) {
 				is$multipleObject = hasArguments && !!args[0]?.hasOwnProperty?.('key');
@@ -73,11 +70,9 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 
 				$multipleHasLoading = hasArguments && args?.[0]?.loading === true;
 				$multipleHasRemove = hasArguments && args?.[0]?.remove === true;
-				$multipleHasAbort = hasArguments && args?.[0]?.abort === true;
-				$multipleHasAbortOnRemove = hasArguments && args?.[0]?.abortOnRemove === true;
 			}
 
-			const methodOpts: $methodOpts = {
+			const returnObj: $methodOpts = {
 				method,
 				endpoint,
 				args,
@@ -92,12 +87,10 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 				$multipleGetKeyFn,
 				$multipleGetEntryFn,
 				$multipleHasLoading,
-				$multipleHasRemove,
-				$multipleHasAbort,
-				$multipleHasAbortOnRemove
+				$multipleHasRemove
 			};
 
-			return storeClientMethods[method as keyof typeof storeClientMethods](methodOpts as any);
+			return storeClientMethods[method as keyof typeof storeClientMethods](returnObj as any);
 		}
 	});
 
@@ -152,20 +145,15 @@ function callEndpoint(opts: callEndpointOpts) {
 		$multipleGetEntryFn,
 		$multipleHasLoading,
 		$multipleHasRemove,
-		$multipleHasAbort,
-		$multipleHasAbortOnRemove,
 		endpointArgs,
 		store
 	} = opts;
 
-	let track$multiple: track$multipleOpts = {} as any;
+	let track$multiple: { index: string | number } = {} as any;
 	let $multipleRemoveFn: { remove: FunctionType } | {} = {};
-	let $multipleAbortFn: { abort: FunctionType } | {} = {};
-	let $multipleAborted: { aborted: boolean } | {} = {};
-
-	let storeInner = get(store as any) as any;
 
 	if (is$revisable) {
+		let storeInner = get(store as any) as any;
 		storeInner = {
 			data: undefined,
 			loading: true,
@@ -173,244 +161,217 @@ function callEndpoint(opts: callEndpointOpts) {
 			success: false,
 			call: storeInner.call
 		};
+		store.set(storeInner);
 	} //
 	else if (is$multiple) {
+		let storeInner = get(store as any) as any;
+
 		if ($multipleHasLoading) {
 			storeInner.loading = true;
 		}
 		if ($multipleHasRemove) {
-			$multipleRemoveFn = { remove: removeResponse(store, track$multiple, opts) };
+			$multipleRemoveFn = { remove: removeResponse(store, track$multiple, is$multipleObject) };
 		}
-		if ($multipleHasAbort || $multipleHasAbortOnRemove) {
-			track$multiple.abortController = new AbortController();
-			endpointArgs[0] = endpointArgs?.[0];
-			endpointArgs[1] = endpointArgs.hasOwnProperty(1) ? endpointArgs[1] : {};
-			endpointArgs[1].signal = track$multiple.abortController.signal;
-			$multipleAborted = {
-				aborted: false
-			};
-			if ($multipleHasAbort) {
-				$multipleAbortFn = {
-					abort: abortResponse(store, track$multiple, opts, false)
-				};
-			}
-		}
+
 		if (is$multipleObject) {
-			track$multiple.index = ($multipleGetKeyFn as FunctionType)(endpointArgs?.[0]);
+			track$multiple.index = ($multipleGetKeyFn as FunctionType)(endpointArgs[0]);
 		} //
 		else {
 			track$multiple.index = storeInner.responses.length;
 		}
-		const loadingResponse: any = {
+		const loadingResponse = {
 			data: undefined,
 			loading: true,
 			error: false,
 			success: false,
 			...$multipleRemoveFn,
-			...$multipleAbortFn,
-			...$multipleAborted
+			track$multiple
 		};
 		if (is$multipleEntriesArray) {
-			const entry = ($multipleGetEntryFn as FunctionType)(endpointArgs?.[0]);
+			const entry = ($multipleGetEntryFn as FunctionType)(endpointArgs[0]);
 			storeInner.responses.push([entry, loadingResponse]);
-			loadingResponse.track$multiple = track$multiple;
 		} //
 		else if (is$multipleArray) {
 			storeInner.responses.push(loadingResponse);
-			loadingResponse.track$multiple = track$multiple;
 		} //
 		else if (is$multipleObject) {
 			storeInner.responses[track$multiple.index] = loadingResponse;
 		}
+
+		store.set(storeInner);
 	}
-
-	store.set(storeInner);
-
 	endpoint(...endpointArgs)
 		.then(async (data: any) => {
 			if (options?.interceptData) {
 				data = await options.interceptData(data, [...path].slice(0, -1).join('.'));
 			}
 
-			let storeInner: any = {};
+			let successResponse: any = {};
 
 			if (is$once) {
-				storeInner = { loading: false, data, error: false, success: true };
+				successResponse = { loading: false, data, error: false, success: true };
 			} //
 			else if (is$revisable) {
-				storeInner = { loading: false, data, error: false, success: true };
-				storeInner.call = (get(store as Writable<any>) as any).call;
+				successResponse = { loading: false, data, error: false, success: true };
+				successResponse.call = (get(store as Writable<any>) as any).call;
 			} //
 			else if (is$multiple) {
-				storeInner = get(store as Writable<any>) as any;
+				successResponse = get(store as Writable<any>) as any;
 
-				const successResponse = {
+				const individualSuccessResponse = {
 					loading: false,
 					data,
 					error: false,
 					success: true,
 					...$multipleRemoveFn,
-					...$multipleAborted
+					track$multiple
 				};
 
 				if (
 					is$multipleEntriesArray &&
-					storeInner.responses?.[track$multiple.index]?.hasOwnProperty?.(1)
+					successResponse.responses?.[track$multiple.index]?.hasOwnProperty?.(1)
 				) {
-					storeInner.responses[track$multiple.index][1] = successResponse;
+					successResponse.responses[track$multiple.index][1] = individualSuccessResponse;
 				} //
-				else if (storeInner.responses?.hasOwnProperty?.(track$multiple.index)) {
-					storeInner.responses[track$multiple.index] = successResponse;
+				else if (successResponse.responses?.hasOwnProperty?.(track$multiple.index)) {
+					successResponse.responses[track$multiple.index] = individualSuccessResponse;
+				}
+
+				if ($multipleHasLoading) {
+					let allResponses = successResponse.responses;
+					let loading = false;
+
+					if (is$multipleArray) {
+						for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+							if (allResponses[i].loading) {
+								loading = true;
+								break;
+							}
+						}
+					} //
+					else if (is$multipleEntriesArray) {
+						for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+							if (allResponses[i][1].loading) {
+								loading = true;
+								break;
+							}
+						}
+					} //
+					else {
+						for (let key in allResponses) {
+							if (allResponses[key].loading) {
+								loading = true;
+								break;
+							}
+						}
+					}
+					successResponse.loading = loading;
 				}
 			}
-			store.set(storeInner as any);
-			checkForLoading(store, opts);
+			store.set(successResponse as any);
 		})
 		.catch(async (error: TRPCClientError<any>) => {
 			if (options?.interceptError) {
 				error = (await options.interceptError(error, [...path].slice(0, -1).join('.'))) as any;
 			}
 
-			let storeInner: any = {};
+			let errorResponse: any = {};
 
 			if (is$once) {
-				storeInner = { loading: false, data: undefined, error, success: false };
+				errorResponse = { loading: false, data: undefined, error, success: false };
 			} //
 			else if (is$revisable) {
-				storeInner = { loading: false, data: undefined, error, success: false };
-				storeInner.call = (get(store as Writable<any>) as any).call;
+				errorResponse = { loading: false, data: undefined, error, success: false };
+				errorResponse.call = (get(store as Writable<any>) as any).call;
 			} //
 			else if (is$multiple) {
-				storeInner = get(store as Writable<any>) as any;
+				errorResponse = get(store as Writable<any>) as any;
 
-				const errorResponse = {
+				const individualErrorResponse = {
 					loading: false,
 					data: undefined,
 					error,
 					success: false,
 					...$multipleRemoveFn,
-					...$multipleAborted
+					track$multiple
 				};
 
 				if (
 					is$multipleEntriesArray &&
-					storeInner.responses?.[track$multiple.index]?.hasOwnProperty?.(1)
+					errorResponse.responses?.[track$multiple.index]?.hasOwnProperty?.(1)
 				) {
-					storeInner.responses[track$multiple.index][1] = errorResponse;
+					errorResponse.responses[track$multiple.index][1] = individualErrorResponse;
 				} //
-				else if (storeInner.responses?.hasOwnProperty?.(track$multiple.index)) {
-					storeInner.responses[track$multiple.index] = errorResponse;
+				else if (errorResponse.responses?.hasOwnProperty?.(track$multiple.index)) {
+					errorResponse.responses[track$multiple.index] = individualErrorResponse;
+				}
+
+				if ($multipleHasLoading) {
+					let allResponses = errorResponse.responses;
+					let loading = false;
+
+					if (is$multipleArray) {
+						for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+							if (allResponses[i].loading) {
+								loading = true;
+								break;
+							}
+						}
+					} //
+					else if (is$multipleEntriesArray) {
+						for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+							if (allResponses[i][1].loading) {
+								loading = true;
+								break;
+							}
+						}
+					} //
+					else {
+						for (let key in allResponses) {
+							if (allResponses[key].loading) {
+								loading = true;
+								break;
+							}
+						}
+					}
+					errorResponse.loading = loading;
 				}
 			}
-			store.set(storeInner as any);
-			checkForLoading(store, opts);
+			store.set(errorResponse as any);
 		});
 }
 
-function checkForLoading(store: Writable<any>, opts: callEndpointOpts) {
-	const { $multipleHasLoading } = opts;
-	if ($multipleHasLoading) {
-		const { is$multipleArray, is$multipleEntriesArray } = opts;
-		const storeInner = get(store) as any;
-		let allResponses = storeInner.responses;
-		let loading = false;
-
-		if (is$multipleArray) {
-			for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-				if (allResponses[i].loading) {
-					loading = true;
-					break;
-				}
-			}
-		} //
-		else if (is$multipleEntriesArray) {
-			for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-				if (allResponses[i][1].loading) {
-					loading = true;
-					break;
-				}
-			}
-		} //
-		else {
-			for (let key in allResponses) {
-				if (allResponses[key].loading) {
-					loading = true;
-					break;
-				}
-			}
-		}
-		storeInner.loading = loading;
-		store.set(storeInner);
-	}
-}
-
-function abortResponse(
-	store: Writable<any>,
-	track$multiple: track$multipleOpts,
-	opts: callEndpointOpts,
-	fromRemove: boolean
-) {
-	return function () {
-		track$multiple?.abortController?.abort?.();
-		if (!fromRemove && opts?.$multipleHasAbort === true) {
-			const { is$multipleEntriesArray } = opts;
-			let storeInner = get(store) as any;
-
-			if (
-				is$multipleEntriesArray &&
-				storeInner.responses?.[track$multiple.index]?.hasOwnProperty?.(1)
-			) {
-				storeInner.responses[track$multiple.index][1].aborted = true;
-				storeInner.responses[track$multiple.index][1].loading = false;
-			} //
-			else if (storeInner.responses?.hasOwnProperty?.(track$multiple.index)) {
-				storeInner.responses[track$multiple.index].aborted = true;
-				storeInner.responses[track$multiple.index].loading = false;
-			}
-
-			store.set(storeInner);
-		}
-		checkForLoading(store, opts);
-	};
-}
 function removeResponse(
-	store: Writable<any>,
-	track$multiple: track$multipleOpts,
-	opts: callEndpointOpts
+	from: Writable<any>,
+	track$multiple: { index: number | string },
+	isObject: boolean
 ) {
 	return function () {
-		const { is$multipleObject, is$multipleEntriesArray, $multipleHasAbortOnRemove } = opts;
-
-		let storeInner = get(store) as any;
-
+		let storeInner = get(from) as any;
 		const index = track$multiple.index;
 
-		if (storeInner.responses.hasOwnProperty(index)) {
-			if (is$multipleObject) {
-				delete storeInner.responses[index];
+		if (isObject && storeInner.responses.hasOwnProperty(index)) {
+			delete storeInner.responses[index];
+		} //
+		else if (!!storeInner.responses.hasOwnProperty(index)) {
+			let allResponses = storeInner.responses;
+			const isEntry = Array.isArray(allResponses.splice(index, 1));
+			if (isEntry) {
+				for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+					const response = allResponses[i][1];
+					response.track$multiple.index = i;
+					response.remove = removeResponse(from, response.track$multiple, isObject);
+				}
 			} //
 			else {
-				const allResponses = storeInner.responses;
-				allResponses.splice(index, 1);
-				if (is$multipleEntriesArray) {
-					for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-						const response = allResponses[i][1];
-						response.track$multiple.index = i;
-					}
-				} //
-				else {
-					for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-						const response = allResponses[i];
-						response.track$multiple.index = i;
-					}
+				for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+					const response = allResponses[i];
+					response.track$multiple.index = i;
+					response.remove = removeResponse(from, response.track$multiple, isObject);
 				}
 			}
-			store.set(storeInner);
-
-			if ($multipleHasAbortOnRemove) {
-				abortResponse(store, track$multiple, opts, true);
-			}
 		}
+		from.set(storeInner);
 	};
 }
 
@@ -439,7 +400,7 @@ const storeClientMethods = {
 	},
 	$multiple: function <Lb extends boolean, Rb extends boolean>(opts: callEndpointOpts) {
 		const { $multipleHasLoading, is$multipleObject } = opts;
-		let store: $multipleStore<any, any[], boolean, boolean, boolean> = writable({
+		let store: $multipleStore<any, any[], boolean, boolean> = writable({
 			...($multipleHasLoading ? { loading: false } : {}),
 			responses: is$multipleObject ? {} : [],
 			call: (...endpointArgs: any[]) => {

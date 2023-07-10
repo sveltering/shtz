@@ -4,11 +4,13 @@ import { get, writable, type Writable } from 'svelte/store';
 
 import type { storeClientOpt, storeCC } from './types';
 import type {
-	FunctionType,
 	$onceStore,
 	$revisableStore,
-	$multipleStore
+	$multipleStore,
+	$methodOpts,
+	callEndpointOpts
 } from './storeClientCreate.types';
+import type { FunctionType } from './types';
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;
@@ -36,7 +38,7 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 			return outerProxy(callback, [...path, key], options);
 		},
 		apply(_1, _2, args) {
-			let endpoint = callback;
+			let endpoint: CallableFunction = callback;
 			let method: string = '';
 			for (let i = 0, iLen = path.length; i < iLen - 1; i++) {
 				endpoint = endpoint[path[i] as keyof typeof endpoint];
@@ -69,7 +71,8 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 				$multipleHasLoading = hasArguments && args?.[0]?.loading === true;
 				$multipleHasRemove = hasArguments && args?.[0]?.remove === true;
 			}
-			return storeClientMethods[method as keyof typeof storeClientMethods]({
+
+			const returnObj: $methodOpts = {
 				method,
 				endpoint,
 				args,
@@ -85,7 +88,9 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt) {
 				$multipleGetEntryFn,
 				$multipleHasLoading,
 				$multipleHasRemove
-			} satisfies $methodOpts);
+			};
+
+			return storeClientMethods[method as keyof typeof storeClientMethods](returnObj as any);
 		}
 	});
 
@@ -125,27 +130,6 @@ function pseudoOuterProxy(path: string[] = []): any {
 	});
 }
 
-type $methodOpts = {
-	method: string;
-	endpoint: CallableFunction;
-	args: any[];
-	options: storeClientOpt;
-	path: string[];
-	is$once: boolean;
-	is$revisable: boolean;
-	is$multiple: boolean;
-	is$multipleArray: boolean;
-	is$multipleEntriesArray: boolean;
-	is$multipleObject: boolean;
-	$multipleGetKeyFn: FunctionType | undefined;
-	$multipleGetEntryFn: FunctionType | undefined;
-	$multipleHasLoading: boolean;
-	$multipleHasRemove: boolean;
-};
-type callEndpointOpts = $methodOpts & {
-	endpointArgs: any[];
-	store: $onceStore<any> | $revisableStore<any, any[]> | $multipleStore<any, any[], any>;
-};
 function callEndpoint(opts: callEndpointOpts) {
 	const {
 		endpoint,
@@ -167,6 +151,7 @@ function callEndpoint(opts: callEndpointOpts) {
 
 	let track$multiple: { index: string | number } = {} as any;
 	let $multipleRemoveFn: { remove: FunctionType } | {} = {};
+
 	if (is$revisable) {
 		let storeInner = get(store as any) as any;
 		storeInner = {
@@ -242,10 +227,13 @@ function callEndpoint(opts: callEndpointOpts) {
 					track$multiple
 				};
 
-				if (is$multipleEntriesArray) {
+				if (
+					is$multipleEntriesArray &&
+					successResponse.responses?.[track$multiple.index]?.hasOwnProperty?.(1)
+				) {
 					successResponse.responses[track$multiple.index][1] = individualSuccessResponse;
 				} //
-				else {
+				else if (successResponse.responses?.hasOwnProperty?.(track$multiple.index)) {
 					successResponse.responses[track$multiple.index] = individualSuccessResponse;
 				}
 
@@ -308,10 +296,13 @@ function callEndpoint(opts: callEndpointOpts) {
 					track$multiple
 				};
 
-				if (is$multipleEntriesArray) {
+				if (
+					is$multipleEntriesArray &&
+					errorResponse.responses?.[track$multiple.index]?.hasOwnProperty?.(1)
+				) {
 					errorResponse.responses[track$multiple.index][1] = individualErrorResponse;
 				} //
-				else {
+				else if (errorResponse.responses?.hasOwnProperty?.(track$multiple.index)) {
 					errorResponse.responses[track$multiple.index] = individualErrorResponse;
 				}
 
@@ -362,7 +353,7 @@ function removeResponse(
 		if (isObject && storeInner.responses.hasOwnProperty(index)) {
 			delete storeInner.responses[index];
 		} //
-		else if (!!storeInner.responses?.[index]) {
+		else if (!!storeInner.responses.hasOwnProperty(index)) {
 			let allResponses = storeInner.responses;
 			const isEntry = Array.isArray(allResponses.splice(index, 1));
 			if (isEntry) {
@@ -385,8 +376,8 @@ function removeResponse(
 }
 
 const storeClientMethods = {
-	$once: function (opts: $methodOpts) {
-		let store: $onceStore<unknown> = writable({
+	$once: function (opts: callEndpointOpts) {
+		let store: $onceStore<any> = writable({
 			data: undefined,
 			loading: true,
 			error: false,
@@ -395,8 +386,8 @@ const storeClientMethods = {
 		callEndpoint({ ...opts, endpointArgs: opts?.args, store });
 		return store;
 	},
-	$revisable: function (opts: $methodOpts) {
-		let store: $revisableStore<unknown, unknown[]> = writable({
+	$revisable: function (opts: callEndpointOpts) {
+		let store: $revisableStore<any, any[]> = writable({
 			data: undefined,
 			loading: false,
 			error: false,
@@ -407,9 +398,9 @@ const storeClientMethods = {
 		});
 		return store;
 	},
-	$multiple: function (opts: $methodOpts) {
+	$multiple: function <Lb extends boolean, Rb extends boolean>(opts: callEndpointOpts) {
 		const { $multipleHasLoading, is$multipleObject } = opts;
-		let store: $multipleStore<any, any[], any> = writable({
+		let store: $multipleStore<any, any[], boolean, boolean> = writable({
 			...($multipleHasLoading ? { loading: false } : {}),
 			responses: is$multipleObject ? {} : [],
 			call: (...endpointArgs: any[]) => {

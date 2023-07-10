@@ -36,14 +36,26 @@ export default t.router({
 		hi: t.procedure.subscription(async function ({ ctx }) {
 			return 100;
 		})
+	}),
+	addToList: t.procedure.input(z.object({ item: z.string() })).mutation(async function ({ input }) {
+		await sleep(1, 3);
+		if (input === 'This should error') {
+			throw t.error(`Error adding item "${input}" to list.`);
+		}
+		return {
+			id: uuid().split('-').pop(),
+			item: input,
+			date: new Date().toLocaleString('en-GB')
+		};
 	})
 });
 
-function sleep(ms: number) {
+function sleep(sMin: number, sMax?: number, inS: boolean = true) {
+	const s = (sMax !== undefined && sMax > sMin ? randInt(sMax, sMin) : sMin) * (inS ? 1 : 1000);
 	return new Promise((resolve) => {
-		setTimeout(resolve, ms);
+		setTimeout(resolve, s);
 	});
 }
-function randomInteger(min: number, max: number) {
+function randInt(min: number, max: number) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
 }

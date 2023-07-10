@@ -41,7 +41,7 @@ function outerProxy(callback, path, options) {
                 $multipleHasLoading = hasArguments && args?.[0]?.loading === true;
                 $multipleHasRemove = hasArguments && args?.[0]?.remove === true;
             }
-            return storeClientMethods[method]({
+            const returnObj = {
                 method,
                 endpoint,
                 args,
@@ -57,7 +57,8 @@ function outerProxy(callback, path, options) {
                 $multipleGetEntryFn,
                 $multipleHasLoading,
                 $multipleHasRemove
-            });
+            };
+            return storeClientMethods[method](returnObj);
         }
     });
     return proxy;
@@ -166,10 +167,11 @@ function callEndpoint(opts) {
                 ...$multipleRemoveFn,
                 track$multiple
             };
-            if (is$multipleEntriesArray) {
+            if (is$multipleEntriesArray &&
+                successResponse.responses?.[track$multiple.index]?.hasOwnProperty?.(1)) {
                 successResponse.responses[track$multiple.index][1] = individualSuccessResponse;
             } //
-            else {
+            else if (successResponse.responses?.hasOwnProperty?.(track$multiple.index)) {
                 successResponse.responses[track$multiple.index] = individualSuccessResponse;
             }
             if ($multipleHasLoading) {
@@ -226,10 +228,11 @@ function callEndpoint(opts) {
                 ...$multipleRemoveFn,
                 track$multiple
             };
-            if (is$multipleEntriesArray) {
+            if (is$multipleEntriesArray &&
+                errorResponse.responses?.[track$multiple.index]?.hasOwnProperty?.(1)) {
                 errorResponse.responses[track$multiple.index][1] = individualErrorResponse;
             } //
-            else {
+            else if (errorResponse.responses?.hasOwnProperty?.(track$multiple.index)) {
                 errorResponse.responses[track$multiple.index] = individualErrorResponse;
             }
             if ($multipleHasLoading) {
@@ -272,7 +275,7 @@ function removeResponse(from, track$multiple, isObject) {
         if (isObject && storeInner.responses.hasOwnProperty(index)) {
             delete storeInner.responses[index];
         } //
-        else if (!!storeInner.responses?.[index]) {
+        else if (!!storeInner.responses.hasOwnProperty(index)) {
             let allResponses = storeInner.responses;
             const isEntry = Array.isArray(allResponses.splice(index, 1));
             if (isEntry) {

@@ -4,24 +4,23 @@ import type { Resolver, TRPCClientError } from '@trpc/client';
 import type { BuildProcedure } from '@trpc/server/src/core/internals/procedureBuilder';
 import type { OverwriteKnown } from '@trpc/server/src/core/internals/utils';
 
+import type {
+	storeClientOpt,
+	ArgumentTypes,
+	FunctionType,
+	Prettify,
+	AsyncReturnType
+} from './types';
+
 type ExtractResolver<Type> = Type extends Resolver<infer X> ? X : never;
-type ExtractBuild<Type> = Type extends BuildProcedure<'query', infer X, unknown> ? X : never;
+type ExtractBuild<Type> = Type extends BuildProcedure<'query' | 'mutation', infer X, unknown>
+	? X
+	: never;
 type ExtractOverwrite<Type> = Type extends OverwriteKnown<infer X, unknown> ? X : never;
-
 type ProcedureHasInput<T> = T extends Symbol ? never : T;
-
 type ProcedureInput<Obj extends object> = ProcedureHasInput<
 	ExtractOverwrite<ExtractBuild<ExtractResolver<Obj>>>['_input_in']
 >;
-
-type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] } : Obj;
-export type FunctionType = (...args: any) => any;
-type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
-type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (
-	...args: any
-) => Promise<infer R>
-	? R
-	: any;
 
 type $onceStoreInner<V> =
 	| {
@@ -46,36 +45,32 @@ type $onceStoreInner<V> =
 			data: undefined;
 	  };
 
-type $multipleStoreInner<V, Rb extends boolean> = Prettify<
-	Rb extends true
-		? $onceStoreInner<V> & {
-				remove: () => void;
-		  }
-		: $onceStoreInner<V>
->;
-
-export type $onceStore<V> = Writable<$onceStoreInner<V>>;
-
-export type $revisableStore<V, A extends any[]> = Writable<{
-	//Loading
-	loading: boolean;
+type staleInner = {
+	loading: false;
 	success: false;
 	error: false;
 	data: undefined;
-	call: (...args: A) => undefined;
-}>;
+};
 
-export type $multipleStore<V, A extends any[], K> = K extends string
-	? Writable<{
-			loading?: boolean;
-			responses: { [key: string]: $onceStoreInner<V> };
-			call: (...args: A) => undefined;
-	  }>
-	: Writable<{
-			loading?: boolean;
-			responses: $onceStoreInner<V>[];
-			call: (...args: A) => undefined;
-	  }>;
+type $revisableStoreInner<V, A extends any[]> = ($onceStoreInner<V> | staleInner) & {
+	call: (...args: A) => undefined;
+};
+
+type $multipleStoreInner<V, Rb extends boolean> = ($onceStoreInner<V> | staleInner) &
+	(Rb extends true
+		? {
+				remove: () => void;
+		  }
+		: {});
+
+export type $onceStore<V> = Writable<$onceStoreInner<V>>;
+
+export type $revisableStore<V, A extends any[]> = Writable<$revisableStoreInner<V, A>>;
+
+export type $multipleStore<V, A extends any[], Lb extends boolean, Rb extends boolean> =
+	| $multipleStoreObject<V, A, Lb, Rb>
+	| $multipleStoreArray<V, A, Lb, Rb>
+	| $multipleStoreArrayEntries<V, A, any, Lb, Rb>;
 
 type $multipleStoreWritableMake<Resp, A extends any[], L> = L extends true
 	? Writable<{
@@ -191,3 +186,26 @@ type ChangeAllProcedures<Obj> = Obj extends object
 	: Obj;
 
 export type EndpointsToStore<T extends object> = ChangeAllProcedures<T>;
+
+export type $methodOpts = {
+	method: string;
+	endpoint: CallableFunction;
+	args: any[];
+	options: storeClientOpt;
+	path: string[];
+	is$once: true | false;
+	is$revisable: true | false;
+	is$multiple: true | false;
+	is$multipleArray: true | false;
+	is$multipleEntriesArray: true | false;
+	is$multipleObject: true | false;
+	$multipleGetKeyFn: undefined | FunctionType;
+	$multipleGetEntryFn: undefined | FunctionType;
+	$multipleHasLoading: true | false;
+	$multipleHasRemove: true | false;
+};
+
+export type callEndpointOpts = $methodOpts & {
+	endpointArgs: any[];
+	store: $onceStore<any> | $revisableStore<any, any[]> | $multipleStore<any, any[], any, any>;
+};

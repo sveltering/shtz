@@ -15,9 +15,19 @@ import type { TRPCClientError } from '@trpc/client';
  * FUNCTIONAL TYPES
  */
 
+export type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] } : Obj;
+
+export type FunctionType = (...args: any) => any;
+
 export type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 
 export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T extends (
+	...args: any
+) => Promise<infer R>
+	? R
+	: any;
+
+export type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (
 	...args: any
 ) => Promise<infer R>
 	? R
