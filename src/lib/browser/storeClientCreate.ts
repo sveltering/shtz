@@ -157,20 +157,23 @@ function callEndpoint(opts: callEndpointOpts) {
 		store
 	} = opts;
 
-	let track$multiple: track$multipleOpts = {} as any;
-	let $multipleRemoveFn: { remove: FunctionType } | {} = {};
-	let $multipleAbortFn: { abort: FunctionType } | {} = {};
-	let $multipleAborted: { aborted: boolean } | {} = {};
+	let $revisableCallFn: { call: FunctionType } = {} as any;
 
-	let storeInner = get(store as any) as any;
+	let track$multiple: track$multipleOpts = {} as any;
+	let $multipleRemoveFn: { remove: FunctionType } = {} as any;
+	let $multipleAbortFn: { abort: FunctionType } = {} as any;
+	let $multipleAborted: { aborted: boolean } = {} as any;
+
+	let storeInner = get(store as Writable<any>) as any;
 
 	if (is$revisable) {
+		$revisableCallFn = storeInner.call;
 		storeInner = {
 			data: undefined,
 			loading: true,
 			error: false,
 			success: false,
-			call: storeInner.call
+			...$revisableCallFn
 		};
 	} //
 	else if (is$multiple) {
@@ -239,8 +242,7 @@ function callEndpoint(opts: callEndpointOpts) {
 				storeInner = { loading: false, data, error: false, success: true };
 			} //
 			else if (is$revisable) {
-				storeInner = { loading: false, data, error: false, success: true };
-				storeInner.call = (get(store as Writable<any>) as any).call;
+				storeInner = { loading: false, data, error: false, success: true, ...$revisableCallFn };
 			} //
 			else if (is$multiple) {
 				storeInner = get(store as Writable<any>) as any;
@@ -255,9 +257,7 @@ function callEndpoint(opts: callEndpointOpts) {
 					track$multiple
 				};
 
-				if (track$multiple?.abortController) {
-					track$multiple.abortController = undefined;
-				}
+				delete track$multiple.abortController;
 
 				if (
 					is$multipleEntriesArray &&
@@ -288,8 +288,13 @@ function callEndpoint(opts: callEndpointOpts) {
 				storeInner = { loading: false, data: undefined, error, success: false };
 			} //
 			else if (is$revisable) {
-				storeInner = { loading: false, data: undefined, error, success: false };
-				storeInner.call = (get(store as Writable<any>) as any).call;
+				storeInner = {
+					loading: false,
+					data: undefined,
+					error,
+					success: false,
+					...$revisableCallFn
+				};
 			} //
 			else if (is$multiple) {
 				storeInner = get(store as Writable<any>) as any;
@@ -304,9 +309,7 @@ function callEndpoint(opts: callEndpointOpts) {
 					track$multiple
 				};
 
-				if (track$multiple?.abortController) {
-					track$multiple.abortController = undefined;
-				}
+				delete track$multiple.abortController;
 
 				if (
 					is$multipleEntriesArray &&
@@ -327,8 +330,8 @@ function checkForLoading(store: Writable<any>, opts: callEndpointOpts) {
 	const { $multipleHasLoading } = opts;
 	if ($multipleHasLoading) {
 		const { is$multipleArray, is$multipleEntriesArray } = opts;
-		const storeInner = get(store) as any;
-		let allResponses = storeInner.responses;
+		const storeInner = get(store as Writable<any>) as any;
+		const allResponses = storeInner.responses;
 		let loading = false;
 
 		if (is$multipleArray) {
@@ -369,7 +372,7 @@ function abortResponse(
 	return function () {
 		if (track$multiple?.abortController) {
 			track$multiple?.abortController?.abort?.();
-			track$multiple.abortController = undefined;
+			delete track$multiple.abortController;
 
 			if (fromRemove) {
 				return;
