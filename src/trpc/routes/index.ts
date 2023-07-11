@@ -8,6 +8,14 @@ export default t.router({
 		}
 		return `Welcome ${input ? `"${input}"` : ''}`;
 	}),
+	//For revisable store example to demonstrate loading states
+	welcomeSleep: t.procedure.input(z.string().optional()).query(async function ({ input }) {
+		await sleep(2);
+		if (strContainsError(input)) {
+			throw t.error(`Error welcoming "${input || ''}"`);
+		}
+		return `Welcome ${input ? `"${input}"` : ''}`;
+	}),
 	addToList: t.procedure
 		.input(z.object({ item: z.string(), time: z.coerce.number() }))
 		.mutation(async function ({ input }) {

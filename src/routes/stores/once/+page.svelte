@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { storeClient } from '$trpc/browserClient';
 
-	let welcome = storeClient.welcome.query.$once('Yusaf error');
+	let welcome = storeClient.welcome.query.$once('Yusaf');
 </script>
 
 {#if $welcome.loading}
