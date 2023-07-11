@@ -2,6 +2,12 @@ import { t } from '$trpc/init';
 import { z } from 'zod';
 
 export default t.router({
+	welcome: t.procedure.input(z.string().optional()).query(async function ({ input }) {
+		if (strContainsError(input)) {
+			throw t.error(`Error welcoming "${input || ''}"`);
+		}
+		return `Welcome ${input ? `"${input}"` : ''}`;
+	}),
 	addToList: t.procedure
 		.input(z.object({ item: z.string(), time: z.coerce.number() }))
 		.mutation(async function ({ input }) {
@@ -26,4 +32,7 @@ function sleep(tMin: number, tMax?: number, inS: boolean = true) {
 }
 function randInt(min: number, max: number) {
 	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+function strContainsError(str: string | undefined): boolean {
+	return str ? str.toLowerCase().indexOf('error') > -1 : false;
 }

@@ -4,8 +4,8 @@
 	let list = storeClient.addToList.mutate.$multiple({
 		loading: true,
 		remove: true,
-		entry: (input) => {
-			return input;
+		key: function (input) {
+			return input.item;
 		}
 	});
 	let todoInput: HTMLInputElement;
@@ -32,10 +32,10 @@
 		</tr>
 	</thead>
 	<tbody>
-		{#each $list.responses as [entry, response]}
+		{#each Object.entries($list.responses) as [key, response]}
 			<tr>
 				{#if response.loading}
-					<td colspan="2">Saving item ({entry.item}) in ({entry.time})s to list...</td>
+					<td colspan="2">Saving item ({key}) to list...</td>
 					<td><button on:click={response.remove}>Remove</button></td>
 				{:else if response.success}
 					{@const { data } = response}

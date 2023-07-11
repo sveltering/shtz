@@ -166,7 +166,9 @@ function callEndpoint(opts: callEndpointOpts) {
 
 	if (is$revisable) {
 		let storeInner = get(store as Writable<any>) as any;
-		$revisableCallFn = storeInner.call;
+
+		$revisableCallFn.call = storeInner.call;
+
 		store.set({
 			data: undefined,
 			loading: true,

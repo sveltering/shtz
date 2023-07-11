@@ -58,11 +58,13 @@ type abortedInner = {
 	aborted: true;
 };
 
-type $onceStoreInner<V> = loadingInner | successInner<V> | errorInner;
+type $onceStoreInner<V> = Prettify<loadingInner | successInner<V> | errorInner>;
 
-type $revisableStoreInner<V, A extends any[]> = ($onceStoreInner<V> | staleInner) & {
-	call: (...args: A) => undefined;
-};
+type $revisableStoreInner<V, A extends any[]> = Prettify<
+	($onceStoreInner<V> | staleInner) & {
+		call: (...args: A) => undefined;
+	}
+>;
 
 type callInners<V> = loadingInner | successInner<V> | errorInner;
 type loadedInners<V> = successInner<V> | errorInner;
