@@ -1,4 +1,4 @@
-import { TRPC } from '$lib/server';
+import { TRPC } from '@sveltering/trpc/server';
 
 export const t = new TRPC({
 	path: '/trpc',
@@ -21,11 +21,11 @@ export const t = new TRPC({
 // 	}
 // });
 
-export const signedInProcedure = t.procedure.use(
-	t.middleware(function ({ ctx, next }) {
-		if (!ctx?.signedIn) {
-			throw t.error('User must be signed in to use this route.', 'UNAUTHORIZED');
-		}
-		return next({ ctx });
-	})
-);
+// export const signedInProcedure = t.procedure.use(
+// 	t.middleware(function ({ ctx, next }) {
+// 		if (!ctx?.signedIn) {
+// 			throw t.error('User must be signed in to use this route.', 'UNAUTHORIZED');
+// 		}
+// 		return next({ ctx });
+// 	})
+// );

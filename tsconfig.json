@@ -16,7 +16,9 @@
 			"$lib":["./src/lib"],
   			"$lib/*":["./src/lib/*"],
 			"$trpc": ["./src/trpc"],
-			"$trpc/*": ["./src/trpc/*"]
+			"$trpc/*": ["./src/trpc/*"],
+			"@sveltering/trpc": ["./src/lib"],
+			"@sveltering/trpc/*": ["./src/lib/*"]
 		  }
 	}
 	// Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias

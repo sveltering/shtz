@@ -1,5 +1,6 @@
-import type { Router } from './hooks.js';
-import { syncServerClientCreate } from '$lib/server';
-import { t } from './init';
+import { syncServerClientCreate } from '@sveltering/trpc/server';
+
+import { t } from '$trpc/init';
+import type { Router } from '$trpc/hooks';
 
 export const serverClient = syncServerClientCreate<Router>(t);

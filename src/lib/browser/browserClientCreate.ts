@@ -20,7 +20,7 @@ function browserClientCreate<T extends AnyRouter>(options: browserClientOpt) {
 function noop() {}
 
 function browserPseudoClient(): any {
-	return new Proxy(noop, { get: () => browserPseudoClient() });
+	return new Proxy(noop, { get: () => browserPseudoClient(), apply: noop });
 }
 
 export { browserClientCreate };

@@ -10,7 +10,8 @@ const config = {
 	kit: {
 		adapter: adapter(),
 		alias: {
-			$trpc: './src/trpc'
+			$trpc: './src/trpc',
+			'@sveltering/trpc': './src/lib'
 		}
 	}
 };
