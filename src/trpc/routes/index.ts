@@ -1,57 +1,25 @@
-import { t } from '../init';
+import { t } from '$trpc/init';
 import { z } from 'zod';
-import user from './user';
+
 export default t.router({
-	user,
-	welcomeMessage: t.procedure.query(async function ({ ctx }) {
-		return ctx?.welcome;
-	}),
-	welcomeName: t.procedure
-		.input(
-			z.object({
-				name: z.coerce.string().min(5)
-			})
-		)
-		.query(async function ({ input, ctx }) {
-			await sleep(1000);
-			if (input.name === 'Yusaf 2') {
-				await sleep(5000);
+	addToList: t.procedure
+		.input(z.object({ item: z.string(), time: z.coerce.number() }))
+		.mutation(async function ({ input }) {
+			await sleep(input.time);
+			if (input.item.toLowerCase().indexOf('error') > -1) {
+				throw t.error(`Error adding item "${input.item}" to list.`);
 			}
-			return `welcome ${input.name}`;
-		}),
-	add: t.procedure.mutation(async function ({ ctx }) {
-		return 100;
-	}),
-	mutate: t.router({
-		hi: t.procedure.mutation(async function ({ ctx }) {
-			return 100;
-		}),
-		hello: t.router({
-			two: t.procedure.mutation(async function ({ ctx }) {
-				return 100;
-			})
+			return {
+				date: new Date().toLocaleString('en-GB'),
+				item: input.item
+			};
 		})
-	}),
-	subscribe: t.router({
-		hi: t.procedure.subscription(async function ({ ctx }) {
-			return 100;
-		})
-	}),
-	addToList: t.procedure.input(z.object({ item: z.string() })).mutation(async function ({ input }) {
-		await sleep(1, 3);
-		if (input === 'This should error') {
-			throw t.error(`Error adding item "${input}" to list.`);
-		}
-		return {
-			id: uuid().split('-').pop(),
-			item: input,
-			date: new Date().toLocaleString('en-GB')
-		};
-	})
 });
 
-function sleep(sMin: number, sMax?: number, inS: boolean = true) {
-	const s = (sMax !== undefined && sMax > sMin ? randInt(sMax, sMin) : sMin) * (inS ? 1 : 1000);
+function sleep(tMin: number, tMax?: number, inS: boolean = true) {
+	tMin = tMin * (inS ? 1000 : 1);
+	tMax = tMax ? tMax * (inS ? 1000 : 1) : undefined;
+	const s = tMax !== undefined && tMax > tMin ? randInt(tMax, tMin) : tMin;
 	return new Promise((resolve) => {
 		setTimeout(resolve, s);
 	});

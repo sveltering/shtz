@@ -1,5 +1,9 @@
+import { loadClientCreate, storeClientCreate, browserClientCreate } from '$lib/browser';
 import type { Router } from './hooks.js';
-import { browserClientCreate, storeClientCreate } from '$lib/browser';
+
+export const loadClient = loadClientCreate<Router>({
+	url: 'http://localhost:5173/trpc'
+});
 
 export const storeClient = storeClientCreate<Router>({
 	url: 'http://localhost:5173/trpc'

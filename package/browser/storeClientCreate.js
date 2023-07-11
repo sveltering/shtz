@@ -30,7 +30,7 @@ function outerProxy(callback, path, options) {
             const is$once = method === '$once';
             const is$revisable = method === '$revisable';
             const is$multiple = method === '$multiple';
-            let is$multipleObject = false, is$multipleEntriesArray = false, is$multipleArray = false, $multipleGetKeyFn = undefined, $multipleGetEntryFn = undefined, $multipleHasLoading = false, $multipleHasRemove = false;
+            let is$multipleObject = false, is$multipleEntriesArray = false, is$multipleArray = false, $multipleGetKeyFn = undefined, $multipleGetEntryFn = undefined, $multipleHasLoading = false, $multipleHasRemove = false, $multipleHasAbort = false, $multipleHasAbortOnRemove = false;
             if (is$multiple) {
                 is$multipleObject = hasArguments && !!args[0]?.hasOwnProperty?.('key');
                 is$multipleEntriesArray =
@@ -40,8 +40,10 @@ function outerProxy(callback, path, options) {
                 $multipleGetEntryFn = is$multipleEntriesArray ? args[0]?.entry || args[0] : undefined;
                 $multipleHasLoading = hasArguments && args?.[0]?.loading === true;
                 $multipleHasRemove = hasArguments && args?.[0]?.remove === true;
+                $multipleHasAbort = hasArguments && args?.[0]?.abort === true;
+                $multipleHasAbortOnRemove = hasArguments && args?.[0]?.abortOnRemove === true;
             }
-            const returnObj = {
+            const methodOpts = {
                 method,
                 endpoint,
                 args,
@@ -56,9 +58,11 @@ function outerProxy(callback, path, options) {
                 $multipleGetKeyFn,
                 $multipleGetEntryFn,
                 $multipleHasLoading,
-                $multipleHasRemove
+                $multipleHasRemove,
+                $multipleHasAbort,
+                $multipleHasAbortOnRemove
             };
-            return storeClientMethods[method](returnObj);
+            return storeClientMethods[method](methodOpts);
         }
     });
     return proxy;
@@ -96,11 +100,13 @@ function pseudoOuterProxy(path = []) {
     });
 }
 function callEndpoint(opts) {
-    const { endpoint, options, path, is$once, is$revisable, is$multiple, is$multipleArray, is$multipleEntriesArray, is$multipleObject, $multipleGetKeyFn, $multipleGetEntryFn, $multipleHasLoading, $multipleHasRemove, endpointArgs, store } = opts;
+    const { endpoint, options, path, is$once, is$revisable, is$multiple, is$multipleArray, is$multipleEntriesArray, is$multipleObject, $multipleGetKeyFn, $multipleGetEntryFn, $multipleHasLoading, $multipleHasRemove, $multipleHasAbort, $multipleHasAbortOnRemove, endpointArgs, store } = opts;
     let track$multiple = {};
     let $multipleRemoveFn = {};
+    let $multipleAbortFn = {};
+    let $multipleAborted = {};
+    let storeInner = get(store);
     if (is$revisable) {
-        let storeInner = get(store);
         storeInner = {
             data: undefined,
             loading: true,
@@ -108,18 +114,30 @@ function callEndpoint(opts) {
             success: false,
             call: storeInner.call
         };
-        store.set(storeInner);
     } //
     else if (is$multiple) {
-        let storeInner = get(store);
         if ($multipleHasLoading) {
             storeInner.loading = true;
         }
         if ($multipleHasRemove) {
-            $multipleRemoveFn = { remove: removeResponse(store, track$multiple, is$multipleObject) };
+            $multipleRemoveFn = { remove: removeResponse(store, track$multiple, opts) };
+        }
+        if ($multipleHasAbort || $multipleHasAbortOnRemove) {
+            track$multiple.abortController = new AbortController();
+            endpointArgs[0] = endpointArgs?.[0];
+            endpointArgs[1] = endpointArgs.hasOwnProperty(1) ? endpointArgs[1] : {};
+            endpointArgs[1].signal = track$multiple.abortController.signal;
+            $multipleAborted = {
+                aborted: false
+            };
+            if ($multipleHasAbort) {
+                $multipleAbortFn = {
+                    abort: abortResponse(store, track$multiple, opts, false)
+                };
+            }
         }
         if (is$multipleObject) {
-            track$multiple.index = $multipleGetKeyFn(endpointArgs[0]);
+            track$multiple.index = $multipleGetKeyFn(endpointArgs?.[0]);
         } //
         else {
             track$multiple.index = storeInner.responses.length;
@@ -130,170 +148,176 @@ function callEndpoint(opts) {
             error: false,
             success: false,
             ...$multipleRemoveFn,
-            track$multiple
+            ...$multipleAbortFn,
+            ...$multipleAborted
         };
         if (is$multipleEntriesArray) {
-            const entry = $multipleGetEntryFn(endpointArgs[0]);
+            const entry = $multipleGetEntryFn(endpointArgs?.[0]);
             storeInner.responses.push([entry, loadingResponse]);
+            loadingResponse.track$multiple = track$multiple;
         } //
         else if (is$multipleArray) {
             storeInner.responses.push(loadingResponse);
+            loadingResponse.track$multiple = track$multiple;
         } //
         else if (is$multipleObject) {
             storeInner.responses[track$multiple.index] = loadingResponse;
         }
-        store.set(storeInner);
     }
+    store.set(storeInner);
     endpoint(...endpointArgs)
         .then(async (data) => {
         if (options?.interceptData) {
             data = await options.interceptData(data, [...path].slice(0, -1).join('.'));
         }
-        let successResponse = {};
+        let storeInner = {};
         if (is$once) {
-            successResponse = { loading: false, data, error: false, success: true };
+            storeInner = { loading: false, data, error: false, success: true };
         } //
         else if (is$revisable) {
-            successResponse = { loading: false, data, error: false, success: true };
-            successResponse.call = get(store).call;
+            storeInner = { loading: false, data, error: false, success: true };
+            storeInner.call = get(store).call;
         } //
         else if (is$multiple) {
-            successResponse = get(store);
-            const individualSuccessResponse = {
+            storeInner = get(store);
+            const successResponse = {
                 loading: false,
                 data,
                 error: false,
                 success: true,
                 ...$multipleRemoveFn,
-                track$multiple
+                ...$multipleAborted
             };
             if (is$multipleEntriesArray &&
-                successResponse.responses?.[track$multiple.index]?.hasOwnProperty?.(1)) {
-                successResponse.responses[track$multiple.index][1] = individualSuccessResponse;
+                storeInner.responses?.[track$multiple.index]?.hasOwnProperty?.(1)) {
+                storeInner.responses[track$multiple.index][1] = successResponse;
             } //
-            else if (successResponse.responses?.hasOwnProperty?.(track$multiple.index)) {
-                successResponse.responses[track$multiple.index] = individualSuccessResponse;
-            }
-            if ($multipleHasLoading) {
-                let allResponses = successResponse.responses;
-                let loading = false;
-                if (is$multipleArray) {
-                    for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-                        if (allResponses[i].loading) {
-                            loading = true;
-                            break;
-                        }
-                    }
-                } //
-                else if (is$multipleEntriesArray) {
-                    for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-                        if (allResponses[i][1].loading) {
-                            loading = true;
-                            break;
-                        }
-                    }
-                } //
-                else {
-                    for (let key in allResponses) {
-                        if (allResponses[key].loading) {
-                            loading = true;
-                            break;
-                        }
-                    }
-                }
-                successResponse.loading = loading;
+            else if (storeInner.responses?.hasOwnProperty?.(track$multiple.index)) {
+                storeInner.responses[track$multiple.index] = successResponse;
             }
         }
-        store.set(successResponse);
+        store.set(storeInner);
+        checkForLoading(store, opts);
     })
         .catch(async (error) => {
         if (options?.interceptError) {
             error = (await options.interceptError(error, [...path].slice(0, -1).join('.')));
         }
-        let errorResponse = {};
+        let storeInner = {};
         if (is$once) {
-            errorResponse = { loading: false, data: undefined, error, success: false };
+            storeInner = { loading: false, data: undefined, error, success: false };
         } //
         else if (is$revisable) {
-            errorResponse = { loading: false, data: undefined, error, success: false };
-            errorResponse.call = get(store).call;
+            storeInner = { loading: false, data: undefined, error, success: false };
+            storeInner.call = get(store).call;
         } //
         else if (is$multiple) {
-            errorResponse = get(store);
-            const individualErrorResponse = {
+            storeInner = get(store);
+            const errorResponse = {
                 loading: false,
                 data: undefined,
                 error,
                 success: false,
                 ...$multipleRemoveFn,
-                track$multiple
+                ...$multipleAborted
             };
             if (is$multipleEntriesArray &&
-                errorResponse.responses?.[track$multiple.index]?.hasOwnProperty?.(1)) {
-                errorResponse.responses[track$multiple.index][1] = individualErrorResponse;
+                storeInner.responses?.[track$multiple.index]?.hasOwnProperty?.(1)) {
+                storeInner.responses[track$multiple.index][1] = errorResponse;
             } //
-            else if (errorResponse.responses?.hasOwnProperty?.(track$multiple.index)) {
-                errorResponse.responses[track$multiple.index] = individualErrorResponse;
+            else if (storeInner.responses?.hasOwnProperty?.(track$multiple.index)) {
+                storeInner.responses[track$multiple.index] = errorResponse;
             }
-            if ($multipleHasLoading) {
-                let allResponses = errorResponse.responses;
-                let loading = false;
-                if (is$multipleArray) {
+        }
+        store.set(storeInner);
+        checkForLoading(store, opts);
+    });
+}
+function checkForLoading(store, opts) {
+    const { $multipleHasLoading } = opts;
+    if ($multipleHasLoading) {
+        const { is$multipleArray, is$multipleEntriesArray } = opts;
+        const storeInner = get(store);
+        let allResponses = storeInner.responses;
+        let loading = false;
+        if (is$multipleArray) {
+            for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+                if (allResponses[i].loading) {
+                    loading = true;
+                    break;
+                }
+            }
+        } //
+        else if (is$multipleEntriesArray) {
+            for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+                if (allResponses[i][1].loading) {
+                    loading = true;
+                    break;
+                }
+            }
+        } //
+        else {
+            for (let key in allResponses) {
+                if (allResponses[key].loading) {
+                    loading = true;
+                    break;
+                }
+            }
+        }
+        storeInner.loading = loading;
+        store.set(storeInner);
+    }
+}
+function abortResponse(store, track$multiple, opts, fromRemove) {
+    return function () {
+        track$multiple?.abortController?.abort?.();
+        if (!fromRemove && opts?.$multipleHasAbort === true) {
+            const { is$multipleEntriesArray } = opts;
+            let storeInner = get(store);
+            if (is$multipleEntriesArray &&
+                storeInner.responses?.[track$multiple.index]?.hasOwnProperty?.(1)) {
+                storeInner.responses[track$multiple.index][1].aborted = true;
+                storeInner.responses[track$multiple.index][1].loading = false;
+            } //
+            else if (storeInner.responses?.hasOwnProperty?.(track$multiple.index)) {
+                storeInner.responses[track$multiple.index].aborted = true;
+                storeInner.responses[track$multiple.index].loading = false;
+            }
+            store.set(storeInner);
+        }
+        checkForLoading(store, opts);
+    };
+}
+function removeResponse(store, track$multiple, opts) {
+    return function () {
+        const { is$multipleObject, is$multipleEntriesArray, $multipleHasAbortOnRemove } = opts;
+        let storeInner = get(store);
+        const index = track$multiple.index;
+        if (storeInner.responses.hasOwnProperty(index)) {
+            if (is$multipleObject) {
+                delete storeInner.responses[index];
+            } //
+            else {
+                const allResponses = storeInner.responses;
+                allResponses.splice(index, 1);
+                if (is$multipleEntriesArray) {
                     for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-                        if (allResponses[i].loading) {
-                            loading = true;
-                            break;
-                        }
-                    }
-                } //
-                else if (is$multipleEntriesArray) {
-                    for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-                        if (allResponses[i][1].loading) {
-                            loading = true;
-                            break;
-                        }
+                        const response = allResponses[i][1];
+                        response.track$multiple.index = i;
                     }
                 } //
                 else {
-                    for (let key in allResponses) {
-                        if (allResponses[key].loading) {
-                            loading = true;
-                            break;
-                        }
+                    for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+                        const response = allResponses[i];
+                        response.track$multiple.index = i;
                     }
                 }
-                errorResponse.loading = loading;
+            }
+            store.set(storeInner);
+            if ($multipleHasAbortOnRemove) {
+                abortResponse(store, track$multiple, opts, true);
             }
         }
-        store.set(errorResponse);
-    });
-}
-function removeResponse(from, track$multiple, isObject) {
-    return function () {
-        let storeInner = get(from);
-        const index = track$multiple.index;
-        if (isObject && storeInner.responses.hasOwnProperty(index)) {
-            delete storeInner.responses[index];
-        } //
-        else if (!!storeInner.responses.hasOwnProperty(index)) {
-            let allResponses = storeInner.responses;
-            const isEntry = Array.isArray(allResponses.splice(index, 1));
-            if (isEntry) {
-                for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-                    const response = allResponses[i][1];
-                    response.track$multiple.index = i;
-                    response.remove = removeResponse(from, response.track$multiple, isObject);
-                }
-            } //
-            else {
-                for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-                    const response = allResponses[i];
-                    response.track$multiple.index = i;
-                    response.remove = removeResponse(from, response.track$multiple, isObject);
-                }
-            }
-        }
-        from.set(storeInner);
     };
 }
 const storeClientMethods = {

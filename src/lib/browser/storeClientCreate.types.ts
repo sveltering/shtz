@@ -22,60 +22,60 @@ type ProcedureInput<Obj extends object> = ProcedureHasInput<
 	ExtractOverwrite<ExtractBuild<ExtractResolver<Obj>>>['_input_in']
 >;
 
-type $onceStoreInner<V> =
-	| {
-			//Loading
-			loading: true;
-			success: false;
-			error: false;
-			data: undefined;
-	  }
-	| {
-			//Load Successfull
-			loading: false;
-			success: true;
-			error: false;
-			data: V;
-	  }
-	| {
-			//Loading Error
-			loading: false;
-			success: false;
-			error: TRPCClientError<any>;
-			data: undefined;
-	  };
-
 type staleInner = {
 	loading: false;
 	success: false;
 	error: false;
 	data: undefined;
 };
+type loadingInner = {
+	//Loading
+	loading: true;
+	success: false;
+	error: false;
+	data: undefined;
+};
+type successInner<V> = {
+	//Load Successfull
+	loading: false;
+	success: true;
+	error: false;
+	data: V;
+};
+type errorInner = {
+	//Loading Error
+	loading: false;
+	success: false;
+	error: TRPCClientError<any>;
+	data: undefined;
+};
+type abortedInner = {
+	//Aborted
+	loading: false;
+	success: false;
+	error: false;
+	data: undefined;
+	aborted: true;
+};
+
+type $onceStoreInner<V> = loadingInner | successInner<V> | errorInner;
 
 type $revisableStoreInner<V, A extends any[]> = ($onceStoreInner<V> | staleInner) & {
 	call: (...args: A) => undefined;
 };
 
-type $multipleStoreInner<V, Rb extends boolean, Ab extends boolean> = (
-	| $onceStoreInner<V>
-	| staleInner
-	| (staleInner & Ab extends true
-			? {
-					aborted: false;
-					abort: () => void;
-			  }
-			: {})
-) &
-	(Rb extends true
-		? {
-				remove: () => void;
-		  }
-		: {}) &
+type callInners<V> = loadingInner | successInner<V> | errorInner;
+type loadedInners<V> = successInner<V> | errorInner;
+
+type $multipleStoreInner<V, Rb extends boolean, Ab extends boolean> = Prettify<
 	(Ab extends true
-		? {
-				aborted: boolean;
-		  }
-		: {});
+		?
+				| abortedInner
+				| (loadingInner & { abort: () => void; aborted: false })
+				| (loadedInners<V> & { aborted: false })
+		: callInners<V>) &
+		(Rb extends true ? { remove: () => void } : {})
+>;
 
 export type $onceStore<V> = Writable<$onceStoreInner<V>>;
 
@@ -103,7 +103,7 @@ type $multipleStoreWritableMake<Resp, A extends any[], L> = L extends true
 			call: (...args: A) => undefined;
 	  }>;
 
-export type $multipleStoreObject<
+type $multipleStoreObject<
 	V,
 	A extends any[],
 	Lb extends boolean,
@@ -111,7 +111,7 @@ export type $multipleStoreObject<
 	Ab extends boolean
 > = $multipleStoreWritableMake<{ [key: string]: $multipleStoreInner<V, Rb, Ab> }, A, Lb>;
 
-export type $multipleStoreArray<
+type $multipleStoreArray<
 	V,
 	A extends any[],
 	Lb extends boolean,
@@ -119,7 +119,7 @@ export type $multipleStoreArray<
 	Ab extends boolean
 > = $multipleStoreWritableMake<$multipleStoreInner<V, Rb, Ab>[], A, Lb>;
 
-export type $multipleStoreArrayEntries<
+type $multipleStoreArrayEntries<
 	V,
 	A extends any[],
 	X extends any,
@@ -222,7 +222,7 @@ export type $methodOpts = {
 	endpoint: CallableFunction;
 	args: any[];
 	options: storeClientOpt;
-	path: string[];
+	path: string;
 	is$once: true | false;
 	is$revisable: true | false;
 	is$multiple: true | false;

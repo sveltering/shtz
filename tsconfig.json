@@ -11,7 +11,13 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"noErrorTruncation": true
+		"noErrorTruncation": true,
+		"paths": {
+			"$lib":["./src/lib"],
+  			"$lib/*":["./src/lib/*"],
+			"$trpc": ["./src/trpc"],
+			"$trpc/*": ["./src/trpc/*"]
+		  }
 	}
 	// Path aliases are handled by https://kit.svelte.dev/docs/configuration#alias
 	//

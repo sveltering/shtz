@@ -33,12 +33,17 @@ type staleInner = {
 type $revisableStoreInner<V, A extends any[]> = ($onceStoreInner<V> | staleInner) & {
     call: (...args: A) => undefined;
 };
-type $multipleStoreInner<V, Rb extends boolean> = ($onceStoreInner<V> | staleInner) & (Rb extends true ? {
+type $multipleStoreInner<V, Rb extends boolean, Ab extends boolean> = ($onceStoreInner<V> | staleInner | (staleInner & Ab extends true ? {
+    aborted: false;
+    abort: () => void;
+} : {})) & (Rb extends true ? {
     remove: () => void;
+} : {}) & (Ab extends true ? {
+    aborted: boolean;
 } : {});
 export type $onceStore<V> = Writable<$onceStoreInner<V>>;
 export type $revisableStore<V, A extends any[]> = Writable<$revisableStoreInner<V, A>>;
-export type $multipleStore<V, A extends any[], Lb extends boolean, Rb extends boolean> = $multipleStoreObject<V, A, Lb, Rb> | $multipleStoreArray<V, A, Lb, Rb> | $multipleStoreArrayEntries<V, A, any, Lb, Rb>;
+export type $multipleStore<V, A extends any[], Lb extends boolean, Rb extends boolean, Ab extends boolean> = $multipleStoreObject<V, A, Lb, Rb, Ab> | $multipleStoreArray<V, A, Lb, Rb, Ab> | $multipleStoreArrayEntries<V, A, any, Lb, Rb, Ab>;
 type $multipleStoreWritableMake<Resp, A extends any[], L> = L extends true ? Writable<{
     loading: true;
     responses: Resp;
@@ -47,30 +52,36 @@ type $multipleStoreWritableMake<Resp, A extends any[], L> = L extends true ? Wri
     responses: Resp;
     call: (...args: A) => undefined;
 }>;
-export type $multipleStoreObject<V, A extends any[], Lb extends boolean, Rb extends boolean> = $multipleStoreWritableMake<{
-    [key: string]: $multipleStoreInner<V, Rb>;
+export type $multipleStoreObject<V, A extends any[], Lb extends boolean, Rb extends boolean, Ab extends boolean> = $multipleStoreWritableMake<{
+    [key: string]: $multipleStoreInner<V, Rb, Ab>;
 }, A, Lb>;
-export type $multipleStoreArray<V, A extends any[], Lb extends boolean, Rb extends boolean> = $multipleStoreWritableMake<$multipleStoreInner<V, Rb>[], A, Lb>;
-export type $multipleStoreArrayEntries<V, A extends any[], X extends any, Lb extends boolean, Rb extends boolean> = $multipleStoreWritableMake<[X, $multipleStoreInner<V, Rb>][], A, Lb>;
+export type $multipleStoreArray<V, A extends any[], Lb extends boolean, Rb extends boolean, Ab extends boolean> = $multipleStoreWritableMake<$multipleStoreInner<V, Rb, Ab>[], A, Lb>;
+export type $multipleStoreArrayEntries<V, A extends any[], X extends any, Lb extends boolean, Rb extends boolean, Ab extends boolean> = $multipleStoreWritableMake<[X, $multipleStoreInner<V, Rb, Ab>][], A, Lb>;
 type $onceFnMake<Fn extends FunctionType> = (...args: ArgumentTypes<Fn>) => $onceStore<AsyncReturnType<Fn>>;
 type $revisableFnMake<Fn extends FunctionType> = () => $revisableStore<AsyncReturnType<Fn>, ArgumentTypes<Fn>>;
 interface $multipleFnMake<Fn extends FunctionType> {
-    (): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, false, false>;
-    <X>(entryFn: (input: ProcedureInput<Fn>) => X): $multipleStoreArrayEntries<AsyncReturnType<Fn>, ArgumentTypes<Fn>, X, false, false>;
-    <Lb extends boolean, Rb extends boolean>(opts: {
+    (): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, false, false, false>;
+    <X>(entryFn: (input: ProcedureInput<Fn>) => X): $multipleStoreArrayEntries<AsyncReturnType<Fn>, ArgumentTypes<Fn>, X, false, false, false>;
+    <Lb extends boolean, Rb extends boolean, Ab extends boolean>(opts: {
         loading?: Lb;
         remove?: Rb;
+        abort?: Ab;
+        abortOnRemove?: boolean;
         key: (input: ProcedureInput<Fn>) => string;
-    }): $multipleStoreObject<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb>;
-    <Lb extends boolean, Rb extends boolean, X>(opts: {
+    }): $multipleStoreObject<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb, Ab>;
+    <Lb extends boolean, Rb extends boolean, X, Ab extends boolean>(opts: {
         loading?: Lb;
         remove?: Rb;
+        abort?: Ab;
+        abortOnRemove?: boolean;
         entry: (input: ProcedureInput<Fn>) => X;
-    }): $multipleStoreArrayEntries<AsyncReturnType<Fn>, ArgumentTypes<Fn>, X, Lb, Rb>;
-    <Lb extends boolean, Rb extends boolean>(opts: {
+    }): $multipleStoreArrayEntries<AsyncReturnType<Fn>, ArgumentTypes<Fn>, X, Lb, Rb, Ab>;
+    <Lb extends boolean, Rb extends boolean, Ab extends boolean>(opts: {
         loading?: Lb;
         remove?: Rb;
-    }): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb>;
+        abort?: Ab;
+        abortOnRemove?: boolean;
+    }): $multipleStoreArray<AsyncReturnType<Fn>, ArgumentTypes<Fn>, Lb, Rb, Ab>;
 }
 type NewStoreProcedures<Fn extends FunctionType> = Prettify<{
     $once: $onceFnMake<Fn>;
@@ -101,9 +112,15 @@ export type $methodOpts = {
     $multipleGetEntryFn: undefined | FunctionType;
     $multipleHasLoading: true | false;
     $multipleHasRemove: true | false;
+    $multipleHasAbort: true | false;
+    $multipleHasAbortOnRemove: true | false;
 };
 export type callEndpointOpts = $methodOpts & {
     endpointArgs: any[];
-    store: $onceStore<any> | $revisableStore<any, any[]> | $multipleStore<any, any[], any, any>;
+    store: $onceStore<any> | $revisableStore<any, any[]> | $multipleStore<any, any[], any, any, any>;
+};
+export type track$multipleOpts = {
+    index: string | number;
+    abortController?: AbortController;
 };
 export {};
