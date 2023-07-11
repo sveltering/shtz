@@ -164,19 +164,19 @@ function callEndpoint(opts: callEndpointOpts) {
 	let $multipleAbortFn: { abort: FunctionType } = {} as any;
 	let $multipleAborted: { aborted: boolean } = {} as any;
 
-	let storeInner = get(store as Writable<any>) as any;
-
 	if (is$revisable) {
+		let storeInner = get(store as Writable<any>) as any;
 		$revisableCallFn = storeInner.call;
-		storeInner = {
+		store.set({
 			data: undefined,
 			loading: true,
 			error: false,
 			success: false,
 			...$revisableCallFn
-		};
+		} as any);
 	} //
 	else if (is$multiple) {
+		let storeInner = get(store as Writable<any>) as any;
 		if ($multipleHasLoading) {
 			storeInner.loading = true;
 		}
@@ -223,9 +223,8 @@ function callEndpoint(opts: callEndpointOpts) {
 		else if (is$multipleObject) {
 			storeInner.responses[track$multiple.index] = loadingResponse;
 		}
+		store.set(storeInner);
 	}
-
-	store.set(storeInner);
 
 	endpoint(...endpointArgs)
 		.then(async (data: any) => {
@@ -327,8 +326,7 @@ function callEndpoint(opts: callEndpointOpts) {
 }
 
 function checkForLoading(store: Writable<any>, opts: callEndpointOpts) {
-	const { $multipleHasLoading } = opts;
-	if ($multipleHasLoading) {
+	if (opts.$multipleHasLoading) {
 		const { is$multipleArray, is$multipleEntriesArray } = opts;
 		const storeInner = get(store as Writable<any>) as any;
 		const allResponses = storeInner.responses;
