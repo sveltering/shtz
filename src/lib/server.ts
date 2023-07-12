@@ -1,9 +1,16 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import type { HTTPHeaders } from '@trpc/client';
-import type { TRPCOpts, TRPCContextFn, TRPCInner, TRPCErrorOpts } from './types.js';
+import type { TRPCOpts, TRPCContextFn, TRPCInner, TRPCErrorOpts, pipeType } from './types.js';
 import { initTRPC, TRPCError, type AnyRouter } from '@trpc/server';
-import { resolveHTTPResponse } from '@trpc/server/http';
-import { parse as parseURL } from 'url';
+import {
+	resolveHTTPResponse,
+	getHTTPStatusCodeFromError,
+	TRPC_ERROR_CODES_BY_NUMBER
+} from '@trpc/server/http';
+
+const TRPC_ERROR_CODES_BY_KEY = Object.fromEntries(
+	Object.entries(TRPC_ERROR_CODES_BY_NUMBER).map(([key, value]) => [value, key])
+);
 
 export class TRPC<T extends object> {
 	//OPTIONS
@@ -58,7 +65,7 @@ export class TRPC<T extends object> {
 		this._routes = router;
 		const options = this.options;
 		return async function (event: RequestEvent): Promise<false | Response> {
-			const pipe: any = {};
+			const pipe: pipeType = {};
 			const localsKey = options.localsKey;
 			const contextFnConsturctor = options.context.constructor.name;
 
@@ -92,23 +99,19 @@ export class TRPC<T extends object> {
 			}
 			const request = event.request as Request;
 
-			let result;
+			let result,
+				path: string = '';
 
-			if (options?.beforeResolve) {
-				await options.beforeResolve?.(event, pipe);
-			}
-
-			if (options?.resolveError) {
-				const errorMessage = await options.resolveError?.(event, pipe);
-				if (errorMessage) {
-					const path = parseURL(request.url)
-						.pathname?.substring?.(options.path.length + 1)
-						?.replaceAll?.('/', '.');
-					result = {
-						body: `[{"error":{"message":"${errorMessage}","code":-32600,"data":{"code":"BAD_REQUEST","httpStatus":400,"path":"${path}"}}}]`,
-						status: 400,
-						headers: { 'Content-Type': 'application/json' }
-					};
+			const beforeResolve = options?.beforeResolve || options?.beforeResolveSync || false;
+			if (beforeResolve) {
+				path = pathName?.substring?.(options.path.length + 1)?.replaceAll?.('/', '.');
+				try {
+					const maybeResult = await beforeResolve({ path, event, pipe });
+					if (maybeResult !== undefined) {
+						result = maybeResult;
+					}
+				} catch (e: any) {
+					result = TRPCErrorToResponse(e, path);
 				}
 			}
 
@@ -127,12 +130,19 @@ export class TRPC<T extends object> {
 				});
 			}
 
-			if (!result?.headers) {
-				result.headers = {};
-			}
-
 			if (options?.beforeResponse) {
-				await options?.beforeResponse(event, pipe, result);
+				path = !!path
+					? path
+					: pathName?.substring?.(options.path.length + 1)?.replaceAll?.('/', '.');
+
+				try {
+					const maybeResult = await options?.beforeResponse({ path, event, pipe, result });
+					if (maybeResult !== undefined) {
+						result = maybeResult;
+					}
+				} catch (e: any) {
+					result = TRPCErrorToResponse(e, path);
+				}
 			}
 
 			return new Response(result.body, {
@@ -209,3 +219,26 @@ export const syncServerClientCreate = function <R extends AnyRouter>(
 		return t?._routes?.createCaller(t.context(event, false)) as ReturnType<R['createCaller']>;
 	};
 };
+
+function TRPCErrorToResponse(e: TRPCError, path: string) {
+	const code = e?.code || 'BAD_REQUEST';
+	const trpcErrorCode = TRPC_ERROR_CODES_BY_KEY[code];
+	const httpStatus = getHTTPStatusCodeFromError(e);
+	return {
+		body: `[{
+			"error":{
+				"message":"${e?.message || ''}",
+				"code":${trpcErrorCode},
+				"data":{
+					"code":"${code}",
+					"httpStatus":${httpStatus},
+					"path":"${path}"
+				}
+			}
+		}]`,
+		status: httpStatus,
+		headers: {
+			'Content-Type': 'application/json'
+		}
+	};
+}

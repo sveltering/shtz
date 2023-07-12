@@ -1,5 +1,4 @@
-import { TRPCHook } from '$trpc/hooks';
-// import { TRPCHandlefetch } from '$trpc/hooks';
+import { TRPCHook, TRPCHandlefetch } from '$trpc/hooks';
 
 export async function handle({ event, resolve }) {
 	const TRPCResponse = await TRPCHook(event);
@@ -11,7 +10,7 @@ export async function handle({ event, resolve }) {
 	return response;
 }
 
-// export async function handleFetch({ request, fetch }) {
-// 	request = TRPCHandlefetch(request);
-// 	return fetch(request);
-// }
+export async function handleFetch({ request, fetch }) {
+	request = TRPCHandlefetch(request);
+	return fetch(request);
+}

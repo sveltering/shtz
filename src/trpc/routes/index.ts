@@ -9,7 +9,10 @@ export default t.router({
 		if (strContainsError(input)) {
 			throw t.error(`Error welcoming "${input || ''}"`);
 		}
-		return `Welcome ${input ? `"${input}"` : ''}`;
+		return `Welcome ${input ? `"${input}" hello` : ''}`;
+	}),
+	fetchTest: t.procedure.input(z.string()).query(async function ({ input }) {
+		return `${input} from main server`;
 	}),
 	//For revisable store example to demonstrate loading states
 	welcomeSleep: t.procedure.input(z.string().optional()).query(async function ({ input }) {
