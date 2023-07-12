@@ -1,6 +1,6 @@
 {
 	"name": "@sveltering/trpc",
-	"version": "0.0.9",
+	"version": "0.0.11",
 	"scripts": {
 		"dev": "vite dev",
 		"build": "svelte-kit sync && svelte-package",
@@ -34,5 +34,9 @@
 		"vitest": "^0.25.3",
 		"zod": "^3.21.4"
 	},
-	"type": "module"
+	"type": "module",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/sveltering/trpc"
+	}
 }

@@ -1,5 +1,5 @@
-export { browserClientCreate } from './browser/browserClientCreate';
-export { storeClientCreate } from './browser/storeClientCreate';
-export { loadClientCreate } from './browser/loadClientCreate';
+export { browserClientCreate } from './browser/browserClientCreate.js';
+export { storeClientCreate } from './browser/storeClientCreate.js';
+export { loadClientCreate } from './browser/loadClientCreate.js';
 
-export type { EndpointReturnType } from './browser/types';
+export type { EndpointReturnType } from './browser/types.js';

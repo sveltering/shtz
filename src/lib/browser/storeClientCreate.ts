@@ -2,7 +2,7 @@ import type { AnyRouter } from '@trpc/server';
 import { createTRPCProxyClient, httpBatchLink, type TRPCClientError } from '@trpc/client';
 import { get, writable, type Writable } from 'svelte/store';
 
-import type { storeClientOpt, storeCC } from './types';
+import type { FunctionType, storeClientOpt, storeCC } from './types.js';
 import type {
 	$onceStore,
 	$revisableStore,
@@ -10,8 +10,7 @@ import type {
 	$methodOpts,
 	callEndpointOpts,
 	track$multipleOpts
-} from './storeClientCreate.types';
-import type { FunctionType } from './types';
+} from './storeClientCreate.types.js';
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;

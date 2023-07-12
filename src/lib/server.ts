@@ -1,6 +1,6 @@
 import type { RequestEvent } from '@sveltejs/kit';
 import type { HTTPHeaders } from '@trpc/client';
-import type { TRPCOpts, TRPCContextFn, TRPCInner, TRPCErrorOpts } from './types';
+import type { TRPCOpts, TRPCContextFn, TRPCInner, TRPCErrorOpts } from './types.js';
 import { initTRPC, TRPCError, type AnyRouter } from '@trpc/server';
 import { resolveHTTPResponse } from '@trpc/server/http';
 import { parse as parseURL } from 'url';

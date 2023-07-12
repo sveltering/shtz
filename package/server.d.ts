@@ -1,5 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import type { TRPCOpts, TRPCContextFn, TRPCInner, TRPCErrorOpts } from './types';
+import type { TRPCOpts, TRPCContextFn, TRPCInner, TRPCErrorOpts } from './types.js';
 import { TRPCError, type AnyRouter } from '@trpc/server';
 export declare class TRPC<T extends object> {
     options: TRPCOpts<T> & TRPCContextFn<T>;
@@ -101,7 +101,7 @@ export declare class TRPC<T extends object> {
             ctx: import("@trpc/server").Unwrap<T>;
         }>["meta"] : object;
     }>;
-    get context(): import("./types").createContextType<T>;
+    get context(): import("./types.js").createContextType<T>;
     error(message: string | TRPCErrorOpts, code?: TRPCErrorOpts['code']): TRPCError;
     set routes(routes: AnyRouter);
     hook(router: AnyRouter): (event: RequestEvent) => Promise<false | Response>;

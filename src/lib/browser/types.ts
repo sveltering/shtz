@@ -1,7 +1,7 @@
 import type { CreateTRPCProxyClient, createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
 import type { LoadEvent } from '@sveltejs/kit';
-import type { MakeStoreType } from './storeClientCreate.types';
+import type { MakeStoreType } from './storeClientCreate.types.js';
 import type { TRPCClientError } from '@trpc/client';
 
 /*

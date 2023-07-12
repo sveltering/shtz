@@ -8,7 +8,7 @@ import type {
 	FunctionType,
 	Prettify,
 	AsyncReturnType
-} from './types';
+} from './types.js';
 
 type staleInner = {
 	loading: false;
