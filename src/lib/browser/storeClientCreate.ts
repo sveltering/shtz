@@ -115,13 +115,22 @@ function pseudoOuterProxy(path: string[] = []): any {
 		apply: (_1, _2, args) => {
 			const method = path[path.length - 1];
 			const hasArguments = !!args.length;
-			const is$multiple = method === '$multiple';
-			if (is$multiple) {
-				const is$multipleObject = is$multiple && hasArguments && !!args[0]?.hasOwnProperty?.('key');
-				const $multipleHasLoading = is$multiple && hasArguments && args?.[0]?.loading === true;
+
+			if (method === '$multiple') {
+				const is$multipleObject = hasArguments && !!args[0]?.hasOwnProperty?.('key');
+				const $multipleHasLoading = hasArguments && args?.[0]?.loading === true;
 				return writable({
-					...($multipleHasLoading ? { loading: true } : {}),
+					...($multipleHasLoading ? { loading: false } : {}),
 					responses: is$multipleObject ? {} : [],
+					call: noop
+				});
+			} //
+			else if (method === '$revisable') {
+				return writable({
+					loading: false,
+					success: false,
+					error: false,
+					data: undefined,
 					call: noop
 				});
 			}
@@ -129,8 +138,7 @@ function pseudoOuterProxy(path: string[] = []): any {
 				loading: true,
 				success: false,
 				error: false,
-				data: undefined,
-				call: noop
+				data: undefined
 			});
 		}
 	});

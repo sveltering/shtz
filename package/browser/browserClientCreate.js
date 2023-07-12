@@ -11,6 +11,6 @@ function browserClientCreate(options) {
 }
 function noop() { }
 function browserPseudoClient() {
-    return new Proxy(noop, { get: () => browserPseudoClient() });
+    return new Proxy(noop, { get: () => browserPseudoClient(), apply: noop });
 }
 export { browserClientCreate };

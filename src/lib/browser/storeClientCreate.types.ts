@@ -138,7 +138,7 @@ type $revisableFnMake<Inputs extends any[], Output> = () => $revisableStore<Inpu
 interface $multipleFnMake<Inputs extends any[], Output> {
 	(): $multipleStoreArray<Inputs, Output, false, false, false>;
 
-	<Entry>(entryFn: (input?: Inputs[0]) => Entry): $multipleStoreArrayEntries<
+	<Entry>(entryFn: (input: Inputs[0]) => Entry): $multipleStoreArrayEntries<
 		Inputs,
 		Output,
 		Entry,
@@ -152,7 +152,7 @@ interface $multipleFnMake<Inputs extends any[], Output> {
 		remove?: Rb;
 		abort?: Ab;
 		abortOnRemove?: boolean;
-		key: (input?: Inputs[0]) => string;
+		key: (input: Inputs[0]) => string;
 	}): $multipleStoreObject<Inputs, Output, Lb, Rb, Ab>;
 
 	<Lb extends boolean, Rb extends boolean, Entry, Ab extends boolean>(opts: {
@@ -160,7 +160,7 @@ interface $multipleFnMake<Inputs extends any[], Output> {
 		remove?: Rb;
 		abort?: Ab;
 		abortOnRemove?: boolean;
-		entry: (input?: Inputs[0]) => Entry;
+		entry: (input: Inputs[0]) => Entry;
 	}): $multipleStoreArrayEntries<Inputs, Output, Entry, Lb, Rb, Ab>;
 
 	<Lb extends boolean, Rb extends boolean, Ab extends boolean>(opts: {

@@ -3,7 +3,6 @@
 
 	let welcome = storeClient.noInput.query.$multiple({
 		entry: function (input) {
-			console.log(input);
 			return +new Date();
 		}
 	});

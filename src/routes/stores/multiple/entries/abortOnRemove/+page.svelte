@@ -11,8 +11,7 @@
 	});
 	let todoInput: HTMLInputElement;
 
-	function addToList(e: SubmitEvent) {
-		e.preventDefault();
+	function addToList() {
 		$list.call({ item: todoInput.value, time: randInt(5, 7) });
 		todoInput.value = '';
 	}
@@ -54,7 +53,7 @@
 	<tfoot>
 		<tr>
 			<td colspan="3"
-				><form on:submit={addToList}>
+				><form on:submit|preventDefault={addToList}>
 					<input type="text" placeholder="Todo" bind:this={todoInput} />
 				</form></td
 			>
