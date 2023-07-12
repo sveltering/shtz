@@ -1,7 +1,7 @@
-import type { CreateTRPCProxyClient, createTRPCProxyClient, httpBatchLink } from '@trpc/client';
+import type { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
 import type { LoadEvent } from '@sveltejs/kit';
-import type { MakeStoreType } from './storeClientCreate.types';
+import type { EndpointsToStore } from './storeClientCreate.types';
 import type { TRPCClientError } from '@trpc/client';
 
 /*
@@ -32,6 +32,8 @@ export type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extend
 ) => Promise<infer R>
 	? R
 	: any;
+
+type RouterReturnType<T extends AnyRouter> = ReturnType<typeof createTRPCProxyClient<T>>;
 
 /*
  *
@@ -68,9 +70,9 @@ export type browserClientOptF = browserClientOpt & {
 };
 
 export type browserOCC<T extends AnyRouter> = RecursiveReplaceFunctionReturnsOrUndefined<
-	CreateTRPCProxyClient<T>
+	RouterReturnType<T>
 >;
-export type browserFCC<T extends AnyRouter> = CreateTRPCProxyClient<T>;
+export type browserFCC<T extends AnyRouter> = RouterReturnType<T>;
 
 /*
  *
@@ -85,7 +87,7 @@ export type browserFCC<T extends AnyRouter> = CreateTRPCProxyClient<T>;
 export interface loadClientOpt extends Omit<browserClientOpt, 'browserOnly'> {
 	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' | 'fetch'>;
 }
-export type loadCC<T extends AnyRouter> = (event: LoadEvent) => CreateTRPCProxyClient<T>;
+export type loadCC<T extends AnyRouter> = (event: LoadEvent) => RouterReturnType<T>;
 
 /*
  *
@@ -103,5 +105,5 @@ export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
 	interceptError?: (error: TRPCClientError<any>, path: string) => Promise<{}> | {};
 };
 
-export type storeCC<T extends AnyRouter> = MakeStoreType<CreateTRPCProxyClient<T>>;
+export type storeCC<T extends AnyRouter> = EndpointsToStore<RouterReturnType<T>>;
 // consider using inferRouterInputs type

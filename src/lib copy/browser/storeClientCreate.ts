@@ -330,7 +330,7 @@ function callEndpoint(opts: callEndpointOpts) {
 function checkForLoading(store: Writable<any>, opts: callEndpointOpts) {
 	if (opts.$multipleHasLoading) {
 		const { is$multipleArray, is$multipleEntriesArray } = opts;
-		const storeInner = get(store) as any;
+		const storeInner = get(store as Writable<any>) as any;
 		const allResponses = storeInner.responses;
 		let loading = false;
 
@@ -469,9 +469,9 @@ const storeClientMethods = {
 		});
 		return store;
 	},
-	$multiple: function (opts: callEndpointOpts) {
+	$multiple: function <Lb extends boolean, Rb extends boolean>(opts: callEndpointOpts) {
 		const { $multipleHasLoading, is$multipleObject } = opts;
-		const store: $multipleStore<any[], any, boolean, boolean, boolean> = writable({
+		const store: $multipleStore<any, any[], boolean, boolean, boolean> = writable({
 			...($multipleHasLoading ? { loading: false } : {}),
 			responses: is$multipleObject ? {} : [],
 			call: (...endpointArgs: any[]) => {

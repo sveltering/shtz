@@ -1,4 +1,4 @@
-import { routes } from './trpc/hooks';
+import routes from '$trpc/routes';
 // See https://kit.svelte.dev/docs/types#app
 // for information about these interfaces
 declare global {

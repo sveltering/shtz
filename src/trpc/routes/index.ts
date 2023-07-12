@@ -2,6 +2,9 @@ import { t } from '$trpc/init';
 import { z } from 'zod';
 
 export default t.router({
+	noInput: t.procedure.query(function () {
+		return 'No Input';
+	}),
 	welcome: t.procedure.input(z.string().optional()).query(async function ({ input }) {
 		if (strContainsError(input)) {
 			throw t.error(`Error welcoming "${input || ''}"`);
