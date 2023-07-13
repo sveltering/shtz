@@ -2,7 +2,8 @@ import type { AnyRouter } from '@trpc/server';
 import { createTRPCProxyClient, httpBatchLink, type TRPCClientError } from '@trpc/client';
 import { get, writable, type Writable } from 'svelte/store';
 
-import type { FunctionType, storeClientOpt, storeCC } from './types.js';
+import type { FunctionType } from '../types.js';
+import type { storeClientOpt, storeCC } from './types.js';
 import type {
 	$onceStore,
 	$revisableStore,

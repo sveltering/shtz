@@ -1,7 +1,5 @@
 import type { Writable } from 'svelte/store';
-
 import type { TRPCClientError } from '@trpc/client';
-
 import type { storeClientOpt } from './types.js';
 import type { Prettify, ArgumentTypes, FunctionType, AsyncReturnType } from '../types.js';
 

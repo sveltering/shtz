@@ -20,28 +20,29 @@ type ReplaceFunctionReturnOrUndefined<Fn> = Fn extends (...a: infer A) => Promis
 	? (...a: A) => Promise<R | undefined>
 	: Fn;
 
-type RecursiveReplaceFunctionReturnsOrUndefined<Obj extends object> = {
+type ChangeReturns<Obj extends object> = {
 	[Key in keyof Obj]: Obj[Key] extends Function
 		? ReplaceFunctionReturnOrUndefined<Obj[Key]>
 		: Obj[Key] extends { [Key2: string]: any }
-		? RecursiveReplaceFunctionReturnsOrUndefined<Obj[Key]>
+		? ChangeReturns<Obj[Key]>
 		: Obj[Key];
 };
+
+type transformerOpts = ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
+type batchLinkOptions = Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
 
 export type browserClientOpt = {
 	url: string;
 	browserOnly?: boolean;
-	transformer?: ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
-	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
+	transformer?: transformerOpts;
+	batchLinkOptions?: batchLinkOptions;
 };
 
 export type browserClientOptF = browserClientOpt & {
 	browserOnly: false;
 };
 
-export type browserOCC<T extends AnyRouter> = RecursiveReplaceFunctionReturnsOrUndefined<
-	CreateTRPCProxyClient<T>
->;
+export type browserOCC<T extends AnyRouter> = ChangeReturns<CreateTRPCProxyClient<T>>;
 export type browserFCC<T extends AnyRouter> = CreateTRPCProxyClient<T>;
 
 /*
@@ -54,8 +55,9 @@ export type browserFCC<T extends AnyRouter> = CreateTRPCProxyClient<T>;
  *
  * LOAD CLIENT TYPES
  */
+type loadBatchLinkOptions = Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' | 'fetch'>;
 export interface loadClientOpt extends Omit<browserClientOpt, 'browserOnly'> {
-	batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' | 'fetch'>;
+	batchLinkOptions?: loadBatchLinkOptions;
 }
 export type loadCC<T extends AnyRouter> = (event: LoadEvent) => CreateTRPCProxyClient<T>;
 

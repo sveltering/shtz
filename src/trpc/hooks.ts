@@ -1,6 +1,9 @@
+import type { TRPCLocalCreate } from '@sveltering/trpc/types';
 import { t } from '$trpc/init';
 import routes from '$trpc/routes';
 
 export type Router = typeof routes;
-export const TRPCHook = t.hook(routes);
-export const TRPCHandlefetch = t.handleFetch();
+export const handleHook = t.hookCreate(routes);
+export const handlefetchHook = t.handleFetchCreate();
+
+export type TRPCLocals = TRPCLocalCreate<typeof t, typeof routes>;
