@@ -27,7 +27,7 @@ export default t.router({
 		.mutation(async function ({ input }) {
 			await sleep(input.time);
 			if (input.item.toLowerCase().indexOf('error') > -1) {
-				throw t.error(`Error adding item "${input.item}" to list.`);
+				throw t.error(`Error adding item "${input.item}" to list.`, 'FORBIDDEN');
 			}
 			return {
 				date: new Date().toLocaleString('en-GB'),

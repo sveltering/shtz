@@ -15,8 +15,10 @@
 		"paths": {
 			"$lib":["./src/lib"],
   			"$lib/*":["./src/lib/*"],
-			"$trpc": ["./src/trpc"],
-			"$trpc/*": ["./src/trpc/*"],
+			  "$trpc": ["./src/trpc"],
+			  "$trpc/*": ["./src/trpc/*"],
+			  "$component": ["./src/component"],
+			  "$component/*": ["./src/component/*"],
 			"@sveltering/trpc": ["./src/lib"],
 			"@sveltering/trpc/*": ["./src/lib/*"]
 		  }

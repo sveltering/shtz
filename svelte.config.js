@@ -11,6 +11,7 @@ const config = {
 		adapter: adapter(),
 		alias: {
 			$trpc: './src/trpc',
+			$component: './src/component',
 			'@sveltering/trpc': './src/lib'
 		}
 	}
