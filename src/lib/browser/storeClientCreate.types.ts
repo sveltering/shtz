@@ -8,7 +8,7 @@ import type {
 	FunctionType,
 	AsyncReturnType,
 	ToPromiseUnion
-} from '../types.js';
+} from './types.js';
 
 type TRPCError = TRPCClientError<any>;
 

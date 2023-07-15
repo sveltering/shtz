@@ -12,7 +12,7 @@ export type { HTTPResponse };
  *
  *
  *
- * Functional types
+ * Utility types
  */
 
 export type FunctionType = (...args: any) => any;
@@ -31,7 +31,8 @@ export type EndpointReturnType<T extends AsyncFunctionType> = AsyncReturnType<T>
 
 export type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] } : Obj;
 
-type EmptyObject = { [key: string]: never };
+export type EmptyObject = { [key: string]: never };
+
 export type Combine<T1, T2> = T2 extends EmptyObject
 	? T1
 	: T1 extends EmptyObject
