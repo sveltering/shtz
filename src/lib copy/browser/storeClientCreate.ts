@@ -4,6 +4,14 @@ import { get, writable, type Writable } from 'svelte/store';
 
 import type { FunctionType } from '../types.js';
 import type { storeClientOpt, storeCC } from './types.js';
+import type {
+	$onceStore,
+	$revisableStore,
+	$multipleStore,
+	$methodOpts,
+	callEndpointOpts,
+	track$multipleOpts
+} from './storeClientCreate.types.js';
 
 function storeClientCreate<T extends AnyRouter>(options: storeClientOpt): storeCC<T> {
 	const { url, batchLinkOptions } = options;

@@ -31,13 +31,6 @@ export type EndpointReturnType<T extends AsyncFunctionType> = AsyncReturnType<T>
 
 export type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] } : Obj;
 
-type EmptyObject = { [key: string]: never };
-export type Combine<T1, T2> = T2 extends EmptyObject
-	? T1
-	: T1 extends EmptyObject
-	? T2
-	: Prettify<T1 & T2>;
-
 // from https://stackoverflow.com/questions/40510611/typescript-interface-require-one-of-two-properties-to-exist
 export type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<T, Exclude<keyof T, Keys>> &
 	{
@@ -56,8 +49,6 @@ export type RequireAllOrNone<ObjectType, KeysType extends keyof ObjectType = nev
 	Omit<ObjectType, KeysType>;
 
 export type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
-
-export type ToPromiseUnion<T> = Promise<T> | T;
 /*
  *
  *

@@ -1,14 +1,9 @@
 <script lang="ts">
-	import Countdown from '$component/countdown.svelte';
-	import LoadingDots from '$component/loading-dots.svelte';
 	import { storeClient } from '$trpc/browserClient';
 
 	let list = storeClient.addToList.mutate.$multiple({
 		loading: true,
-		remove: true,
-		entry(input) {
-			return input;
-		}
+		remove: true
 	});
 	let todoInput: HTMLInputElement;
 
@@ -22,7 +17,7 @@
 </script>
 
 {#if $list.loading}
-	Adding to list<LoadingDots /><br />
+	Adding to list<br />
 {/if}
 <table>
 	<thead>
@@ -33,12 +28,10 @@
 		</tr>
 	</thead>
 	<tbody>
-		{#each $list.responses as [entry, response]}
+		{#each $list.responses as response}
 			<tr>
 				{#if response.loading}
-					<td colspan="2"
-						>Saving item ({entry.item}) in (<Countdown from={entry.time} />)s to list...</td
-					>
+					<td colspan="2">Saving item to list...</td>
 					<td><button on:click={response.remove}>Remove</button></td>
 				{:else if response.success}
 					{@const { data } = response}

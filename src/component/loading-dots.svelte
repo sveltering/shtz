@@ -20,7 +20,7 @@
 			if (count === maxDots) {
 				count = 0;
 			}
-		}, 500) as unknown as number;
+		}, 250) as unknown as number;
 	});
 	onDestroy(() => {
 		if (intervalTimer) {

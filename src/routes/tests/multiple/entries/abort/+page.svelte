@@ -1,28 +1,28 @@
 <script lang="ts">
-	import Countdown from '$component/countdown.svelte';
-	import LoadingDots from '$component/loading-dots.svelte';
 	import { storeClient } from '$trpc/browserClient';
 
 	let list = storeClient.addToList.mutate.$multiple({
 		loading: true,
 		remove: true,
-		entry(input) {
+		abort: true,
+		entry: (input) => {
 			return input;
 		}
 	});
 	let todoInput: HTMLInputElement;
 
 	function addToList() {
-		$list.call({ item: todoInput.value, time: randInt(1, 7) });
+		$list.call({ item: todoInput.value, time: randInt(5, 7) });
 		todoInput.value = '';
 	}
+
 	function randInt(min: number, max: number): number {
 		return Math.floor(Math.random() * (max - min + 1)) + min;
 	}
 </script>
 
 {#if $list.loading}
-	Adding to list<LoadingDots /><br />
+	Adding to list<br />
 {/if}
 <table>
 	<thead>
@@ -30,31 +30,34 @@
 			<th>date</th>
 			<th>item</th>
 			<th>remove</th>
+			<th>abort</th>
 		</tr>
 	</thead>
 	<tbody>
 		{#each $list.responses as [entry, response]}
 			<tr>
-				{#if response.loading}
-					<td colspan="2"
-						>Saving item ({entry.item}) in (<Countdown from={entry.time} />)s to list...</td
-					>
+				{#if response.aborted}
+					<td colspan="3"> ({entry.item}) aborted</td>
 					<td><button on:click={response.remove}>Remove</button></td>
+				{:else if response.loading}
+					<td colspan="2">Saving item ({entry.item}) in ({entry.time})s to list...</td>
+					<td><button on:click={response.remove}>Remove</button></td>
+					<td><button on:click={response.abort}>Abort</button></td>
 				{:else if response.success}
 					{@const { data } = response}
 					<td>{data.date}</td>
 					<td>{data.item}</td>
-					<td><button on:click={response.remove}>Remove</button></td>
+					<td colspan="2"><button on:click={response.remove}>Remove</button></td>
 				{:else if response.error}
 					<td colspan="2">{response.error.message}</td>
-					<td><button on:click={response.remove}>Remove</button></td>
+					<td colspan="2"><button on:click={response.remove}>Remove</button></td>
 				{/if}
 			</tr>
 		{/each}
 	</tbody>
 	<tfoot>
 		<tr>
-			<td colspan="3"
+			<td colspan="4"
 				><form on:submit|preventDefault={addToList}>
 					<input type="text" placeholder="Todo" bind:this={todoInput} />
 				</form></td
@@ -69,7 +72,6 @@
 	}
 	table {
 		font-family: Arial, Helvetica, sans-serif;
-		min-width: 500px;
 	}
 	table,
 	table th,

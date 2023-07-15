@@ -1,6 +1,6 @@
 import { t } from '$trpc/init';
 import { z } from 'zod';
-
+import * as crypto from 'crypto';
 export default t.router({
 	noInput: t.procedure.query(function () {
 		return 'No Input';
@@ -23,16 +23,29 @@ export default t.router({
 		return `Welcome ${input ? `"${input}"` : ''}`;
 	}),
 	addToList: t.procedure
-		.input(z.object({ item: z.string(), time: z.coerce.number() }))
+		.input(z.object({ input: z.string(), time: z.coerce.number() }))
 		.mutation(async function ({ input }) {
 			await sleep(input.time);
-			if (input.item.toLowerCase().indexOf('error') > -1) {
-				throw t.error(`Error adding item "${input.item}" to list.`, 'FORBIDDEN');
+			if (input.input.toLowerCase().indexOf('error') > -1) {
+				throw t.error(`Error adding item "${input.input}" to list.`, 'FORBIDDEN');
 			}
 			return {
 				date: new Date().toLocaleString('en-GB'),
-				item: input.item
+				item: input.input
 			};
+		}),
+	prefillList: t.procedure
+		//.input(z.object({ item: z.string(), time: z.coerce.number() }))
+		.query(async function () {
+			const returnData = [];
+			for (let i = 0; i < 10; i++) {
+				returnData.push({
+					date: new Date().toLocaleString('en-GB'),
+					item: crypto.randomUUID() as string
+				});
+			}
+
+			return returnData;
 		})
 });
 

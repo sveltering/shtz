@@ -1,174 +1,135 @@
 import type { Writable } from 'svelte/store';
 import type { TRPCClientError } from '@trpc/client';
 import type { storeClientOpt } from './types.js';
-import type { Prettify, ArgumentTypes, FunctionType, AsyncReturnType } from '../types.js';
+import type {
+	Prettify,
+	Combine,
+	ArgumentTypes,
+	FunctionType,
+	AsyncReturnType,
+	ToPromiseUnion
+} from '../types.js';
 
-type staleInner = {
-	loading: false;
-	success: false;
-	error: false;
-	data: undefined;
-};
-type loadingInner = {
-	//Loading
-	loading: true;
-	success: false;
-	error: false;
-	data: undefined;
-};
-type successInner<Output> = {
-	//Load Successfull
-	loading: false;
-	success: true;
-	error: false;
-	data: Output;
-};
-type errorInner = {
-	//Loading Error
-	loading: false;
-	success: false;
-	error: TRPCClientError<any>;
-	data: undefined;
-};
-type abortedInner = {
-	//Aborted
-	loading: false;
-	success: false;
-	error: false;
-	data: undefined;
-	aborted: true;
-};
+type TRPCError = TRPCClientError<any>;
 
-type $onceStoreInner<Output> = Prettify<loadingInner | successInner<Output> | errorInner>;
-
-type $revisableStoreInner<Inputs extends any[], Output> = Prettify<
-	($onceStoreInner<Output> | staleInner) & {
-		call: (...args: Inputs) => void;
+type ResponseObject<
+	Loading extends boolean,
+	Success extends boolean,
+	Err extends false | Error,
+	Data extends any,
+	Ext extends {}
+> = Prettify<
+	{
+		loading: Loading;
+		success: Success;
+		error: Err;
+		data: Data;
+	} & {
+		[Key in keyof Ext]: Ext[Key];
 	}
 >;
 
-type callInners<Output> = loadingInner | successInner<Output> | errorInner;
-type loadedInners<Output> = successInner<Output> | errorInner;
-
-type $multipleStoreInner<Output, Rb extends boolean, Ab extends boolean> = Prettify<
-	(Ab extends true
-		?
-				| abortedInner
-				| (loadingInner & { abort: () => void; aborted: false })
-				| (loadedInners<Output> & { aborted: false })
-		: callInners<Output>) &
-		(Rb extends true ? { remove: () => void } : {})
->;
-
-export type $onceStore<Output> = Writable<$onceStoreInner<Output>>;
-
-export type $revisableStore<Inputs extends any[], Output> = Writable<
-	$revisableStoreInner<Inputs, Output>
->;
-
-export type $multipleStore<
-	Inputs extends any[],
-	Output,
-	Lb extends boolean,
-	Rb extends boolean,
-	Ab extends boolean
-> =
-	| $multipleStoreObject<Inputs, Output, Lb, Rb, Ab>
-	| $multipleStoreArray<Inputs, Output, Lb, Rb, Ab>
-	| $multipleStoreArrayEntries<Inputs, Output, any, Lb, Rb, Ab>;
-
-type $multipleStoreWritableMake<Inputs extends any[], Resp, Lb> = Lb extends true
-	? Writable<{
-			loading: boolean;
-			responses: Resp;
-			call: (...args: Inputs) => void;
-	  }>
-	: Writable<{
-			responses: Resp;
-			call: (...args: Inputs) => void;
-	  }>;
-
-type $multipleStoreObject<
-	Inputs extends any[],
-	Output,
-	Lb extends boolean,
-	Rb extends boolean,
-	Ab extends boolean
-> = $multipleStoreWritableMake<Inputs, { [key: string]: $multipleStoreInner<Output, Rb, Ab> }, Lb>;
-
-type $multipleStoreArray<
-	Inputs extends any[],
-	Output,
-	Lb extends boolean,
-	Rb extends boolean,
-	Ab extends boolean
-> = $multipleStoreWritableMake<Inputs, $multipleStoreInner<Output, Rb, Ab>[], Lb>;
-
-type $multipleStoreArrayEntries<
-	Inputs extends any[],
-	Output,
-	Entry extends any,
-	Lb extends boolean,
-	Rb extends boolean,
-	Ab extends boolean
-> = $multipleStoreWritableMake<Inputs, [Entry, $multipleStoreInner<Output, Rb, Ab>][], Lb>;
+type StaleReponse<Ext extends {} = {}> = ResponseObject<false, false, false, undefined, Ext>;
+type LoadingResponse<Ext extends {} = {}> = ResponseObject<true, false, false, undefined, Ext>;
+type SuccessResponse<Data, Ext extends {} = {}> = ResponseObject<false, true, false, Data, Ext>;
+type ErrorResponse<Ext extends {} = {}> = ResponseObject<false, false, Error, undefined, Ext>;
+type AbortedResponse<Ext extends {} = {}> = StaleReponse<{ aborted: true } & Ext>;
 
 /*
- *
- *
- *
- *
- *
- *
- *
- * Standard
+ * ONCE STORE
+ */
+type $OnceInner<Data> = LoadingResponse | SuccessResponse<Data> | ErrorResponse;
+type $OnceStore<Data> = Writable<$OnceInner<Data>>;
+type $OnceFn<Args extends any[], Data> = (...args: Args) => $OnceStore<Data>;
+
+/*
+ * REVISE STORE
+ */
+type $RevisableOpts<Data> = {
+	prefill?: Data | (() => ToPromiseUnion<Data>);
+	remove?: boolean;
+	abort?: boolean;
+	abortOnRemove?: boolean;
+};
+type $RevisableExtension<Args extends any[], Data, Opts extends $RevisableOpts<Data>> = {
+	call: (...args: Args) => void;
+} & (Opts['remove'] extends true ? { remove: () => void } : {}) &
+	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
+	(Opts['abort'] extends true ? { aborted: false } : {});
+
+type $RevisableInner<Args extends any[], Data, Opts extends $RevisableOpts<Data>> =
+	| StaleReponse<$RevisableExtension<Args, Data, Opts>>
+	| SuccessResponse<Data, $RevisableExtension<Args, Data, Opts>>
+	| ErrorResponse<$RevisableExtension<Args, Data, Opts>>
+	| (Opts['abort'] extends true
+			? AbortedResponse<Omit<$RevisableExtension<Args, Data, Opts>, 'aborted'>>
+			: StaleReponse<$RevisableExtension<Args, Data, Opts>>)
+	| (Opts['abort'] extends true
+			? LoadingResponse<$RevisableExtension<Args, Data, Opts> & { abort: () => void }>
+			: LoadingResponse<$RevisableExtension<Args, Data, Opts>>);
+
+type $RevisableStore<Args extends any[], Data, Opts extends $RevisableOpts<Data>> = Writable<
+	Prettify<$RevisableInner<Args, Data, Opts>>
+>;
+type $RevisableFn<Args extends any[], Data> = <Opts extends $RevisableOpts<Data>>(
+	options?: Opts
+) => $RevisableStore<Args, Data, Opts>;
+
+/*
+ * ARRAY STORE
  */
 
-type $onceFnMake<Inputs extends any[], Output> = (...args: Inputs) => $onceStore<Output>;
+type $ArrayOpts<Data> = {
+	prefill?: Data[] | (() => ToPromiseUnion<Data[]>);
+	loading?: boolean;
+	remove?: boolean;
+	abort?: boolean;
+	abortOnRemove?: boolean;
+	beforeRemove?: (response: Data) => ToPromiseUnion<boolean | Data>;
+	beforeAdd?: (response: Data) => ToPromiseUnion<boolean | Data>;
+};
+type $ArrayExtension<
+	Args extends any[],
+	Data,
+	Opts extends $ArrayOpts<Data>
+> = (Opts['remove'] extends true ? { remove: () => void } : {}) &
+	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
+	(Opts['abort'] extends true ? { aborted: false } : {});
 
-type $revisableFnMake<Inputs extends any[], Output> = () => $revisableStore<Inputs, Output>;
+type $ArrayResponseInner<Args extends any[], Data, Opts extends $ArrayOpts<Data>> =
+	| StaleReponse<$ArrayExtension<Args, Data, Opts>>
+	| SuccessResponse<Data, $ArrayExtension<Args, Data, Opts>>
+	| ErrorResponse<$ArrayExtension<Args, Data, Opts>>
+	| (Opts['abort'] extends true
+			? AbortedResponse<Omit<$ArrayExtension<Args, Data, Opts>, 'aborted'>>
+			: StaleReponse<$ArrayExtension<Args, Data, Opts>>)
+	| (Opts['abort'] extends true
+			? LoadingResponse<$ArrayExtension<Args, Data, Opts> & { abort: () => void }>
+			: LoadingResponse<$ArrayExtension<Args, Data, Opts>>);
 
-interface $multipleFnMake<Inputs extends any[], Output> {
-	(): $multipleStoreArray<Inputs, Output, false, false, false>;
+type $ArrayInner<Args extends any[], Data, Opts extends $ArrayOpts<Data>> = {
+	responses: Prettify<$ArrayResponseInner<Args, Data, Opts>>[];
+	call: (...args: Args) => void;
+} & (Opts['loading'] extends true ? { loading: false } : {});
 
-	<Entry>(entryFn: (input: Inputs[0]) => Entry): $multipleStoreArrayEntries<
-		Inputs,
-		Output,
-		Entry,
-		false,
-		false,
-		false
-	>;
+type $ArrayStore<Args extends any[], Data, Opts extends $ArrayOpts<Data>> = Writable<
+	$ArrayInner<Args, Data, Opts>
+>;
+type $ArrayFn<Args extends any[], Data> = <
+	Additional extends {},
+	Opts extends $ArrayOpts<Combine<Data, Additional>>
+>(
+	options?: Opts,
+	additional?: Additional
+) => $ArrayStore<Args, Combine<Data, Additional>, Opts>;
 
-	<Lb extends boolean, Rb extends boolean, Ab extends boolean>(opts: {
-		loading?: Lb;
-		remove?: Rb;
-		abort?: Ab;
-		abortOnRemove?: boolean;
-		key: (input: Inputs[0]) => string;
-	}): $multipleStoreObject<Inputs, Output, Lb, Rb, Ab>;
-
-	<Lb extends boolean, Rb extends boolean, Entry, Ab extends boolean>(opts: {
-		loading?: Lb;
-		remove?: Rb;
-		abort?: Ab;
-		abortOnRemove?: boolean;
-		entry: (input: Inputs[0]) => Entry;
-	}): $multipleStoreArrayEntries<Inputs, Output, Entry, Lb, Rb, Ab>;
-
-	<Lb extends boolean, Rb extends boolean, Ab extends boolean>(opts: {
-		loading?: Lb;
-		remove?: Rb;
-		abort?: Ab;
-		abortOnRemove?: boolean;
-	}): $multipleStoreArray<Inputs, Output, Lb, Rb, Ab>;
-}
-
-type NewStoreProcedures<Inputs extends any[], Output extends any> = Prettify<{
-	$once: $onceFnMake<Inputs, Output>;
-	$revisable: $revisableFnMake<Inputs, Output>;
-	$multiple: $multipleFnMake<Inputs, Output>;
-}>;
+type NewStoreProcedures<Args extends any[], Data> = {
+	$once: $OnceFn<Args, Data>;
+	$revise: $RevisableFn<Args, Data>;
+	$array: $ArrayFn<Args, Data>;
+	$entry: any;
+	$object: any;
+};
 
 type ChangeProceduresType<
 	Client extends object,
@@ -194,51 +155,3 @@ type ChangeAllProcedures<Client> = Client extends object
 	: Client;
 
 export type MakeStoreType<Client extends object> = ChangeAllProcedures<Client>;
-
-/*
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- *
- */
-export type $methodOpts = {
-	method: string;
-	endpoint: CallableFunction;
-	args: any[];
-	options: storeClientOpt;
-	path: string;
-	is$once: boolean;
-	is$revisable: boolean;
-	is$multiple: boolean;
-	is$multipleArray: boolean;
-	is$multipleEntriesArray: boolean;
-	is$multipleObject: boolean;
-	$multipleGetKeyFn: undefined | FunctionType;
-	$multipleGetEntryFn: undefined | FunctionType;
-	$multipleHasLoading: boolean;
-	$multipleHasRemove: boolean;
-	$multipleHasAbort: boolean;
-	$multipleHasAbortOnRemove: boolean;
-};
-
-export type callEndpointOpts = $methodOpts & {
-	endpointArgs: any[];
-	store: $onceStore<any> | $revisableStore<any, any[]> | $multipleStore<any, any[], any, any, any>;
-};
-
-export type track$multipleOpts = {
-	index: string | number;
-	abortController?: AbortController;
-};
