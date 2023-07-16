@@ -5,6 +5,7 @@
 		abortOnRemove: true
 	});
 
-	if ($list.loading) {
+	if ($list.success) {
+		$list.data;
 	}
 </script>

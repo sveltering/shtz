@@ -3,7 +3,6 @@ import type { TRPCClientError } from '@trpc/client';
 import type {
 	Prettify,
 	Combine,
-	Union,
 	ArgumentTypes,
 	FunctionType,
 	AsyncReturnType,
@@ -85,16 +84,9 @@ type $RevisableInner<Args extends any[], Data, Opts extends $RevisableOpts<Data>
 type $RevisableStore<Args extends any[], Data, Opts extends $RevisableOpts<Data>> = Writable<
 	Prettify<$RevisableInner<Args, Data, Opts>>
 >;
-type $RevisableFn<Args extends any[], Data> = <
-	AdditionalData,
-	Opts extends $RevisableOpts<Combine<Data, AdditionalData>>
->(
-	options?: Opts & {
-		types?: {
-			data?: AdditionalData;
-		};
-	}
-) => $RevisableStore<Args, Combine<Data, AdditionalData>, Opts>;
+type $RevisableFn<Args extends any[], Data> = <Opts extends $RevisableOpts<Data>>(
+	options?: Opts
+) => $RevisableStore<Args, Data, Opts>;
 
 /*
  * ARRAY STORE
@@ -187,84 +179,22 @@ type $EntryStore<Args extends any[], Entry, Data, Opts extends $EntryOpts<Data, 
 >;
 
 type $EntryFn<Args extends any[], Data> = <
-	Entry extends {},
-	EntryAfter extends {},
-	AdditionalEntry extends {},
-	AdditionalData extends {},
-	Opts extends $EntryOpts<
-		Combine<Data, AdditionalData>,
-		Combine<Union<Entry, EntryAfter>, AdditionalEntry>
-	>
+	Entry,
+	AdditionalEntry,
+	AdditionalData,
+	Opts extends $EntryOpts<Combine<Data, AdditionalData>, Combine<Entry, AdditionalEntry>>
 >(
 	options?:
 		| (Opts & {
-				entry: (item: Data) => Entry;
-				entryAfter?: (item: Data) => EntryAfter;
+				entry: (item: Data) => [Entry, Data];
 				types?: {
 					entry?: AdditionalEntry;
 					data?: AdditionalData;
 				};
 		  })
-		| ((item: Data) => Entry)
-) => $EntryStore<
-	Args,
-	Combine<Union<Entry, EntryAfter>, AdditionalEntry>,
-	Combine<Data, AdditionalData>,
-	Opts
->;
+		| ((item: Data) => [Entry, Data])
+) => $EntryStore<Args, Combine<Entry, AdditionalEntry>, Combine<Data, AdditionalData>, Opts>;
 
-/*
- * ENTRIES STORE
- */
-
-type $ObjectOpts<Data> = {
-	prefill?: { [key: string]: Data }[] | (() => ToPromiseUnion<{ [key: string]: Data }[]>);
-	loading?: boolean;
-	remove?: boolean;
-	abort?: boolean;
-	abortOnRemove?: boolean;
-	beforeRemove?: (response: Data) => ToPromiseUnion<boolean | Data>;
-	beforeAdd?: (response: Data) => ToPromiseUnion<boolean | Data>;
-};
-type $ObjectExtension<Data, Opts extends $ObjectOpts<Data>> = (Opts['remove'] extends true
-	? { remove: () => void }
-	: {}) &
-	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
-	(Opts['abort'] extends true ? { aborted: false } : {});
-
-type $ObjectResponseInner<Data, Opts extends $ObjectOpts<Data>> =
-	| StaleReponse<$ObjectExtension<Data, Opts>>
-	| SuccessResponse<{ [key: string]: Data }, $ObjectExtension<Data, Opts>>
-	| ErrorResponse<$ObjectExtension<Data, Opts>>
-	| (Opts['abort'] extends true
-			? AbortedResponse<Omit<$ObjectExtension<Data, Opts>, 'aborted'>>
-			: StaleReponse<$ObjectExtension<Data, Opts>>)
-	| (Opts['abort'] extends true
-			? LoadingResponse<$ObjectExtension<Data, Opts> & { abort: () => void }>
-			: LoadingResponse<$ObjectExtension<Data, Opts>>);
-
-type $ObjectInner<Args extends any[], Data, Opts extends $ObjectOpts<Data>> = {
-	responses: { [key: string]: Prettify<$ObjectResponseInner<Data, Opts>> };
-	call: (...args: Args) => void;
-} & (Opts['loading'] extends true ? { loading: false } : {});
-
-type $ObjectStore<Args extends any[], Data, Opts extends $ObjectOpts<Data>> = Writable<
-	$ObjectInner<Args, Data, Opts>
->;
-
-type $ObjectFn<Args extends any[], Data> = <
-	AdditionalData,
-	Opts extends $ObjectOpts<Combine<Data, AdditionalData>>
->(
-	options?:
-		| (Opts & {
-				key: (item: Data) => string;
-				types?: {
-					data?: AdditionalData;
-				};
-		  })
-		| ((item: Data) => string)
-) => $ObjectStore<Args, Combine<Data, AdditionalData>, Opts>;
 /*
  * CHANGE PROCEDURES
  */
@@ -274,7 +204,7 @@ type NewStoreProcedures<Args extends any[], Data> = {
 	$revise: $RevisableFn<Args, Data>;
 	$array: $ArrayFn<Args, Data>;
 	$entry: $EntryFn<Args, Data>;
-	$object: $ObjectFn<Args, Data>;
+	$object: any;
 };
 // & (Data extends any[]
 // 	? {

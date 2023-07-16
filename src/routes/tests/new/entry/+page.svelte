@@ -2,19 +2,20 @@
 	import { storeClient } from '$trpc/browserClient';
 	import { get, writable } from 'svelte/store';
 
-	let list = storeClient.addToList.mutate.$entry(
-		function (item) {
-			return [{ random: 1, string: 'string' }, item];
+	let list = storeClient.addToList.mutate.$entry({
+		entry: function (item) {
+			return { first: 1, string: 1 };
 		},
-		{},
-		{
-			entry: null as any as { poooop: 'poooooop' },
-			data: null as any as { hello: 'hi' }
+		entryAfter: function (item) {
+			return { after: 1, string: 1 };
+		},
+		types: {
+			entry: null as any as { poop: 'dascoop' }
 		}
-	);
+	});
 
-	if ($list) {
-		$list.responses[0].data;
+	if ($list.responses[0].success) {
+		const test = $list.responses[0].data;
 		// $list.responses[0].data;
 	}
 </script>

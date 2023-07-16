@@ -39,6 +39,12 @@ export type Combine<T1, T2> = T2 extends EmptyObject
 	? T2
 	: Prettify<T1 & T2>;
 
+export type Union<T1, T2> = T2 extends EmptyObject
+	? T1
+	: T1 extends EmptyObject
+	? T2
+	: Prettify<T1 | T2>;
+
 // from https://stackoverflow.com/questions/40510611/typescript-interface-require-one-of-two-properties-to-exist
 export type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<T, Exclude<keyof T, Keys>> &
 	{
