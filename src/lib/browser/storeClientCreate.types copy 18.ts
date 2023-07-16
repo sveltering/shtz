@@ -3,8 +3,7 @@ import type { TRPCClientError } from '@trpc/client';
 import type {
 	Prettify,
 	Combine,
-	RequireOnlyOne,
-	FirstNotEmpty,
+	FirstEntry,
 	ArgumentTypes,
 	FunctionType,
 	AsyncReturnType,
@@ -70,7 +69,7 @@ type $FormatOpts<Data> = {
 	prefill: $FormatPrefillData<Data>;
 };
 
-type $FormatResponse<NewDataFormat> =
+type $FormatResponse<Data, NewDataFormat, Opts extends $FormatOpts<Data>> =
 	| StaleReponse
 	| SuccessResponse<NewDataFormat>
 	| ErrorResponse
@@ -80,36 +79,41 @@ type $FormatResponse<NewDataFormat> =
 type $FormatInner<
 	Args extends any[],
 	Data,
-	NewDataFormat
+	NewDataFormat,
+	Opts extends $FormatOpts<Data>
 > = $FormatOpts<Data>['prefill'] extends $FormatPrefillData<Data>
 	? SuccessResponse<NewDataFormat>
 	: {
 			call: (...args: Args) => void;
-	  } & $FormatResponse<NewDataFormat>;
+	  } & $FormatResponse<Data, NewDataFormat, Opts>;
 
-type $FormatStore<Args extends any[], Data, NewDataFormat> = Writable<
-	Prettify<$FormatInner<Args, Data, NewDataFormat>>
->;
+type $FormatStore<
+	Args extends any[],
+	Data,
+	NewDataFormat,
+	Opts extends $FormatOpts<Data>
+> = Writable<Prettify<$FormatInner<Args, Data, NewDataFormat, Opts>>>;
 
 type $FormatFn<Args extends any[], Data> = <
 	KeyValue extends string,
 	Entry extends {},
-	DataFinal extends Entry extends EmptyObject
-		? KeyValue extends string
-			? KeyValue
-			: Data
-		: [Entry, Data][],
 	Opts extends $FormatOpts<Data>
 >(
 	options?: Opts &
-		RequireOnlyOne<
-			{
-				key: (response: Data) => KeyValue;
-				entry: (response: Data) => Entry;
-			},
-			'key' | 'entry'
-		>
-) => $FormatStore<Args, Data, DataFinal>;
+		(
+			| {
+					key: (response: Data) => KeyValue;
+			  }
+			| {
+					entry: (response: Data) => Entry;
+			  }
+		)
+) => $FormatStore<
+	Args,
+	Data,
+	Entry extends EmptyObject ? (KeyValue extends string ? KeyValue : Data) : [Entry, Data][],
+	Opts
+>;
 /*
  * REVISE STORE
  */
@@ -145,15 +149,14 @@ type $RevisableStore<Args extends any[], Data, Opts extends $RevisableOpts<Data>
 >;
 type $RevisableFn<Args extends any[], Data> = <
 	AdditionalData,
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $RevisableOpts<DataFinal>
+	Opts extends $RevisableOpts<Combine<Data, AdditionalData>>
 >(
 	options?: Opts & {
 		types?: {
 			data?: AdditionalData;
 		};
 	}
-) => $RevisableStore<Args, DataFinal, Opts>;
+) => $RevisableStore<Args, Combine<Data, AdditionalData>, Opts>;
 
 /*
  * ARRAY STORE
@@ -194,21 +197,20 @@ type $ArrayStore<Args extends any[], Data, Opts extends $ArrayOpts<Data>> = Writ
 >;
 type $ArrayFn<Args extends any[], Data> = <
 	AdditionalData,
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $ArrayOpts<DataFinal>
+	Opts extends $ArrayOpts<Combine<Data, AdditionalData>>
 >(
 	options?: Opts & {
 		types?: {
 			data?: AdditionalData;
 		};
 	}
-) => $ArrayStore<Args, DataFinal, Opts>;
+) => $ArrayStore<Args, Combine<Data, AdditionalData>, Opts>;
 
 /*
  * ENTRIES STORE
  */
 
-type $EntryOpts<Data, EntryFinal extends {}> = {
+type $EntryOpts<Data, EntryLoading, EntrySuccess, EntryFinal> = {
 	prefill?: [EntryFinal, Data][] | (() => ToPromiseUnion<[EntryFinal, Data][]>);
 	loading?: boolean;
 	remove?: boolean;
@@ -218,24 +220,24 @@ type $EntryOpts<Data, EntryFinal extends {}> = {
 	beforeAdd?: (response: Data) => ToPromiseUnion<boolean | Data>;
 };
 type $EntryExtension<
-	EntryLoading extends {},
-	EntrySuccess extends {},
-	EntryFinal extends {},
+	EntryLoading,
+	EntrySuccess,
+	EntryFinal,
 	Data,
-	Opts extends $EntryOpts<Data, EntryFinal>
+	Opts extends $EntryOpts<Data, EntryLoading, EntrySuccess, EntryFinal>
 > = (Opts['remove'] extends true ? { remove: () => void } : {}) &
 	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
 type $EntryResponseInner<
-	EntryLoading extends {},
-	EntrySuccess extends {},
-	EntryFinal extends {},
+	EntryLoading,
+	EntrySuccess,
+	EntryFinal,
 	Data,
-	Opts extends $EntryOpts<Data, EntryFinal>
+	Opts extends $EntryOpts<Data, EntryLoading, EntrySuccess, EntryFinal>
 > =
 	| SuccessResponse<
-			[EntryFinal, Data],
+			[EntrySuccess, Data],
 			$EntryExtension<EntryLoading, EntrySuccess, EntryFinal, Data, Opts>
 	  >
 	| ErrorResponse<
@@ -264,11 +266,11 @@ type $EntryResponseInner<
 
 type $EntryInner<
 	Args extends any[],
-	EntryLoading extends {},
-	EntrySuccess extends {},
-	EntryFinal extends {},
+	EntryLoading,
+	EntrySuccess,
+	EntryFinal,
 	Data,
-	Opts extends $EntryOpts<Data, EntryFinal>
+	Opts extends $EntryOpts<Data, EntryLoading, EntrySuccess, EntryFinal>
 > = {
 	responses: Prettify<$EntryResponseInner<EntryLoading, EntrySuccess, EntryFinal, Data, Opts>>[];
 	call: (...args: Args) => void;
@@ -276,23 +278,24 @@ type $EntryInner<
 
 type $EntryStore<
 	Args extends any[],
-	EntryLoading extends {},
-	EntrySuccess extends {},
-	EntryFinal extends {},
+	EntryLoading,
+	EntrySuccess,
+	EntryFinal,
 	Data,
-	Opts extends $EntryOpts<Data, EntryFinal>
+	Opts extends $EntryOpts<Data, EntryLoading, EntrySuccess, EntryFinal>
 > = Writable<$EntryInner<Args, EntryLoading, EntrySuccess, EntryFinal, Data, Opts>>;
 
 type $EntryFn<Args extends any[], Data> = <
 	EntryLoading extends {},
 	EntrySuccess extends {},
-	EntryLoadingFinal extends Combine<EntryLoading, AdditionalEntry>,
-	EntrySuccessFinal extends Combine<EntrySuccess, AdditionalEntry>,
-	EntryFinal extends Combine<FirstNotEmpty<EntrySuccess, EntryLoading>, AdditionalEntry>,
 	AdditionalEntry extends {},
 	AdditionalData extends {},
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $EntryOpts<DataFinal, EntryFinal>
+	Opts extends $EntryOpts<
+		Combine<Data, AdditionalData>,
+		Combine<EntryLoading, AdditionalEntry>,
+		Combine<EntrySuccess, AdditionalEntry>,
+		EntrySuccess & EntryLoading
+	>
 >(
 	options?:
 		| (Opts & {
@@ -304,7 +307,14 @@ type $EntryFn<Args extends any[], Data> = <
 				};
 		  })
 		| ((item: Data) => EntryLoading)
-) => $EntryStore<Args, EntryLoadingFinal, EntrySuccessFinal, EntryFinal, DataFinal, Opts>;
+) => $EntryStore<
+	Args,
+	Combine<EntryLoading, AdditionalEntry>,
+	Combine<EntrySuccess, AdditionalEntry>,
+	EntrySuccess & EntryLoading,
+	Combine<Data, AdditionalData>,
+	Opts
+>;
 
 /*
  * Object STORE
@@ -346,8 +356,7 @@ type $ObjectStore<Args extends any[], Data, Opts extends $ObjectOpts<Data>> = Wr
 
 type $ObjectFn<Args extends any[], Data> = <
 	AdditionalData,
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $ObjectOpts<DataFinal>
+	Opts extends $ObjectOpts<Combine<Data, AdditionalData>>
 >(
 	options?:
 		| (Opts & {
@@ -358,7 +367,7 @@ type $ObjectFn<Args extends any[], Data> = <
 				};
 		  })
 		| ((item: Data) => string)
-) => $ObjectStore<Args, DataFinal, Opts>;
+) => $ObjectStore<Args, Combine<Data, AdditionalData>, Opts>;
 /*
  * CHANGE PROCEDURES
  */

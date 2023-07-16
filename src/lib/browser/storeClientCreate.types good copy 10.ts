@@ -3,13 +3,13 @@ import type { TRPCClientError } from '@trpc/client';
 import type {
 	Prettify,
 	Combine,
-	RequireOnlyOne,
-	FirstNotEmpty,
+	Union,
+	First,
 	ArgumentTypes,
 	FunctionType,
 	AsyncReturnType,
 	ToPromiseUnion,
-	EmptyObject
+	RequireOnlyOne
 } from '../types.js';
 
 type TRPCError = TRPCClientError<any>;
@@ -65,51 +65,6 @@ type $OnceFn<Args extends any[], Data> = (...args: Args) => $OnceStore<Data>;
  * FORMAT STORE
  */
 
-type $FormatPrefillData<Data> = Data[] | (() => ToPromiseUnion<Data[]>);
-type $FormatOpts<Data> = {
-	prefill: $FormatPrefillData<Data>;
-};
-
-type $FormatResponse<NewDataFormat> =
-	| StaleReponse
-	| SuccessResponse<NewDataFormat>
-	| ErrorResponse
-	| AbortedResponse
-	| LoadingResponse;
-
-type $FormatInner<
-	Args extends any[],
-	Data,
-	NewDataFormat
-> = $FormatOpts<Data>['prefill'] extends $FormatPrefillData<Data>
-	? SuccessResponse<NewDataFormat>
-	: {
-			call: (...args: Args) => void;
-	  } & $FormatResponse<NewDataFormat>;
-
-type $FormatStore<Args extends any[], Data, NewDataFormat> = Writable<
-	Prettify<$FormatInner<Args, Data, NewDataFormat>>
->;
-
-type $FormatFn<Args extends any[], Data> = <
-	KeyValue extends string,
-	Entry extends {},
-	DataFinal extends Entry extends EmptyObject
-		? KeyValue extends string
-			? KeyValue
-			: Data
-		: [Entry, Data][],
-	Opts extends $FormatOpts<Data>
->(
-	options?: Opts &
-		RequireOnlyOne<
-			{
-				key: (response: Data) => KeyValue;
-				entry: (response: Data) => Entry;
-			},
-			'key' | 'entry'
-		>
-) => $FormatStore<Args, Data, DataFinal>;
 /*
  * REVISE STORE
  */
@@ -131,7 +86,7 @@ type $RevisableResponse<Data, Opts extends $RevisableOpts<Data>> =
 	| ErrorResponse<$RevisableExtension<Data, Opts>>
 	| (Opts['abort'] extends true
 			? AbortedResponse<$RevisableExtension<Data, Opts>>
-			: ErrorResponse<$RevisableExtension<Data, Opts>>)
+			: StaleReponse<$RevisableExtension<Data, Opts>>)
 	| (Opts['abort'] extends true
 			? LoadingResponse<$RevisableExtension<Data, Opts> & { abort: () => void }>
 			: LoadingResponse<$RevisableExtension<Data, Opts>>);
@@ -145,15 +100,14 @@ type $RevisableStore<Args extends any[], Data, Opts extends $RevisableOpts<Data>
 >;
 type $RevisableFn<Args extends any[], Data> = <
 	AdditionalData,
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $RevisableOpts<DataFinal>
+	Opts extends $RevisableOpts<Combine<Data, AdditionalData>>
 >(
 	options?: Opts & {
 		types?: {
 			data?: AdditionalData;
 		};
 	}
-) => $RevisableStore<Args, DataFinal, Opts>;
+) => $RevisableStore<Args, Combine<Data, AdditionalData>, Opts>;
 
 /*
  * ARRAY STORE
@@ -179,7 +133,7 @@ type $ArrayResponseInner<Data, Opts extends $ArrayOpts<Data>> =
 	| ErrorResponse<$ArrayExtension<Data, Opts>>
 	| (Opts['abort'] extends true
 			? AbortedResponse<Omit<$ArrayExtension<Data, Opts>, 'aborted'>>
-			: ErrorResponse<$ArrayExtension<Data, Opts>>)
+			: SuccessResponse<Data, $ArrayExtension<Data, Opts>>)
 	| (Opts['abort'] extends true
 			? LoadingResponse<$ArrayExtension<Data, Opts> & { abort: () => void }>
 			: LoadingResponse<$ArrayExtension<Data, Opts>>);
@@ -194,22 +148,21 @@ type $ArrayStore<Args extends any[], Data, Opts extends $ArrayOpts<Data>> = Writ
 >;
 type $ArrayFn<Args extends any[], Data> = <
 	AdditionalData,
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $ArrayOpts<DataFinal>
+	Opts extends $ArrayOpts<Combine<Data, AdditionalData>>
 >(
 	options?: Opts & {
 		types?: {
 			data?: AdditionalData;
 		};
 	}
-) => $ArrayStore<Args, DataFinal, Opts>;
+) => $ArrayStore<Args, Combine<Data, AdditionalData>, Opts>;
 
 /*
  * ENTRIES STORE
  */
 
-type $EntryOpts<Data, EntryFinal extends {}> = {
-	prefill?: [EntryFinal, Data][] | (() => ToPromiseUnion<[EntryFinal, Data][]>);
+type $EntryOpts<Data, EntryLoading, EntrySuccess> = {
+	prefill?: [EntrySuccess, Data][] | (() => ToPromiseUnion<[EntrySuccess, Data][]>);
 	loading?: boolean;
 	remove?: boolean;
 	abort?: boolean;
@@ -218,100 +171,97 @@ type $EntryOpts<Data, EntryFinal extends {}> = {
 	beforeAdd?: (response: Data) => ToPromiseUnion<boolean | Data>;
 };
 type $EntryExtension<
-	EntryLoading extends {},
-	EntrySuccess extends {},
-	EntryFinal extends {},
+	EntryLoading,
+	EntrySuccess,
 	Data,
-	Opts extends $EntryOpts<Data, EntryFinal>
+	Opts extends $EntryOpts<Data, EntryLoading, EntrySuccess>
 > = (Opts['remove'] extends true ? { remove: () => void } : {}) &
 	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
 type $EntryResponseInner<
-	EntryLoading extends {},
-	EntrySuccess extends {},
-	EntryFinal extends {},
+	EntryLoading,
+	EntrySuccess,
 	Data,
-	Opts extends $EntryOpts<Data, EntryFinal>
+	Opts extends $EntryOpts<Data, EntryLoading, EntrySuccess>
 > =
-	| SuccessResponse<
-			[EntryFinal, Data],
-			$EntryExtension<EntryLoading, EntrySuccess, EntryFinal, Data, Opts>
-	  >
+	| SuccessResponse<[EntrySuccess, Data], $EntryExtension<EntryLoading, EntrySuccess, Data, Opts>>
 	| ErrorResponse<
-			$EntryExtension<EntryLoading, EntrySuccess, EntryFinal, Data, Opts>,
+			$EntryExtension<EntryLoading, EntrySuccess, Data, Opts>,
 			[EntryLoading, undefined]
 	  >
 	| (Opts['abort'] extends true
-			? AbortedResponse<
-					Omit<$EntryExtension<EntryLoading, EntrySuccess, EntryFinal, Data, Opts>, 'aborted'>
-			  >
-			: ErrorResponse<
-					$EntryExtension<EntryLoading, EntrySuccess, EntryFinal, Data, Opts>,
-					[EntryLoading, undefined]
+			? AbortedResponse<Omit<$EntryExtension<EntryLoading, EntrySuccess, Data, Opts>, 'aborted'>>
+			: SuccessResponse<
+					[EntrySuccess, Data],
+					$EntryExtension<EntryLoading, EntrySuccess, Data, Opts>
 			  >)
 	| (Opts['abort'] extends true
 			? LoadingResponse<
-					$EntryExtension<EntryLoading, EntrySuccess, EntryFinal, Data, Opts> & {
+					$EntryExtension<EntryLoading, EntrySuccess, Data, Opts> & {
 						abort: () => void;
 					},
 					[EntryLoading, undefined]
 			  >
 			: LoadingResponse<
-					$EntryExtension<EntryLoading, EntrySuccess, EntryFinal, Data, Opts>,
+					$EntryExtension<EntryLoading, EntrySuccess, Data, Opts>,
 					[EntryLoading, undefined]
 			  >);
 
 type $EntryInner<
 	Args extends any[],
-	EntryLoading extends {},
-	EntrySuccess extends {},
-	EntryFinal extends {},
+	EntryLoading,
+	EntrySuccess,
 	Data,
-	Opts extends $EntryOpts<Data, EntryFinal>
+	Opts extends $EntryOpts<Data, EntryLoading, EntrySuccess>
 > = {
-	responses: Prettify<$EntryResponseInner<EntryLoading, EntrySuccess, EntryFinal, Data, Opts>>[];
+	responses: Prettify<$EntryResponseInner<EntryLoading, EntrySuccess, Data, Opts>>[];
 	call: (...args: Args) => void;
 } & (Opts['loading'] extends true ? { loading: false } : {});
 
 type $EntryStore<
 	Args extends any[],
-	EntryLoading extends {},
-	EntrySuccess extends {},
-	EntryFinal extends {},
+	EntryLoading,
+	EntrySuccess,
 	Data,
-	Opts extends $EntryOpts<Data, EntryFinal>
-> = Writable<$EntryInner<Args, EntryLoading, EntrySuccess, EntryFinal, Data, Opts>>;
+	Opts extends $EntryOpts<Data, EntryLoading, EntrySuccess>
+> = Writable<$EntryInner<Args, EntryLoading, EntrySuccess, Data, Opts>>;
 
 type $EntryFn<Args extends any[], Data> = <
 	EntryLoading extends {},
 	EntrySuccess extends {},
-	EntryLoadingFinal extends Combine<EntryLoading, AdditionalEntry>,
-	EntrySuccessFinal extends Combine<EntrySuccess, AdditionalEntry>,
-	EntryFinal extends Combine<FirstNotEmpty<EntrySuccess, EntryLoading>, AdditionalEntry>,
 	AdditionalEntry extends {},
 	AdditionalData extends {},
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $EntryOpts<DataFinal, EntryFinal>
+	Opts extends $EntryOpts<
+		Combine<Data, AdditionalData>,
+		Combine<EntryLoading, AdditionalEntry>,
+		Combine<First<EntrySuccess, EntryLoading>, AdditionalEntry>
+	>
 >(
 	options?:
 		| (Opts & {
-				entry: (input: Args[0]) => EntryLoading;
-				entrySuccess?: (response: Data) => EntrySuccess;
+				entry: (item: Data) => EntryLoading;
+				entrySuccess?: (item: Data) => EntrySuccess;
 				types?: {
 					entry?: AdditionalEntry;
 					data?: AdditionalData;
 				};
 		  })
 		| ((item: Data) => EntryLoading)
-) => $EntryStore<Args, EntryLoadingFinal, EntrySuccessFinal, EntryFinal, DataFinal, Opts>;
+) => $EntryStore<
+	Args,
+	Combine<EntryLoading, AdditionalEntry>,
+	Combine<First<EntrySuccess, EntryLoading>, AdditionalEntry>,
+	Combine<Data, AdditionalData>,
+	Opts
+>;
 
 /*
- * Object STORE
+ * ENTRIES STORE
  */
 
 type $ObjectOpts<Data> = {
-	prefill?: { [key: string]: Data } | (() => ToPromiseUnion<{ [key: string]: Data }>);
+	prefill?: { [key: string]: Data }[] | (() => ToPromiseUnion<{ [key: string]: Data }[]>);
 	loading?: boolean;
 	remove?: boolean;
 	abort?: boolean;
@@ -326,11 +276,11 @@ type $ObjectExtension<Data, Opts extends $ObjectOpts<Data>> = (Opts['remove'] ex
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
 type $ObjectResponseInner<Data, Opts extends $ObjectOpts<Data>> =
-	| SuccessResponse<Data, $ObjectExtension<Data, Opts>>
+	| SuccessResponse<{ [key: string]: Data }, $ObjectExtension<Data, Opts>>
 	| ErrorResponse<$ObjectExtension<Data, Opts>>
 	| (Opts['abort'] extends true
 			? AbortedResponse<Omit<$ObjectExtension<Data, Opts>, 'aborted'>>
-			: ErrorResponse<$ObjectExtension<Data, Opts>>)
+			: StaleReponse<$ObjectExtension<Data, Opts>>)
 	| (Opts['abort'] extends true
 			? LoadingResponse<$ObjectExtension<Data, Opts> & { abort: () => void }>
 			: LoadingResponse<$ObjectExtension<Data, Opts>>);
@@ -346,19 +296,17 @@ type $ObjectStore<Args extends any[], Data, Opts extends $ObjectOpts<Data>> = Wr
 
 type $ObjectFn<Args extends any[], Data> = <
 	AdditionalData,
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $ObjectOpts<DataFinal>
+	Opts extends $ObjectOpts<Combine<Data, AdditionalData>>
 >(
 	options?:
 		| (Opts & {
-				key: (input: Args[0]) => string;
-				keyAfter?: (response: Data) => string;
+				key: (item: Data) => string;
 				types?: {
 					data?: AdditionalData;
 				};
 		  })
 		| ((item: Data) => string)
-) => $ObjectStore<Args, DataFinal, Opts>;
+) => $ObjectStore<Args, Combine<Data, AdditionalData>, Opts>;
 /*
  * CHANGE PROCEDURES
  */
@@ -369,7 +317,12 @@ type NewStoreProcedures<Args extends any[], Data> = {
 	$array: $ArrayFn<Args, Data>;
 	$entry: $EntryFn<Args, Data>;
 	$object: $ObjectFn<Args, Data>;
-} & (Data extends any[] ? { $format: $FormatFn<Args, Data[0]> } : {});
+};
+// & (Data extends any[]
+// 	? {
+// 			$format: $FormatFn<Args, Data>;
+// 	  }
+// 	: {});
 
 type ChangeProceduresType<
 	Client extends object,

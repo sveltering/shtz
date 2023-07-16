@@ -7,7 +7,7 @@
 	});
 
 	if ($list) {
-		$list.
+		// $list.
 		// $list.responses[0].data;
 	}
 </script>

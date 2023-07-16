@@ -102,13 +102,14 @@ type $FormatFn<Args extends any[], Data> = <
 	Opts extends $FormatOpts<Data>
 >(
 	options?: Opts &
-		RequireOnlyOne<
-			{
-				key: (response: Data) => KeyValue;
-				entry: (response: Data) => Entry;
-			},
-			'key' | 'entry'
-		>
+		(
+			| {
+					key: (response: Data) => KeyValue;
+			  }
+			| {
+					entry: (response: Data) => Entry;
+			  }
+		)
 ) => $FormatStore<Args, Data, DataFinal>;
 /*
  * REVISE STORE

@@ -45,6 +45,14 @@ export type Union<T1, T2> = T2 extends EmptyObject
 	? T2
 	: Prettify<T1 | T2>;
 
+export type FirstNotEmpty<T1 extends {} = {}, T2 extends {} = {}> = T1 extends EmptyObject
+	? T2 extends EmptyObject
+		? T2
+		: T2
+	: T1;
+
+// type test = Combine<FirstNotEmpty<{ one: 1 }, { two: 2 }>, { three: 3 }>;
+
 // from https://stackoverflow.com/questions/40510611/typescript-interface-require-one-of-two-properties-to-exist
 export type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Pick<T, Exclude<keyof T, Keys>> &
 	{

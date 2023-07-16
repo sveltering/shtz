@@ -1,21 +1,24 @@
 <script lang="ts">
 	import { storeClient } from '$trpc/browserClient';
-	import { get, writable } from 'svelte/store';
 
-	let list = storeClient.addToList.mutate.$entry({
+	let prefill = storeClient.prefillList.query.$format({
+		prefill: [
+			{ date: 'date', item: '' },
+			{ date: 'date', item: '' }
+		],
 		entry: function (item) {
-			return { first: 1, string: 1 };
-		},
-		entryAfter: function (item) {
-			return { after: 1, string: 1 };
-		},
-		types: {
-			entry: null as any as { poop: 'dascoop' }
+			// return { first: 1, string: 1, loading: true };
+			return { done: 'done', loaded: true };
 		}
 	});
 
-	if ($list.responses[0].success) {
-		const test = $list.responses[0].data;
-		// $list.responses[0].data;
-	}
+	let list = storeClient.addToList.mutate.$entry({
+		prefill: $prefill.data,
+		entry: function (item) {
+			return { first: 1, string: 1, loading: true };
+		},
+		entrySuccess: function (item) {
+			return { done: 'done', loaded: true };
+		}
+	});
 </script>
