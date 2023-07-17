@@ -6,14 +6,14 @@ import type { browserClientOpt, browserClientOptF, browserFCC, browserOCC } from
 function browserClientCreate<T extends AnyRouter>(options: browserClientOptF): browserFCC<T>; //browser and server
 function browserClientCreate<T extends AnyRouter>(options: browserClientOpt): browserOCC<T>; //browser only
 function browserClientCreate<T extends AnyRouter>(options: browserClientOpt) {
-	const { url, batchLinkOptions, browserOnly } = options;
+	const { url, batchLinkOptions, browserOnly, transformer } = options;
 
 	if (browserOnly !== false && typeof window === 'undefined') {
 		return browserPseudoClient();
 	}
-	//@ts-ignore
 	return createTRPCProxyClient<T>({
-		links: [httpBatchLink({ ...batchLinkOptions, url })]
+		links: [httpBatchLink({ ...batchLinkOptions, url })],
+		transformer: transformer
 	});
 }
 

@@ -5,6 +5,14 @@ import type { MakeStoreType } from './storeClientCreate.types.js';
 import type { TRPCClientError } from '@trpc/client';
 import type { ArgumentTypes } from '../types.js';
 
+type transformerOpts = ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
+type batchLinkOptions = Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
+type allClientOpts = {
+	url: string;
+	transformer?: transformerOpts;
+	batchLinkOptions?: batchLinkOptions;
+};
+
 /*
  *
  *
@@ -28,17 +36,11 @@ type ChangeReturns<Obj extends object> = {
 		: Obj[Key];
 };
 
-type transformerOpts = ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
-type batchLinkOptions = Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
-
-export type browserClientOpt = {
-	url: string;
+export type browserClientOpt = allClientOpts & {
 	browserOnly?: boolean;
-	transformer?: transformerOpts;
-	batchLinkOptions?: batchLinkOptions;
 };
 
-export type browserClientOptF = browserClientOpt & {
+export type browserClientOptF = allClientOpts & {
 	browserOnly: false;
 };
 
@@ -56,9 +58,9 @@ export type browserFCC<T extends AnyRouter> = CreateTRPCProxyClient<T>;
  * LOAD CLIENT TYPES
  */
 type loadBatchLinkOptions = Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' | 'fetch'>;
-export interface loadClientOpt extends Omit<browserClientOpt, 'browserOnly'> {
+export type loadClientOpt = allClientOpts & {
 	batchLinkOptions?: loadBatchLinkOptions;
-}
+};
 export type loadCC<T extends AnyRouter> = (event: LoadEvent) => CreateTRPCProxyClient<T>;
 
 /*
@@ -72,10 +74,9 @@ export type loadCC<T extends AnyRouter> = (event: LoadEvent) => CreateTRPCProxyC
  * STORE CLIENT TYPES
  */
 
-export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
+export type storeClientOpt = allClientOpts & {
 	interceptData?: (data: any, path: string) => Promise<{}> | {};
 	interceptError?: (error: TRPCClientError<any>, path: string) => Promise<{}> | {};
 };
 
 export type storeCC<T extends AnyRouter> = MakeStoreType<CreateTRPCProxyClient<T>>;
-// consider using inferRouterInputs type

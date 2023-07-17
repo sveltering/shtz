@@ -67,17 +67,15 @@ type $UpdateOpts<Input, Data> = {
 	remove?: boolean;
 	abort?: boolean;
 	abortOnRemove?: boolean;
-	beforeRemove?:
-		| ((response: Data, input: undefined) => any | Promise<any>)
-		| ((response: undefined, input: Input) => any | Promise<any>);
-	beforeCall?: (input: Input) => any | Promise<any>;
+	beforeRemove?: (response?: Data) => boolean | Data | Promise<boolean | Data>;
+	beforeCall?: (input: Input) => boolean | Promise<boolean>;
 };
 type $UpdateExtension<
 	Input,
 	Data,
 	Opts extends $UpdateOpts<Input, Data>
-> = (Opts['remove'] extends true ? { remove: () => Promise<void> } : {}) &
-	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
+> = (Opts['remove'] extends true ? { remove: () => void } : {}) &
+	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
 type $UpdateResponse<Input, Data, Opts extends $UpdateOpts<Input, Data>> =
@@ -123,17 +121,15 @@ type $ArrayOpts<Input, Data> = {
 	remove?: boolean;
 	abort?: boolean;
 	abortOnRemove?: boolean;
-	beforeRemove?:
-		| ((response: Data, input: undefined) => any | Promise<any>)
-		| ((response: undefined, input: Input) => any | Promise<any>);
-	beforeCall?: (input: Input) => any | Promise<any>;
+	beforeRemove?: (response: Data) => boolean | Data | Promise<boolean | Data>;
+	beforeCall?: (input: Input) => boolean | Promise<boolean>;
 };
 type $ArrayExtension<
 	Input,
 	Data,
 	Opts extends $ArrayOpts<Input, Data>
-> = (Opts['remove'] extends true ? { remove: () => Promise<void> } : {}) &
-	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
+> = (Opts['remove'] extends true ? { remove: () => void } : {}) &
+	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
 type $ArrayResponseInner<Input, Data, Opts extends $ArrayOpts<Input, Data>> =
@@ -176,17 +172,15 @@ type $EntryOpts<Input, Data> = {
 	remove?: boolean;
 	abort?: boolean;
 	abortOnRemove?: boolean;
-	beforeRemove?:
-		| ((response: Data, input: undefined) => any | Promise<any>)
-		| ((response: undefined, input: Input) => any | Promise<any>);
-	beforeCall?: (input: Input) => any | Promise<any>;
+	beforeRemove?: (response: Data) => boolean | Data | Promise<boolean | Data>;
+	beforeCall?: (input: Input) => boolean | Promise<boolean>;
 };
 type $EntryExtension<
 	Input,
 	Data,
 	Opts extends $EntryOpts<Input, Data>
-> = (Opts['remove'] extends true ? { remove: () => Promise<void> } : {}) &
-	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
+> = (Opts['remove'] extends true ? { remove: () => void } : {}) &
+	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
 type $EntryResponseInner<
@@ -302,24 +296,22 @@ type $EntryFn<Args extends any[], Data> = <
  */
 
 type $ObjectOpts<Input, Data> = {
-	key?: (input: Input) => string;
+	key: (input: Input) => string;
 	keySuccess?: (response: Data) => string;
 	prefill?: Data[] | (() => Data[]) | (() => Promise<Data[] | undefined>);
 	loading?: boolean;
 	remove?: boolean;
 	abort?: boolean;
 	abortOnRemove?: boolean;
-	beforeRemove?:
-		| ((response: Data, input: undefined) => any | Promise<any>)
-		| ((response: undefined, input: Input) => any | Promise<any>);
-	beforeCall?: (input: Input) => any | Promise<any>;
+	beforeRemove?: (response: Data) => boolean | Data | Promise<boolean | Data>;
+	beforeCall?: (input: Input) => boolean | Promise<boolean>;
 };
 type $ObjectExtension<
 	Input,
 	Data,
 	Opts extends $ObjectOpts<Input, Data>
-> = (Opts['remove'] extends true ? { remove: () => Promise<void> } : {}) &
-	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
+> = (Opts['remove'] extends true ? { remove: () => void } : {}) &
+	(Opts['abortOnRemove'] extends true ? { remove: () => void } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
 type $ObjectResponseInner<Input, Data, Opts extends $ObjectOpts<Input, Data>> =
@@ -349,7 +341,7 @@ type $ObjectFn<Args extends any[], Data> = <
 	DataFinal extends Combine<Data, AdditionalData>,
 	Opts extends $ObjectOpts<Args[0], DataFinal>
 >(
-	options?:
+	options:
 		| (Opts & {
 				types?: {
 					data?: AdditionalData;
@@ -432,8 +424,8 @@ export type StoreOpts = {
 	hasRemove: boolean;
 	hasAbort: boolean;
 	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	beforeRemoveFn: undefined | ((response: any) => boolean | any | Promise<boolean | any>);
+	beforeCallFn: undefined | ((input: any) => boolean | Promise<boolean>);
 };
 
 export type $OnceStoreOpts = {
@@ -460,8 +452,8 @@ export type $OnceStoreOpts = {
 	hasRemove: false;
 	hasAbort: false;
 	hasAbortOnRemove: false;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	beforeRemoveFn: undefined;
+	beforeCallFn: undefined | ((input: any) => boolean | Promise<boolean>);
 };
 
 export type $UpdateStoreOpts = {
@@ -488,8 +480,8 @@ export type $UpdateStoreOpts = {
 	hasRemove: boolean;
 	hasAbort: boolean;
 	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	beforeRemoveFn: undefined | ((response: any) => boolean | any | Promise<boolean | any>);
+	beforeCallFn: undefined | ((input: any) => boolean | Promise<boolean>);
 };
 
 export type $ArrayStoreOpts = {
@@ -516,8 +508,8 @@ export type $ArrayStoreOpts = {
 	hasRemove: boolean;
 	hasAbort: boolean;
 	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	beforeRemoveFn: undefined | ((response: any) => boolean | any | Promise<boolean | any>);
+	beforeCallFn: undefined | ((input: any) => boolean | Promise<boolean>);
 };
 
 export type $EntryStoreOpts = {
@@ -544,8 +536,8 @@ export type $EntryStoreOpts = {
 	hasRemove: boolean;
 	hasAbort: boolean;
 	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	beforeRemoveFn: undefined | ((response: any) => boolean | any | Promise<boolean | any>);
+	beforeCallFn: undefined | ((input: any) => boolean | Promise<boolean>);
 };
 
 export type $ObjectStoreOpts = {
@@ -572,8 +564,8 @@ export type $ObjectStoreOpts = {
 	hasRemove: boolean;
 	hasAbort: boolean;
 	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	beforeRemoveFn: undefined | ((response: any) => boolean | any | Promise<boolean | any>);
+	beforeCallFn: undefined | ((input: any) => boolean | Promise<boolean>);
 };
 
 export type AnyStoreOpts =
@@ -582,8 +574,3 @@ export type AnyStoreOpts =
 	| $ArrayStoreOpts
 	| $EntryStoreOpts
 	| $ObjectStoreOpts;
-
-export type CallTracker = {
-	abortController?: undefined | AbortController;
-	skip: boolean;
-};

@@ -6,7 +6,7 @@ import type {
 	TRPCInner,
 	TRPCErrorOpts,
 	createContextType,
-	KeyValue,
+	KeyValueObject,
 	StringLiteral
 } from './types.js';
 import { initTRPC, TRPCError, type AnyRouter } from '@trpc/server';
@@ -19,7 +19,7 @@ import {
 const TRPC_ERROR_CODES_BY_KEY = Object.fromEntries(
 	Object.entries(TRPC_ERROR_CODES_BY_NUMBER).map(([key, value]) => [value, key])
 );
-export class TRPC<Ctx extends KeyValue, LocalsKey, LocalsType> {
+export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 	options: TRPCOpts<Ctx, LocalsKey, LocalsType> & {
 		path: string;
 		context: createContextType<Ctx>;
@@ -96,7 +96,7 @@ export class TRPC<Ctx extends KeyValue, LocalsKey, LocalsType> {
 		}
 
 		return async function (event: RequestEvent): Promise<false | Response> {
-			const pipe: KeyValue = {};
+			const pipe: KeyValueObject = {};
 
 			const URL = event.url;
 			const pathName = URL.pathname;

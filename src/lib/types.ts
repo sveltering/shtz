@@ -15,9 +15,9 @@ export type { HTTPResponse };
  * Utility types
  */
 
-export type FunctionType = (...args: any) => any;
+export type FunctionType = (...args: any[]) => any;
 
-export type AsyncFunctionType = (...args: any) => Promise<any>;
+export type AsyncFunctionType = (...args: any[]) => Promise<any>;
 
 export type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
 
@@ -33,6 +33,8 @@ export type Prettify<Obj> = Obj extends object ? { [Key in keyof Obj]: Obj[Key] 
 
 export type EmptyObject = { [key: string]: never };
 
+export type KeyValueObject = { [key: string]: any };
+
 export type Combine<T1, T2> = T2 extends EmptyObject
 	? T1
 	: T1 extends EmptyObject
@@ -45,9 +47,9 @@ export type Union<T1, T2> = T2 extends EmptyObject
 	? T2
 	: Prettify<T1 | T2>;
 
-export type FirstNotEmpty<T1 extends {} = {}, T2 extends {} = {}> = T1 extends EmptyObject
+export type FirstNotEmpty<T1 extends {}, T2 extends {}> = T1 extends EmptyObject
 	? T2 extends EmptyObject
-		? T2
+		? never
 		: T2
 	: T1;
 
@@ -64,6 +66,10 @@ export type RequireOnlyOne<T, Keys extends keyof T = keyof T> = Pick<T, Exclude<
 		[K in Keys]-?: Required<Pick<T, K>> & Partial<Record<Exclude<Keys, K>, undefined>>;
 	}[Keys];
 
+export type OneOf<T> = {
+	[K in keyof T]: Pick<T, K> & Partial<Record<Exclude<keyof T, K>, never>>;
+}[keyof T];
+
 export type RequireAllOrNone<ObjectType, KeysType extends keyof ObjectType = never> = (
 	| Required<Pick<ObjectType, KeysType>>
 	| Partial<Record<KeysType, never>>
@@ -73,6 +79,9 @@ export type RequireAllOrNone<ObjectType, KeysType extends keyof ObjectType = nev
 export type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
 export type ToPromiseUnion<T> = Promise<T> | T;
+
+// import type { TRPCClientError } from '@trpc/client';
+// export type TRPCClientError = TRPCClientError<any>;
 /*
  *
  *
@@ -83,7 +92,6 @@ export type ToPromiseUnion<T> = Promise<T> | T;
  *
  *  TRPC types
  */
-export type KeyValue = Record<string, any>;
 
 type handleFetchBypassOpts = RequireAllOrNone<
 	{
@@ -96,20 +104,20 @@ type handleFetchBypassOpts = RequireAllOrNone<
 type resolveOptions = ArgumentTypes<typeof resolveHTTPResponse>[0];
 type createOptions = ArgumentTypes<typeof initTRPC.create>[0];
 
-export type createContextType<Ctx extends KeyValue> = (
+export type createContextType<Ctx extends KeyValueObject> = (
 	event?: RequestEvent,
-	pipe?: false | KeyValue
+	pipe?: false | KeyValueObject
 ) => Promise<Ctx>;
 
 type beforeResolve = (arg: {
 	dotPath: string;
 	event: RequestEvent;
-	pipe: KeyValue;
+	pipe: KeyValueObject;
 }) => Promise<void | HTTPResponse>;
 type beforeResponse = (arg: {
 	dotPath: string;
 	event: RequestEvent;
-	pipe: KeyValue;
+	pipe: KeyValueObject;
 	result: HTTPResponse;
 }) => Promise<void | HTTPResponse>;
 
@@ -117,7 +125,7 @@ type LocalsAllowedOptions = 'always' | 'callable' | undefined;
 
 type LocalsAllowed<L> = L extends LocalsAllowedOptions ? L : LocalsAllowedOptions;
 
-export type TRPCOpts<Ctx extends KeyValue, LocalsKey, LocalsType> = Prettify<
+export type TRPCOpts<Ctx extends KeyValueObject, LocalsKey, LocalsType> = Prettify<
 	{
 		path?: string;
 		context?: createContextType<Ctx>;
@@ -132,7 +140,7 @@ export type TRPCOpts<Ctx extends KeyValue, LocalsKey, LocalsType> = Prettify<
 
 export type TRPCErrorOpts = ConstructorParameters<typeof TRPCError>[0];
 
-export type TRPCInner<Ctx extends KeyValue> = ReturnType<
+export type TRPCInner<Ctx extends KeyValueObject> = ReturnType<
 	ReturnType<typeof initTRPC.context<Ctx>>['create']
 >;
 
