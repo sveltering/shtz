@@ -5,18 +5,28 @@
 
 	console.clear();
 
-	let removeBanned = Math.random() < 0.5;
+	let remove = Math.random() < 0.5;
+
+	$: remove = remove;
+
 	const update = storeClient.tests.addToList.mutate.$update({
+		
 		remove: true,
-		beforeRemoveInput: function (input) {
-			if (removeBanned) {
-				return false;
+		beforeRemoveResponse: function (response, replace) {
+			console.log(remove);
+			if (remove) {
+				return true;
 			}
+			replace({
+				...response,
+				item: 'New Value'
+			});
 		}
+
 	});
 
 	function makeCall() {
-		removeBanned = Math.random() < 0.5;
+		remove = Math.random() < 0.5;
 		$update.call({
 			item: 'Test',
 			qty: 20,
@@ -25,17 +35,16 @@
 	}
 	makeCall();
 
-	$: console.log($update);
-
-	$: removeBanned = removeBanned;
+	// $: console.log($update);
 </script>
 
-{#if removeBanned}
-	TEST: <br />
-	Remove will not work (but should work once loaded)
-{:else}
+{#if remove}
 	TEST: <br />
 	Remove should work
+{:else}
+	TEST: <br />
+	Remove will not work after successfull response and input item property will be replaced with "New
+	Value" changing
 {/if}<br />
 <br />
 {#if $update.loading}
@@ -45,7 +54,8 @@
 	{@const item = $update.data}
 	date: {item.date}<br />
 	item: {item.item}<br />
-	<button on:click={$update.remove}>Remove</button>
+	<button on:click={$update.remove}>Remove</button><br />
+	<button on:click={makeCall}>Call again</button>
 	<br /><br /><br />
 {:else if $update.error}
 	{$update.error.message}

@@ -397,8 +397,7 @@ function removeCallFn(
 			} else {
 				remove = false;
 			}
-		} //
-		else {
+		} else {
 			if (hasAbortOnRemove) {
 				abortCallFn(store, opts, _tracker, true)();
 			}
@@ -412,7 +411,7 @@ function removeCallFn(
 			if (is$update) {
 				responseInner.data = newResponse.value;
 				store.set(responseInner);
-			} // MULTIPLE UPDATE STORE
+			} // Update
 			else {
 			}
 		}
@@ -456,6 +455,7 @@ function abortCallFn(
 
 		if (is$update) {
 			const storeInner = get(store as any) as any;
+
 			Object.assign(storeInner, {
 				loading: false,
 				success: false,

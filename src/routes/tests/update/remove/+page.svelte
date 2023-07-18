@@ -17,12 +17,15 @@
 	let message = 'The store should be stagnant after 5 seconds';
 	setTimeout(function () {
 		$update.remove();
+	}, 5000);
+	setTimeout(function () {
 		message = 'The store should now be successfull after another call';
 		$update.call({
 			item: 'Test Again ! ',
-			qty: 20
+			qty: 20,
+			time: 3
 		});
-	}, 5000);
+	}, 7000);
 
 	console.clear();
 	$: console.log($update);

@@ -627,9 +627,8 @@ export type AnyStoreOpts =
 // 	| $ObjectStoreOpts;
 
 export type CallTracker = {
-	// input: any;
-	skip: boolean;
-	index: string | number;
 	response?: any;
 	abortController?: undefined | AbortController;
+	skip: boolean;
+	index: string | number;
 };

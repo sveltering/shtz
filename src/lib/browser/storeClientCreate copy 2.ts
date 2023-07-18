@@ -299,8 +299,11 @@ function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) 
 		skip: false
 	};
 
+	let input;
+
 	// update and multiple methods use .call()
 	if (is$update || is$multiple) {
+		input = endpointArgs?.[0];
 		const responseInner = is$update ? (get(store as any) as any) : {};
 
 		responseInner._tracker = _tracker;
@@ -319,7 +322,7 @@ function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) 
 			responseInner.abort = abortCallFn(store, opts, _tracker, false);
 		}
 		if (hasRemove) {
-			responseInner.remove = removeCallFn(store, opts, _tracker, undefined, endpointArgs?.[0]);
+			responseInner.remove = removeCallFn(store, opts, _tracker, undefined, input);
 		}
 
 		if (is$update) {
@@ -342,7 +345,7 @@ function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) 
 	}
 
 	if (beforeCallFn) {
-		callAsync(beforeCallFn)(endpointArgs?.[0], function (newInput: any) {
+		callAsync(beforeCallFn)(input, function (newInput: any) {
 			endpointArgs[0] = newInput;
 		})
 			.then(function (continueCall: boolean | void) {
@@ -369,31 +372,35 @@ function removeCallFn(
 	response: any,
 	input?: any
 ) {
+	const isRemoveResponse = arguments.length === 4;
 	return async function () {
 		const { is$update, beforeRemoveInputFn, beforeRemoveResponseFn, hasAbortOnRemove } = opts;
-		const responseInner = _tracker.response;
+		const storeInner = get(store as any) as any;
 
 		let remove = true;
-		let newResponse: any = {};
+		let newResponse = undefined;
 
-		if ((responseInner.success || responseInner.error) && beforeRemoveResponseFn) {
-			const continueToRemove = await beforeRemoveResponseFn(response, function (replaceResponse) {
-				newResponse.value = replaceResponse;
+		if (isRemoveResponse && beforeRemoveResponseFn) {
+			const continueRemove = await beforeRemoveResponseFn(response, function (replaceResponse) {
+				newResponse = replaceResponse;
 			});
-			if (continueToRemove === true) {
+			if (continueRemove === true) {
 				if (hasAbortOnRemove) {
 					abortCallFn(store, opts, _tracker, true)();
 				}
+				_tracker.skip = true;
 			} else {
+				newResponse = newResponse || response;
 				remove = false;
 			}
 		} //
-		else if (!(responseInner.success || responseInner.error) && beforeRemoveInputFn) {
+		else if (!isRemoveResponse && beforeRemoveInputFn) {
 			const continueRemove = await beforeRemoveInputFn(input);
 			if (continueRemove === true) {
 				if (hasAbortOnRemove) {
 					abortCallFn(store, opts, _tracker, true)();
 				}
+				_tracker.skip = true;
 			} else {
 				remove = false;
 			}
@@ -402,38 +409,37 @@ function removeCallFn(
 			if (hasAbortOnRemove) {
 				abortCallFn(store, opts, _tracker, true)();
 			}
+			_tracker.skip = true;
 		}
 
-		if (!remove && !newResponse?.hasOwnProperty('value')) {
-			return;
-		}
-
-		if (!remove && newResponse.hasOwnProperty('value')) {
+		if (!remove && isRemoveResponse) {
 			if (is$update) {
-				responseInner.data = newResponse.value;
-				store.set(responseInner);
-			} // MULTIPLE UPDATE STORE
+				Object.assign(storeInner, {
+					loading: false,
+					success: true,
+					error: false,
+					data: newResponse
+				});
+			} //
 			else {
+				// REMOVE FOR MULTIPLE RE-INDEX ARRAYS, CHECK FOR LOADING
+			}
+		} //
+		else if (remove) {
+			if (is$update) {
+				Object.assign(storeInner, {
+					loading: false,
+					success: false,
+					error: false,
+					data: undefined
+				});
+			} //
+			else {
+				// REMOVE FOR MULTIPLE RE-INDEX ARRAYS, CHECK FOR LOADING
 			}
 		}
 
-		if (remove) {
-			_tracker.skip = true;
-		} else {
-			return;
-		}
-
-		if (is$update) {
-			Object.assign(responseInner, {
-				loading: false,
-				success: false,
-				error: false,
-				data: undefined
-			});
-		} // REMOVE FOR MULTIPLE RE-INDEX ARRAYS, CHECK FOR LOADING
-		else {
-		}
-		store.set(responseInner as any);
+		store.set(storeInner as any);
 	};
 }
 
@@ -456,6 +462,7 @@ function abortCallFn(
 
 		if (is$update) {
 			const storeInner = get(store as any) as any;
+
 			Object.assign(storeInner, {
 				loading: false,
 				success: false,

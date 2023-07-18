@@ -33,10 +33,9 @@ export default t.router({
 			z.object({ item: z.string(), qty: z.coerce.number(), time: z.coerce.number().optional() })
 		)
 		.mutation(async function ({ input }) {
+			await sleep(0.3, 1);
 			if (input.time) {
 				await sleep(input.time);
-			} else {
-				await sleep(0.3, 1);
 			}
 			if (strContainsError(input.item)) {
 				throw t.error(`Error adding item "${input.item}" to list.`, 'FORBIDDEN');
