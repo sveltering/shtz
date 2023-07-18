@@ -1,6 +1,6 @@
 import type { CreateTRPCProxyClient, createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';
-import type { LoadEvent } from '@sveltejs/kit';
+import type { ServerLoadEvent, LoadEvent } from '@sveltejs/kit';
 import type { MakeStoreType } from './storeClientCreate.types.js';
 import type { TRPCClientError } from '@trpc/client';
 import type { ArgumentTypes } from '../types.js';
@@ -61,7 +61,9 @@ type loadBatchLinkOptions = Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' |
 export type loadClientOpt = allClientOpts & {
 	batchLinkOptions?: loadBatchLinkOptions;
 };
-export type loadCC<T extends AnyRouter> = (event: LoadEvent) => CreateTRPCProxyClient<T>;
+export type loadCC<T extends AnyRouter> = (
+	event: ServerLoadEvent | LoadEvent
+) => CreateTRPCProxyClient<T>;
 
 /*
  *

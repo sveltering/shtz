@@ -192,7 +192,7 @@ const storeClientMethods = {
 			error: false,
 			success: false
 		});
-		callEndpoint(store, opts, opts.args);
+		callEndpoint(store, opts, opts.args, false);
 		return store;
 	},
 	$update: function (opts: $UpdateStoreOpts) {
@@ -202,9 +202,10 @@ const storeClientMethods = {
 			error: false,
 			success: false,
 			call: (...endpointArgs: any[]) => {
-				callEndpoint(store, opts, endpointArgs);
+				callEndpoint(store, opts, endpointArgs, false);
 			}
 		});
+		handlePrefill(store, opts);
 		return store;
 	},
 	$array: function (opts: $ArrayStoreOpts) {
@@ -213,9 +214,10 @@ const storeClientMethods = {
 			...(hasLoading ? { loading: false } : {}),
 			responses: [],
 			call: (...endpointArgs: any[]) => {
-				callEndpoint(store, opts, endpointArgs);
+				callEndpoint(store, opts, endpointArgs, false);
 			}
 		});
+		handlePrefill(store, opts);
 		return store;
 	},
 	$entry: function (opts: $EntryStoreOpts) {
@@ -224,23 +226,41 @@ const storeClientMethods = {
 			...(hasLoading ? { loading: false } : {}),
 			responses: [],
 			call: (...endpointArgs: any[]) => {
-				callEndpoint(store, opts, endpointArgs);
+				callEndpoint(store, opts, endpointArgs, false);
 			}
 		});
+		handlePrefill(store, opts);
 		return store;
 	},
 	$object: function (opts: $ObjectStoreOpts) {
-		const { hasLoading } = opts;
+		const { hasLoading, prefillData } = opts;
 		const store: AnyObjectStore = writable({
 			...(hasLoading ? { loading: false } : {}),
 			responses: {},
 			call: (...endpointArgs: any[]) => {
-				callEndpoint(store, opts, endpointArgs);
+				callEndpoint(store, opts, endpointArgs, false);
 			}
 		});
+		handlePrefill(store, opts);
 		return store;
 	}
 };
+
+function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
+	const { prefillData, prefillFn, is$update, is$multiple } = opts;
+	if (!prefillData && !prefillFn) {
+		return;
+	}
+	if (is$update) {
+		if (prefillData) {
+			callEndpoint(store, opts, [], async function () {
+				return prefillData;
+			});
+		} else if (prefillFn) {
+			callEndpoint(store, opts, [], callAsync(prefillFn));
+		}
+	}
+}
 
 const callAsync = function <Fn extends FunctionType>(fn: FunctionType) {
 	return async function (...args: ArgumentTypes<Fn>) {
@@ -267,7 +287,12 @@ const is$entryStore = (store: Writable<any>): store is AnyEntryStore => true;
 const is$objectOpts = (opts: AnyStoreOpts): opts is $ObjectStoreOpts => opts.method === '$object';
 const is$objectStore = (store: Writable<any>): store is AnyObjectStore => true;
 
-function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) {
+function callEndpoint(
+	store: AnyStore,
+	opts: AnyStoreOpts,
+	endpointArgs: any[],
+	prefillHandle: false | AsyncFunctionType
+) {
 	const {
 		// method,
 		endpoint,
@@ -341,7 +366,12 @@ function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) 
 		}
 	}
 
-	if (beforeCallFn) {
+	if (prefillHandle) {
+		prefillHandle()
+			.then(endpointSuccess(store, opts, _tracker))
+			.catch(endpointError(store, opts, _tracker));
+	} //
+	else if (beforeCallFn) {
 		callAsync(beforeCallFn)(endpointArgs?.[0], function (newInput: any) {
 			endpointArgs[0] = newInput;
 		})
