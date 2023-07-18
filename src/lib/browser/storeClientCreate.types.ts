@@ -47,6 +47,19 @@ type ErrorResponse<Ext extends {} = {}, Data = undefined> = ResponseObject<
 >;
 type AbortedResponse<Ext extends {} = {}> = StaleReponse<{ aborted: true } & Omit<Ext, 'aborted'>>;
 
+type replaceInputFn<Input> = (newInput: Input) => Input;
+
+type beforeCallFn<Input> = (
+	input: Input,
+	replaceInput: replaceInputFn<Input>
+) => false | void | Promise<false | void>;
+
+type beforeRemoveInputFn<Input> = (input: Input) => false | void | Promise<false | void>;
+
+type beforeRemoveResponseFn<Data> = (
+	response: Data,
+	replaceData: replaceInputFn<Data>
+) => false | void | Promise<false | void>;
 /*
  * CALL
  */
@@ -67,10 +80,9 @@ type $UpdateOpts<Input, Data> = {
 	remove?: boolean;
 	abort?: boolean;
 	abortOnRemove?: boolean;
-	beforeRemove?:
-		| ((response: Data, input: undefined) => any | Promise<any>)
-		| ((response: undefined, input: Input) => any | Promise<any>);
-	beforeCall?: (input: Input) => any | Promise<any>;
+	beforeCall?: beforeCallFn<Input>;
+	beforeRemoveInput?: beforeRemoveInputFn<Input>;
+	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
 };
 type $UpdateExtension<
 	Input,
@@ -91,27 +103,31 @@ type $UpdateResponse<Input, Data, Opts extends $UpdateOpts<Input, Data>> =
 			? LoadingResponse<$UpdateExtension<Input, Data, Opts> & { abort: () => void }>
 			: LoadingResponse<$UpdateExtension<Input, Data, Opts>>);
 
-type $UpdateInner<Args extends any[], Input, Data, Opts extends $UpdateOpts<Input, Data>> = {
+type $UpdateInner<Args extends any[], Input, Data, Opts extends $UpdateOpts<Input, Data>, DEBUG> = {
 	call: (...args: Args) => void;
+	readonly DEBUG?: DEBUG;
 } & $UpdateResponse<Input, Data, Opts>;
 
 type $UpdateStore<
 	Args extends any[],
 	Input,
 	Data,
-	Opts extends $UpdateOpts<Input, Data>
-> = Writable<Prettify<$UpdateInner<Args, Input, Data, Opts>>>;
+	Opts extends $UpdateOpts<Input, Data>,
+	DEBUG
+> = Writable<Prettify<$UpdateInner<Args, Input, Data, Opts, DEBUG>>>;
+
 type $UpdateFn<Args extends any[], Data> = <
-	AdditionalData,
+	AdditionalData extends {},
 	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $UpdateOpts<Args[0], DataFinal>
+	Opts extends $UpdateOpts<Args[0], DataFinal>,
+	DEBUG extends {}
 >(
 	options?: Opts & {
 		types?: {
 			data?: AdditionalData;
 		};
 	}
-) => $UpdateStore<Args, Args[0], DataFinal, Opts>;
+) => $UpdateStore<Args, Args[0], DataFinal, Opts, DEBUG>;
 
 /*
  * ARRAY STORE
@@ -123,10 +139,9 @@ type $ArrayOpts<Input, Data> = {
 	remove?: boolean;
 	abort?: boolean;
 	abortOnRemove?: boolean;
-	beforeRemove?:
-		| ((response: Data, input: undefined) => any | Promise<any>)
-		| ((response: undefined, input: Input) => any | Promise<any>);
-	beforeCall?: (input: Input) => any | Promise<any>;
+	beforeCall?: beforeCallFn<Input>;
+	beforeRemoveInput?: beforeRemoveInputFn<Input>;
+	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
 };
 type $ArrayExtension<
 	Input,
@@ -146,25 +161,31 @@ type $ArrayResponseInner<Input, Data, Opts extends $ArrayOpts<Input, Data>> =
 			? LoadingResponse<$ArrayExtension<Input, Data, Opts> & { abort: () => void }>
 			: LoadingResponse<$ArrayExtension<Input, Data, Opts>>);
 
-type $ArrayInner<Args extends any[], Input, Data, Opts extends $ArrayOpts<Input, Data>> = {
+type $ArrayInner<Args extends any[], Input, Data, Opts extends $ArrayOpts<Input, Data>, DEBUG> = {
 	responses: Prettify<$ArrayResponseInner<Input, Data, Opts>>[];
 	call: (...args: Args) => void;
+	readonly DEBUG?: DEBUG;
 } & (Opts['loading'] extends true ? { loading: false } : {});
 
-type $ArrayStore<Args extends any[], Input, Data, Opts extends $ArrayOpts<Input, Data>> = Writable<
-	$ArrayInner<Args, Input, Data, Opts>
->;
+type $ArrayStore<
+	Args extends any[],
+	Input,
+	Data,
+	Opts extends $ArrayOpts<Input, Data>,
+	DEBUG
+> = Writable<$ArrayInner<Args, Input, Data, Opts, DEBUG>>;
 type $ArrayFn<Args extends any[], Data> = <
-	AdditionalData,
+	AdditionalData extends {},
 	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $ArrayOpts<Args[0], DataFinal>
+	Opts extends $ArrayOpts<Args[0], DataFinal>,
+	DEBUG extends {}
 >(
 	options?: Opts & {
 		types?: {
 			data?: AdditionalData;
 		};
 	}
-) => $ArrayStore<Args, Args[0], DataFinal, Opts>;
+) => $ArrayStore<Args, Args[0], DataFinal, Opts, DEBUG>;
 
 /*
  * ENTRIES STORE
@@ -176,10 +197,9 @@ type $EntryOpts<Input, Data> = {
 	remove?: boolean;
 	abort?: boolean;
 	abortOnRemove?: boolean;
-	beforeRemove?:
-		| ((response: Data, input: undefined) => any | Promise<any>)
-		| ((response: undefined, input: Input) => any | Promise<any>);
-	beforeCall?: (input: Input) => any | Promise<any>;
+	beforeCall?: beforeCallFn<Input>;
+	beforeRemoveInput?: beforeRemoveInputFn<Input>;
+	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
 };
 type $EntryExtension<
 	Input,
@@ -275,7 +295,7 @@ type $EntryFn<Args extends any[], Data> = <
 	>,
 	DataFinal extends $TypeMake<Data, AndData, OrData>,
 	Opts extends $EntryOpts<Args[0], DataFinal>,
-	DEBUG extends DataFinal
+	DEBUG extends {}
 >(
 	options:
 		| (Opts & {
@@ -309,10 +329,9 @@ type $ObjectOpts<Input, Data> = {
 	remove?: boolean;
 	abort?: boolean;
 	abortOnRemove?: boolean;
-	beforeRemove?:
-		| ((response: Data, input: undefined) => any | Promise<any>)
-		| ((response: undefined, input: Input) => any | Promise<any>);
-	beforeCall?: (input: Input) => any | Promise<any>;
+	beforeCall?: beforeCallFn<Input>;
+	beforeRemoveInput?: beforeRemoveInputFn<Input>;
+	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
 };
 type $ObjectExtension<
 	Input,
@@ -332,22 +351,25 @@ type $ObjectResponseInner<Input, Data, Opts extends $ObjectOpts<Input, Data>> =
 			? LoadingResponse<$ObjectExtension<Input, Data, Opts> & { abort: () => void }>
 			: LoadingResponse<$ObjectExtension<Input, Data, Opts>>);
 
-type $ObjectInner<Args extends any[], Input, Data, Opts extends $ObjectOpts<Input, Data>> = {
+type $ObjectInner<Args extends any[], Input, Data, Opts extends $ObjectOpts<Input, Data>, DEBUG> = {
 	responses: { [key: string]: Prettify<$ObjectResponseInner<Input, Data, Opts>> };
 	call: (...args: Args) => void;
+	readonly DEBUG?: DEBUG;
 } & (Opts['loading'] extends true ? { loading: false } : {});
 
 type $ObjectStore<
 	Args extends any[],
 	Input,
 	Data,
-	Opts extends $ObjectOpts<Input, Data>
-> = Writable<$ObjectInner<Args, Input, Data, Opts>>;
+	Opts extends $ObjectOpts<Input, Data>,
+	DEBUG
+> = Writable<$ObjectInner<Args, Input, Data, Opts, DEBUG>>;
 
 type $ObjectFn<Args extends any[], Data> = <
-	AdditionalData,
+	AdditionalData extends {},
 	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $ObjectOpts<Args[0], DataFinal>
+	Opts extends $ObjectOpts<Args[0], DataFinal>,
+	DEBUG extends {}
 >(
 	options?:
 		| (Opts & {
@@ -356,7 +378,7 @@ type $ObjectFn<Args extends any[], Data> = <
 				};
 		  })
 		| ((item: Args[0]) => string)
-) => $ObjectStore<Args, Args[0], DataFinal, Opts>;
+) => $ObjectStore<Args, Args[0], DataFinal, Opts, DEBUG>;
 /*
  * CHANGE PROCEDURES
  */
@@ -402,179 +424,194 @@ export type MakeStoreType<Client extends object> = ChangeAllProcedures<Client>;
  *
  **/
 
-export type AnyOnceStore = $OnceStore<any>;
-export type AnyUpdateStore = $UpdateStore<any, any, any, any>;
-export type AnyArrayStore = $ArrayStore<any, any, any, any>;
-export type AnyEntryStore = $EntryStore<any, any, any, any, any, any, any>;
-export type AnyObjectStore = $ObjectStore<any, any, any, any>;
-
 export type StoreOpts = {
-	store: Writable<any>;
-	method: any;
-	args: any[];
-	endpointArgs: any[];
-	endpoint: AsyncFunctionType;
-	dotPath: string;
-	is$once: boolean;
-	is$update: boolean;
-	is$array: boolean;
-	is$entry: boolean;
-	is$object: boolean;
-	is$multiple: boolean;
+	readonly method: any;
+	readonly args: any[];
+	readonly endpoint: AsyncFunctionType;
+	readonly dotPath: string;
+	readonly is$once: boolean;
+	readonly is$update: boolean;
+	readonly is$array: boolean;
+	readonly is$entry: boolean;
+	readonly is$object: boolean;
+	readonly is$multiple: boolean;
+	readonly is$arrayType: boolean;
 
-	prefillData: undefined | any;
-	prefillFn: undefined | (() => any | Promise<any>);
-	entryFn: undefined | ((input: object) => object);
-	entrySuccessFn: undefined | ((response: object) => object);
-	keyFn: undefined | ((input: object) => string);
-	keySuccessFn: undefined | ((response: object) => string);
-	hasLoading: boolean;
-	hasRemove: boolean;
-	hasAbort: boolean;
-	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	readonly prefillData: undefined | any;
+	readonly prefillFn: undefined | (() => any | Promise<any>);
+	readonly entryFn: undefined | ((input: object) => object);
+	readonly entrySuccessFn: undefined | ((response: object) => object);
+	readonly keyFn: undefined | ((input: object) => string);
+	readonly keySuccessFn: undefined | ((response: object) => string);
+	readonly hasLoading: boolean;
+	readonly hasRemove: boolean;
+	readonly hasAbort: boolean;
+	readonly hasAbortOnRemove: boolean;
+	readonly beforeCallFn: undefined | beforeCallFn<any>;
+	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
+	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
 };
 
 export type $OnceStoreOpts = {
-	store: AnyOnceStore;
-	method: '$once';
-	args: any[];
-	endpointArgs: any[];
-	endpoint: AsyncFunctionType;
-	dotPath: string;
-	is$once: true;
-	is$update: false;
-	is$array: false;
-	is$entry: false;
-	is$object: false;
-	is$multiple: false;
+	readonly method: '$once';
+	readonly args: any[];
+	readonly endpoint: AsyncFunctionType;
+	readonly dotPath: string;
+	readonly is$once: true;
+	readonly is$update: false;
+	readonly is$array: false;
+	readonly is$entry: false;
+	readonly is$object: false;
+	readonly is$multiple: false;
+	readonly is$arrayType: false;
 
-	prefillData: undefined;
-	prefillFn: undefined;
-	entryFn: undefined;
-	entrySuccessFn: undefined;
-	keyFn: undefined;
-	keySuccessFn: undefined;
-	hasLoading: false;
-	hasRemove: false;
-	hasAbort: false;
-	hasAbortOnRemove: false;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	readonly prefillData: undefined;
+	readonly prefillFn: undefined;
+	readonly entryFn: undefined;
+	readonly entrySuccessFn: undefined;
+	readonly keyFn: undefined;
+	readonly keySuccessFn: undefined;
+	readonly hasLoading: false;
+	readonly hasRemove: false;
+	readonly hasAbort: false;
+	readonly hasAbortOnRemove: false;
+	readonly beforeCallFn: undefined | beforeCallFn<any>;
+	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
+	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
 };
 
 export type $UpdateStoreOpts = {
-	store: AnyUpdateStore;
-	method: '$update';
-	args: any[];
-	endpointArgs: any[];
-	endpoint: AsyncFunctionType;
-	dotPath: string;
-	is$once: true;
-	is$update: false;
-	is$array: false;
-	is$entry: false;
-	is$object: false;
-	is$multiple: false;
+	readonly method: '$update';
+	readonly args: any[];
+	readonly endpoint: AsyncFunctionType;
+	readonly dotPath: string;
+	readonly is$once: true;
+	readonly is$update: false;
+	readonly is$array: false;
+	readonly is$entry: false;
+	readonly is$object: false;
+	readonly is$multiple: false;
+	readonly is$arrayType: false;
 
-	prefillData: undefined | any;
-	prefillFn: undefined | (() => any | Promise<any>);
-	entryFn: undefined;
-	entrySuccessFn: undefined;
-	keyFn: undefined;
-	keySuccessFn: undefined;
-	hasLoading: false;
-	hasRemove: boolean;
-	hasAbort: boolean;
-	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	readonly prefillData: undefined | any;
+	readonly prefillFn: undefined | (() => any | Promise<any>);
+	readonly entryFn: undefined;
+	readonly entrySuccessFn: undefined;
+	readonly keyFn: undefined;
+	readonly keySuccessFn: undefined;
+	readonly hasLoading: false;
+	readonly hasRemove: boolean;
+	readonly hasAbort: boolean;
+	readonly hasAbortOnRemove: boolean;
+	readonly beforeCallFn: undefined | beforeCallFn<any>;
+	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
+	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
 };
 
 export type $ArrayStoreOpts = {
-	store: AnyArrayStore;
-	method: '$array';
-	args: any[];
-	endpointArgs: any[];
-	endpoint: AsyncFunctionType;
-	dotPath: string;
-	is$once: false;
-	is$update: false;
-	is$array: true;
-	is$entry: false;
-	is$object: false;
-	is$multiple: true;
+	readonly method: '$array';
+	readonly args: any[];
+	readonly endpoint: AsyncFunctionType;
+	readonly dotPath: string;
+	readonly is$once: false;
+	readonly is$update: false;
+	readonly is$array: true;
+	readonly is$entry: false;
+	readonly is$object: false;
+	readonly is$multiple: true;
+	readonly is$arrayType: true;
 
-	prefillData: undefined | any[];
-	prefillFn: undefined | (() => any[] | Promise<any[]>);
-	entryFn: undefined;
-	entrySuccessFn: undefined;
-	keyFn: undefined;
-	keySuccessFn: undefined;
-	hasLoading: boolean;
-	hasRemove: boolean;
-	hasAbort: boolean;
-	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	readonly prefillData: undefined | any[];
+	readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
+	readonly entryFn: undefined;
+	readonly entrySuccessFn: undefined;
+	readonly keyFn: undefined;
+	readonly keySuccessFn: undefined;
+	readonly hasLoading: boolean;
+	readonly hasRemove: boolean;
+	readonly hasAbort: boolean;
+	readonly hasAbortOnRemove: boolean;
+	readonly beforeCallFn: undefined | beforeCallFn<any>;
+	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
+	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
 };
 
 export type $EntryStoreOpts = {
-	store: AnyEntryStore;
-	method: '$entry';
-	args: any[];
-	endpointArgs: any[];
-	endpoint: AsyncFunctionType;
-	dotPath: string;
-	is$once: false;
-	is$update: false;
-	is$array: false;
-	is$entry: true;
-	is$object: false;
-	is$multiple: true;
+	readonly method: '$entry';
+	readonly args: any[];
+	readonly endpoint: AsyncFunctionType;
+	readonly dotPath: string;
+	readonly is$once: false;
+	readonly is$update: false;
+	readonly is$array: false;
+	readonly is$entry: true;
+	readonly is$object: false;
+	readonly is$multiple: true;
+	readonly is$arrayType: true;
 
-	prefillData: undefined | any[];
-	prefillFn: undefined | (() => any[] | Promise<any[]>);
-	entryFn: (input: object) => object;
-	entrySuccessFn: undefined | ((response: object) => object);
-	keyFn: undefined;
-	keySuccessFn: undefined;
-	hasLoading: boolean;
-	hasRemove: boolean;
-	hasAbort: boolean;
-	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	readonly prefillData: undefined | any[];
+	readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
+	readonly entryFn: (input: object) => object;
+	readonly entrySuccessFn: undefined | ((response: object) => object);
+	readonly keyFn: undefined;
+	readonly keySuccessFn: undefined;
+	readonly hasLoading: boolean;
+	readonly hasRemove: boolean;
+	readonly hasAbort: boolean;
+	readonly hasAbortOnRemove: boolean;
+	readonly beforeCallFn: undefined | beforeCallFn<any>;
+	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
+	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
 };
 
 export type $ObjectStoreOpts = {
-	store: AnyObjectStore;
-	method: '$object';
-	args: any[];
-	endpointArgs: any[];
-	endpoint: AsyncFunctionType;
-	dotPath: string;
-	is$once: false;
-	is$update: false;
-	is$array: false;
-	is$entry: false;
-	is$object: true;
-	is$multiple: true;
+	readonly method: '$object';
+	readonly args: any[];
+	readonly endpoint: AsyncFunctionType;
+	readonly dotPath: string;
+	readonly is$once: false;
+	readonly is$update: false;
+	readonly is$array: false;
+	readonly is$entry: false;
+	readonly is$object: true;
+	readonly is$multiple: true;
+	readonly is$arrayType: false;
 
-	prefillData: undefined | any[];
-	prefillFn: undefined | (() => any[] | Promise<any[]>);
-	entryFn: undefined;
-	entrySuccessFn: undefined;
-	keyFn: (input: object) => string;
-	keySuccessFn: undefined | ((response: object) => string);
-	hasLoading: boolean;
-	hasRemove: boolean;
-	hasAbort: boolean;
-	hasAbortOnRemove: boolean;
-	beforeRemoveFn: (response: any, input: any) => any | Promise<any>;
-	beforeCallFn: (input: any) => any | Promise<any>;
+	readonly prefillData: undefined | any[];
+	readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
+	readonly entryFn: undefined;
+	readonly entrySuccessFn: undefined;
+	readonly keyFn: (input: object) => string;
+	readonly keySuccessFn: undefined | ((response: object) => string);
+	readonly hasLoading: boolean;
+	readonly hasRemove: boolean;
+	readonly hasAbort: boolean;
+	readonly hasAbortOnRemove: boolean;
+	readonly beforeCallFn: undefined | beforeCallFn<any>;
+	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
+	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
 };
+
+export type AnyOnceStore = $OnceStore<any>;
+export type AnyUpdateStore = $UpdateStore<any[], any, any, any, any>;
+export type AnyArrayStore = $ArrayStore<any[], any, any, any, any>;
+export type AnyEntryStore = $EntryStore<any[], any, any, any, any, any, any>;
+export type AnyObjectStore = $ObjectStore<any[], any, any, any, any>;
+
+export type AnyStore =
+	| AnyOnceStore
+	| AnyUpdateStore
+	| AnyArrayStore
+	| AnyEntryStore
+	| AnyObjectStore;
+
+// export type AnyNotOnceStore = AnyUpdateStore | AnyArrayStore | AnyEntryStore | AnyObjectStore;
+
+// export type AnyNotOnceStoreInner =
+// 	| $UpdateInner<any[], any, any, any>
+// 	| $ArrayInner<any[], any, any, any>
+// 	| $EntryInner<any[], any, any, any, any, any, any>
+// 	| $ObjectInner<any[], any, any, any>;
 
 export type AnyStoreOpts =
 	| $OnceStoreOpts
@@ -583,7 +620,14 @@ export type AnyStoreOpts =
 	| $EntryStoreOpts
 	| $ObjectStoreOpts;
 
+// export type AnyNotOnceStoreOpts =
+// 	| $UpdateStoreOpts
+// 	| $ArrayStoreOpts
+// 	| $EntryStoreOpts
+// 	| $ObjectStoreOpts;
+
 export type CallTracker = {
 	abortController?: undefined | AbortController;
 	skip: boolean;
+	index: string | number;
 };

@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { onDestroy, onMount } from 'svelte';
 
-	export let from: number;
+	export let from: number | string;
+	export let hide0: boolean = false;
 
-	let current = from;
+	let current = +from;
+	let hide = false;
 
 	let intervalTimer: number;
 	onMount(() => {
 		intervalTimer = setInterval(() => {
 			if (current <= 0) {
+				hide = hide0 ? true : false;
 				clearInterval(intervalTimer);
 				return;
 			}
@@ -22,4 +25,6 @@
 	});
 </script>
 
-{current}
+{#if !hide}
+	{current}
+{/if}
