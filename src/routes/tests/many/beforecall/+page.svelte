@@ -6,7 +6,7 @@
 	// console.clear();
 	let callAllowed = Math.random() < 0.5;
 
-	const update = storeClient.tests.addToList.mutate.$update({
+	const many = storeClient.tests.addToList.mutate.$many({
 		beforeCall: function (input, replace) {
 			if (!callAllowed) {
 				throw new Error('call not allowed');
@@ -20,7 +20,7 @@
 
 	function makeCall() {
 		callAllowed = Math.random() < 0.5;
-		$update.call({
+		$many.call({
 			item: 'Test',
 			qty: 20
 		});
@@ -41,16 +41,16 @@
 	Endpoint call will be blocked an error
 {/if}<br />
 
-{#if $update.loading}
+{#if $many.loading}
 	Loading <LoadingDots /><br />
-{:else if $update.success}
-	{@const item = $update.data}
+{:else if $many.success}
+	{@const item = $many.data}
 	date: {item.date}<br />
 	item: {item.item}<br />
 	<button on:click={makeCall}>Call again</button>
 	<br /><br /><br />
-{:else if $update.error}
-	Error: {$update.error.message}<br />
+{:else if $many.error}
+	Error: {$many.error.message}<br />
 	<button on:click={makeCall}>Call again</button>
 {:else}
 	Store is stagnant<br />

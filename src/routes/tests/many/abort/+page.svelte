@@ -3,13 +3,13 @@
 	import LoadingDots from '$component/loading-dots.svelte';
 	import { storeClient } from '$trpc/browserClient';
 
-	const update = storeClient.tests.addToList.mutate.$update({
+	const many = storeClient.tests.addToList.mutate.$many({
 		remove: true,
 		abort: true
 	});
 
 	function makeCall() {
-		$update.call({
+		$many.call({
 			item: 'Test ',
 			qty: 20,
 			time: 5
@@ -18,25 +18,25 @@
 	makeCall();
 
 	console.clear();
-	$: console.log($update);
+	$: console.log($many);
 </script>
 
 TEST: <br />
-{#if !$update.aborted}
+{#if !$many.aborted}
 	Endpoint should return data successfully <Countdown from={5} hide0={true} /><br />
 {/if}
-{#if $update.loading}
+{#if $many.loading}
 	Loading <LoadingDots /><br />
-	<button on:click={$update.abort}>Abort Call</button>
-{:else if $update.aborted}
+	<button on:click={$many.abort}>Abort Call</button>
+{:else if $many.aborted}
 	Call aborted
 	<button on:click={makeCall}>Call Again</button>
-{:else if $update.success}
-	{@const item = $update.data}
+{:else if $many.success}
+	{@const item = $many.data}
 	date: {item.date}<br />
 	item: {item.item}<br /><br /><br /><br />
-{:else if $update.error}
-	{$update.error.message}
+{:else if $many.error}
+	{$many.error.message}
 {:else}
 	Store is stagnant
 {/if}

@@ -6,8 +6,8 @@
 
 	const once = storeClient.tests.getList.query.$once(shouldError);
 
-	console.clear();
-	$: console.log($once);
+	// console.clear();
+	// $: console.log($once);
 </script>
 
 {#if shouldError}

@@ -4,15 +4,15 @@
 
 	var shouldError = Math.random() < 0.5;
 
-	const update = storeClient.tests.addToList.mutate.$update();
+	const many = storeClient.tests.addToList.mutate.$many();
 
-	$update.call({
+	$many.call({
 		item: 'Test ' + (shouldError ? 'error' : ''),
 		qty: 20
 	});
 
 	console.clear();
-	$: console.log($update);
+	$: console.log($many);
 </script>
 
 {#if shouldError}
@@ -21,14 +21,14 @@
 	TEST: Endpoint should return data successfully (keep refreshing for error response)
 {/if}
 <br />
-{#if $update.loading}
+{#if $many.loading}
 	Loading <LoadingDots />
-{:else if $update.success}
-	{@const item = $update.data}
+{:else if $many.success}
+	{@const item = $many.data}
 	date: {item.date}<br />
 	item: {item.item}<br /><br /><br /><br />
-{:else if $update.error}
-	{$update.error.message}
+{:else if $many.error}
+	{$many.error.message}
 {:else}
 	Store is stagnant
 {/if}

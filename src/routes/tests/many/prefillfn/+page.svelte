@@ -4,7 +4,7 @@
 
 	var shouldError = Math.random() < 0.5;
 
-	const update = storeClient.tests.addToList.mutate.$update({
+	const many = storeClient.tests.addToList.mutate.$many({
 		//working
 		// prefill: storeClient.tests.getItem.query.call
 		//
@@ -21,18 +21,18 @@
 	});
 
 	console.clear();
-	$: console.log($update);
+	$: console.log($many);
 </script>
 
 TEST: Data should already fill store<br />
-{#if $update.loading}
+{#if $many.loading}
 	Loading <LoadingDots />
-{:else if $update.success}
-	{@const item = $update.data}
+{:else if $many.success}
+	{@const item = $many.data}
 	date: {item.date}<br />
 	item: {item.item}<br /><br /><br /><br />
-{:else if $update.error}
-	{$update.error.message}
+{:else if $many.error}
+	{$many.error.message}
 {:else}
 	Store is stagnant
 {/if}

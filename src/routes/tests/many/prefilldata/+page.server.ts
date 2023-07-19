@@ -1,6 +1,6 @@
-import { loadClient } from '$trpc/browserClient';
+import { serverClient } from '$trpc/serverClient';
 import type { PageServerLoad } from './$types';
 
 export const load = (async (event) => {
-	return loadClient(event).tests.getItem.query();
+	return (await serverClient(event)).tests.getItem();
 }) satisfies PageServerLoad;

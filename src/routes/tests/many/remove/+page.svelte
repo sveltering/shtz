@@ -5,22 +5,22 @@
 
 	let shouldError = Math.random() < 0.5;
 
-	const update = storeClient.tests.addToList.mutate.$update({
+	const many = storeClient.tests.addToList.mutate.$many({
 		remove: true
 	});
 
-	$update.call({
+	$many.call({
 		item: 'Test ' + (shouldError ? 'error' : ''),
 		qty: 20
 	});
 
 	let message = 'The store should be stagnant after 5 seconds';
 	setTimeout(function () {
-		$update.remove();
+		$many.remove();
 	}, 5000);
 	setTimeout(function () {
 		message = 'The store should now be successfull after another call';
-		$update.call({
+		$many.call({
 			item: 'Test Again ! ',
 			qty: 20,
 			time: 3
@@ -28,7 +28,7 @@
 	}, 7000);
 
 	console.clear();
-	$: console.log($update);
+	$: console.log($many);
 </script>
 
 {#if shouldError}
@@ -41,14 +41,14 @@
 {message}
 <Countdown from={5} hide0={true} />
 <br />
-{#if $update.loading}
+{#if $many.loading}
 	Loading <LoadingDots />
-{:else if $update.success}
-	{@const item = $update.data}
+{:else if $many.success}
+	{@const item = $many.data}
 	date: {item.date}<br />
 	item: {item.item}<br /><br /><br /><br />
-{:else if $update.error}
-	{$update.error.message}
+{:else if $many.error}
+	{$many.error.message}
 {:else}
 	Store is stagnant
 {/if}

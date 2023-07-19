@@ -9,25 +9,16 @@
 
 	$: remove = remove;
 
-	const update = storeClient.tests.addToList.mutate.$update({
-		
+	const many = storeClient.tests.addToList.mutate.$many({
 		remove: true,
-		beforeRemoveResponse: function (response, replace) {
-			console.log(remove);
-			if (remove) {
-				return true;
-			}
-			replace({
-				...response,
-				item: 'New Value'
-			});
+		beforeRemoveInput: function (input) {
+			return remove;
 		}
-
 	});
 
 	function makeCall() {
 		remove = Math.random() < 0.5;
-		$update.call({
+		$many.call({
 			item: 'Test',
 			qty: 20,
 			time: 5
@@ -43,22 +34,20 @@
 	Remove should work
 {:else}
 	TEST: <br />
-	Remove will not work after successfull response and input item property will be replaced with "New
-	Value" changing
+	Remove will not work (but should work once loaded)
 {/if}<br />
 <br />
-{#if $update.loading}
+{#if $many.loading}
 	Loading <LoadingDots /><br />
-	<button on:click={$update.remove}>Remove</button>
-{:else if $update.success}
-	{@const item = $update.data}
+	<button on:click={$many.remove}>Remove</button>
+{:else if $many.success}
+	{@const item = $many.data}
 	date: {item.date}<br />
 	item: {item.item}<br />
-	<button on:click={$update.remove}>Remove</button><br />
-	<button on:click={makeCall}>Call again</button>
+	<button on:click={$many.remove}>Remove</button>
 	<br /><br /><br />
-{:else if $update.error}
-	{$update.error.message}
+{:else if $many.error}
+	{$many.error.message}
 {:else}
 	Store is stagnant<br />
 	<button on:click={makeCall}>Call again</button>

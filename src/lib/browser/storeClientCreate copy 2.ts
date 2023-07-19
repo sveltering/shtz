@@ -9,15 +9,11 @@ import type {
 	StoreOpts,
 	AnyStoreOpts,
 	$OnceStoreOpts,
-	$UpdateStoreOpts,
-	$ArrayStoreOpts,
-	$EntryStoreOpts,
-	$ObjectStoreOpts,
+	$ManyStoreOpts,
+	$MultipleStoreOpts,
 	AnyOnceStore,
-	AnyUpdateStore,
-	AnyArrayStore,
-	AnyEntryStore,
-	AnyObjectStore,
+	AnyManyStore,
+	AnyMultipleStore,
 	CallTracker,
 	AnyStore
 } from './storeClientCreate.types.js';
@@ -65,7 +61,7 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
 			return outerProxy(callback, [...path, key], options);
 		},
 		apply(_1, _2, args) {
-			let method = '' as 'call' | '$once' | '$update' | '$array' | '$entry' | '$object';
+			let method = '' as 'call' | '$once' | '$many' | '$multiple';
 			let endpoint: AsyncFunctionType = callback;
 			for (let i = 0, iLen = path.length; i < iLen - 1; i++) {
 				method = path[i + 1] as any;
@@ -88,19 +84,14 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
 			const hasArguments = !!args.length;
 
 			const is$once = method === '$once';
-			const is$update = method === '$update';
-			const is$array = method === '$array';
-			const is$entry = method === '$entry';
-			const is$object = method === '$object';
-			const is$multiple = is$array || is$entry || is$object;
-			const is$arrayType = is$array || is$entry;
+			const is$many = method === '$many';
+			const is$multiple = method === '$multiple';
+			const has$call = is$many || is$multiple;
 
 			let prefillData = undefined;
 			let prefillFn = undefined;
 			let entryFn = undefined;
 			let entrySuccessFn = undefined;
-			let keyFn = generateKey;
-			let keySuccessFn = undefined;
 			let hasLoading = false;
 			let hasRemove = false;
 			let hasAbort = false;
@@ -110,13 +101,10 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
 			let beforeRemoveResponseFn = undefined;
 
 			const storeOptArg = hasArguments ? args[0] : false;
-			if (storeOptArg && (is$update || is$multiple)) {
+			if (storeOptArg && has$call) {
 				if (typeof storeOptArg === 'function') {
-					if (is$entry) {
+					if (is$multiple) {
 						entryFn = storeOptArg;
-					} //
-					else if (is$object) {
-						keyFn = storeOptArg;
 					}
 				} //
 				else {
@@ -132,17 +120,12 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
 					else if (typeof prefillType !== 'undefined') {
 						prefillData = storeOptArg.prefill;
 					}
-					if (is$entry) {
+					if (is$multiple) {
+						hasLoading = !!storeOptArg?.loading;
 						entryFn = storeOptArg?.entry;
 						entrySuccessFn = storeOptArg?.entrySuccess;
 					}
-					if (is$object) {
-						keyFn = storeOptArg?.key;
-						keySuccessFn = storeOptArg?.keySuccess;
-					}
-					if (is$multiple) {
-						hasLoading = !!storeOptArg?.loading;
-					}
+
 					hasAbort = !!storeOptArg?.abort;
 					if (storeOptArg?.abortOnRemove) {
 						hasRemove = true;
@@ -157,19 +140,14 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
 				args,
 				dotPath,
 				is$once,
-				is$update,
-				is$array,
-				is$entry,
-				is$object,
+				is$many,
 				is$multiple,
-				is$arrayType,
+				has$call,
 
 				prefillData,
 				prefillFn,
 				entryFn,
 				entrySuccessFn,
-				keyFn,
-				keySuccessFn,
 				hasLoading,
 				hasRemove,
 				hasAbort,
@@ -186,61 +164,101 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
 }
 const storeClientMethods = {
 	$once: function (opts: $OnceStoreOpts) {
-		const store: AnyOnceStore = writable({
+		const _tracker: CallTracker = {} as CallTracker;
+		const responseInner = {
+			_tracker,
 			data: undefined,
 			loading: true,
 			error: false,
 			success: false
-		});
-		callEndpoint(store, opts, opts.args);
+		};
+		_tracker.responseInner = responseInner;
+		const store: AnyOnceStore = writable(responseInner) as AnyOnceStore;
+		callEndpoint({ store, opts, endpointArgs: opts.args, _tracker });
 		return store;
 	},
-	$update: function (opts: $UpdateStoreOpts) {
-		const store: AnyUpdateStore = writable({
+	$many: function (opts: $ManyStoreOpts) {
+		const responseInner = {
+			_tracker: undefined as any,
 			data: undefined,
 			loading: false,
 			error: false,
 			success: false,
 			call: (...endpointArgs: any[]) => {
-				callEndpoint(store, opts, endpointArgs);
+				const _tracker: CallTracker = {} as CallTracker;
+				_tracker.responseInner = this;
+				responseInner._tracker = _tracker;
+				callEndpoint({ store, opts, endpointArgs, _tracker });
 			}
-		});
+		};
+		const store: AnyManyStore = writable(responseInner) as AnyManyStore;
+		handlePrefill(store, opts);
 		return store;
 	},
-	$array: function (opts: $ArrayStoreOpts) {
+	$multiple: function (opts: $MultipleStoreOpts) {
 		const { hasLoading } = opts;
-		const store: AnyArrayStore = writable({
+		const store: AnyMultipleStore = writable({
 			...(hasLoading ? { loading: false } : {}),
 			responses: [],
 			call: (...endpointArgs: any[]) => {
-				callEndpoint(store, opts, endpointArgs);
+				const _tracker: CallTracker = {} as CallTracker;
+				const responseInner = {
+					_tracker,
+					loading: true,
+					success: false,
+					error: false,
+					data: undefined
+				};
+				_tracker.responseInner = responseInner;
+				callEndpoint({ store, opts, endpointArgs, _tracker });
 			}
 		});
-		return store;
-	},
-	$entry: function (opts: $EntryStoreOpts) {
-		const { hasLoading } = opts;
-		const store: AnyEntryStore = writable({
-			...(hasLoading ? { loading: false } : {}),
-			responses: [],
-			call: (...endpointArgs: any[]) => {
-				callEndpoint(store, opts, endpointArgs);
-			}
-		});
-		return store;
-	},
-	$object: function (opts: $ObjectStoreOpts) {
-		const { hasLoading } = opts;
-		const store: AnyObjectStore = writable({
-			...(hasLoading ? { loading: false } : {}),
-			responses: {},
-			call: (...endpointArgs: any[]) => {
-				callEndpoint(store, opts, endpointArgs);
-			}
-		});
+		handlePrefill(store, opts);
 		return store;
 	}
 };
+
+function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
+	const { prefillData, prefillFn, is$many, is$multiple } = opts;
+	if (!prefillData && !prefillFn) {
+		return;
+	}
+	if (is$many) {
+		const _tracker: CallTracker = {} as CallTracker;
+		const responseInner = {
+			_tracker,
+			data: undefined,
+			loading: false,
+			error: false,
+			success: false,
+			call: (...endpointArgs: any[]) => {
+				callEndpoint({ store, opts, endpointArgs, _tracker });
+			}
+		};
+		_tracker.responseInner = responseInner;
+
+		if (prefillData) {
+			callEndpoint({
+				store,
+				opts,
+				endpointArgs: [],
+				_tracker,
+				prefillHandle: async function () {
+					return prefillData;
+				}
+			});
+		} //
+		else if (prefillFn) {
+			callEndpoint({
+				store,
+				opts,
+				endpointArgs: [],
+				_tracker,
+				prefillHandle: callAsync(prefillFn)
+			});
+		}
+	}
+}
 
 const callAsync = function <Fn extends FunctionType>(fn: FunctionType) {
 	return async function (...args: ArgumentTypes<Fn>) {
@@ -252,40 +270,30 @@ const callAsync = function <Fn extends FunctionType>(fn: FunctionType) {
 	};
 };
 
-const is$onceOpts = (opts: AnyStoreOpts): opts is $OnceStoreOpts => opts.method === '$once';
-const is$onceStore = (store: Writable<any>): store is AnyOnceStore => true;
+type CallEndpointOpts = {
+	store: AnyStore;
+	opts: AnyStoreOpts;
+	endpointArgs: any[];
+	prefillHandle?: AsyncFunctionType;
+	_tracker: CallTracker;
+};
 
-const is$updateOpts = (opts: AnyStoreOpts): opts is $UpdateStoreOpts => opts.method === '$update';
-const is$updateStore = (store: Writable<any>): store is AnyUpdateStore => true;
-
-const is$arrayOpts = (opts: AnyStoreOpts): opts is $ArrayStoreOpts => opts.method === '$array';
-const is$arrayStore = (store: Writable<any>): store is AnyArrayStore => true;
-
-const is$entryOpts = (opts: AnyStoreOpts): opts is $EntryStoreOpts => opts.method === '$entry';
-const is$entryStore = (store: Writable<any>): store is AnyEntryStore => true;
-
-const is$objectOpts = (opts: AnyStoreOpts): opts is $ObjectStoreOpts => opts.method === '$object';
-const is$objectStore = (store: Writable<any>): store is AnyObjectStore => true;
-
-function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) {
+function callEndpoint(o: CallEndpointOpts) {
+	const { store, opts, endpointArgs, prefillHandle, _tracker } = o;
 	const {
 		// method,
 		endpoint,
-		args,
-		dotPath,
+		// args,
+		// dotPath,
 		is$once,
-		is$update,
-		is$array,
-		is$entry,
-		is$object,
+		is$many,
 		is$multiple,
+		has$call,
 
-		prefillData,
-		prefillFn,
+		// prefillData,
+		// prefillFn,
 		entryFn,
 		entrySuccessFn,
-		keyFn,
-		keySuccessFn,
 		hasLoading,
 		hasRemove,
 		hasAbort,
@@ -294,20 +302,16 @@ function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) 
 		beforeCallFn
 	} = opts;
 
-	const _tracker: CallTracker = {
-		index: 0,
-		skip: false
-	};
-
-	let input;
+	if (is$once) {
+		endpoint(...endpointArgs)
+			.then(endpointSuccess({ store, opts, _tracker }))
+			.catch(endpointError({ store, opts, _tracker }));
+		return;
+	}
 
 	// update and multiple methods use .call()
-	if (is$update || is$multiple) {
-		input = endpointArgs?.[0];
-		const responseInner = is$update ? (get(store as any) as any) : {};
-
-		responseInner._tracker = _tracker;
-		_tracker.response = responseInner;
+	if (_tracker && has$call) {
+		const responseInner = _tracker.responseInner;
 
 		responseInner.loading = true;
 
@@ -319,33 +323,33 @@ function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) 
 		}
 		if (hasAbort) {
 			responseInner.aborted = false;
-			responseInner.abort = abortCallFn(store, opts, _tracker, false);
+			responseInner.abort = abortCallFn({ store, opts, _tracker, fromRemove: false });
 		}
 		if (hasRemove) {
-			responseInner.remove = removeCallFn(store, opts, _tracker, undefined, input);
+			responseInner.remove = removeCallFn({ store, opts, _tracker, input: endpointArgs?.[0] });
 		}
 
-		if (is$update) {
+		if (is$many) {
 			store.set(responseInner as any);
-		} //
+		} // is$multiple
 		else {
 			const storeInner = get(store as any) as any;
 			if (hasLoading) {
 				storeInner.loading = true;
 			}
-			Object.assign(responseInner, {
-				loading: true,
-				success: false,
-				error: false,
-				data: undefined
-			});
-			// Add multiple to store
-			// store.set(storeInner as any);
+			_tracker.index = storeInner.responses.length;
+			storeInner.responses.push(responseInner);
+			store.set(storeInner);
 		}
 	}
 
-	if (beforeCallFn) {
-		callAsync(beforeCallFn)(input, function (newInput: any) {
+	if (prefillHandle) {
+		prefillHandle()
+			.then(endpointSuccess({ store, opts, _tracker }))
+			.catch(endpointError({ store, opts, _tracker }));
+	} //
+	else if (beforeCallFn) {
+		callAsync(beforeCallFn)(endpointArgs?.[0], function (newInput: any) {
 			endpointArgs[0] = newInput;
 		})
 			.then(function (continueCall: boolean | void) {
@@ -353,124 +357,125 @@ function callEndpoint(store: AnyStore, opts: AnyStoreOpts, endpointArgs: any[]) 
 					return;
 				}
 				endpoint(...endpointArgs)
-					.then(endpointSuccess(store, opts, _tracker))
-					.catch(endpointError(store, opts, _tracker));
+					.then(endpointSuccess({ store, opts, _tracker }))
+					.catch(endpointError({ store, opts, _tracker }));
 			})
-			.catch(endpointError(store, opts, _tracker));
+			.catch(endpointError({ store, opts, _tracker }));
 	} //
 	else {
 		endpoint(...endpointArgs)
-			.then(endpointSuccess(store, opts, _tracker))
-			.catch(endpointError(store, opts, _tracker));
+			.then(endpointSuccess({ store, opts, _tracker }))
+			.catch(endpointError({ store, opts, _tracker }));
 	}
 }
 
-function removeCallFn(
-	store: AnyStore,
-	opts: AnyStoreOpts,
-	_tracker: CallTracker,
-	response: any,
-	input?: any
-) {
-	const isRemoveResponse = arguments.length === 4;
+type RemoveCallFnOpts = {
+	store: AnyStore;
+	opts: AnyStoreOpts;
+	_tracker: CallTracker;
+	data?: any;
+	input?: any;
+};
+function removeCallFn(o: RemoveCallFnOpts) {
 	return async function () {
-		const { is$update, beforeRemoveInputFn, beforeRemoveResponseFn, hasAbortOnRemove } = opts;
-		const storeInner = get(store as any) as any;
+		const { store, opts, _tracker, data, input } = o;
+		const { is$many, beforeRemoveInputFn, beforeRemoveResponseFn, hasAbortOnRemove } = opts;
+		const responseInner = _tracker.responseInner;
 
 		let remove = true;
-		let newResponse = undefined;
+		let newResponse: any = {};
 
-		if (isRemoveResponse && beforeRemoveResponseFn) {
-			const continueRemove = await beforeRemoveResponseFn(response, function (replaceResponse) {
-				newResponse = replaceResponse;
+		if ((responseInner.success || responseInner.error) && beforeRemoveResponseFn) {
+			const continueToRemove = await beforeRemoveResponseFn(data, function (replaceResponse) {
+				newResponse.value = replaceResponse;
 			});
-			if (continueRemove === true) {
+			if (continueToRemove === true) {
 				if (hasAbortOnRemove) {
-					abortCallFn(store, opts, _tracker, true)();
+					abortCallFn({ store, opts, _tracker, fromRemove: true })();
 				}
-				_tracker.skip = true;
 			} else {
-				newResponse = newResponse || response;
 				remove = false;
 			}
 		} //
-		else if (!isRemoveResponse && beforeRemoveInputFn) {
+		else if (!(responseInner.success || responseInner.error) && beforeRemoveInputFn) {
 			const continueRemove = await beforeRemoveInputFn(input);
 			if (continueRemove === true) {
 				if (hasAbortOnRemove) {
-					abortCallFn(store, opts, _tracker, true)();
+					abortCallFn({ store, opts, _tracker, fromRemove: true })();
 				}
-				_tracker.skip = true;
 			} else {
 				remove = false;
 			}
 		} //
 		else {
 			if (hasAbortOnRemove) {
-				abortCallFn(store, opts, _tracker, true)();
+				abortCallFn({ store, opts, _tracker, fromRemove: true })();
 			}
+		}
+
+		if (!remove && !newResponse?.hasOwnProperty('value')) {
+			return;
+		}
+
+		if (!remove && newResponse.hasOwnProperty('value')) {
+			if (is$many) {
+				responseInner.data = newResponse.value;
+				store.set(responseInner);
+			} // MULTIPLE UPDATE STORE
+			else {
+			}
+		}
+
+		if (remove) {
 			_tracker.skip = true;
+		} else {
+			return;
 		}
 
-		if (!remove && isRemoveResponse) {
-			if (is$update) {
-				Object.assign(storeInner, {
-					loading: false,
-					success: true,
-					error: false,
-					data: newResponse
-				});
-			} //
-			else {
-				// REMOVE FOR MULTIPLE RE-INDEX ARRAYS, CHECK FOR LOADING
-			}
-		} //
-		else if (remove) {
-			if (is$update) {
-				Object.assign(storeInner, {
-					loading: false,
-					success: false,
-					error: false,
-					data: undefined
-				});
-			} //
-			else {
-				// REMOVE FOR MULTIPLE RE-INDEX ARRAYS, CHECK FOR LOADING
-			}
+		if (is$many) {
+			Object.assign(responseInner, {
+				loading: false,
+				success: false,
+				error: false,
+				data: undefined
+			});
+		} // REMOVE FOR MULTIPLE RE-INDEX ARRAYS, CHECK FOR LOADING
+		else {
 		}
-
-		store.set(storeInner as any);
+		store.set(responseInner as any);
 	};
 }
 
-function abortCallFn(
-	store: AnyStore,
-	opts: AnyStoreOpts,
-	_tracker: CallTracker,
-	fromRemove: boolean
-) {
+type AbortCallFnOpts = {
+	store: AnyStore;
+	opts: AnyStoreOpts;
+	_tracker: CallTracker;
+	fromRemove: boolean;
+};
+function abortCallFn(o: AbortCallFnOpts) {
 	return function () {
+		const { store, opts, _tracker, fromRemove } = o;
+
 		if (!_tracker?.abortController) {
 			return;
 		}
 
-		const { is$update } = opts;
+		const { is$many } = opts;
 
 		_tracker.abortController?.abort();
 		delete _tracker.abortController;
 		_tracker.skip = true;
 
-		if (is$update) {
-			const storeInner = get(store as any) as any;
-
-			Object.assign(storeInner, {
+		if (is$many) {
+			const responseInner = get(store as any) as any;
+			Object.assign(responseInner, {
 				loading: false,
 				success: false,
 				error: false,
 				data: undefined,
 				aborted: true
 			});
-			store.set(storeInner as any);
+			store.set(responseInner as any);
 			return;
 		}
 		if (fromRemove) {
@@ -480,61 +485,131 @@ function abortCallFn(
 		// ABORT FOR MULTIPLE AND CHECK FOR LOADING IF NOT FROM REMOVE
 	};
 }
+type CheckForLoadingOpts = {
+	store: AnyStore;
+	opts: AnyStoreOpts;
+};
+function checkForLoading(o: CheckForLoadingOpts) {
+	const {
+		store,
+		opts: { hasLoading }
+	} = o;
+	console.log('here');
+	if (!hasLoading) {
+		return;
+	}
+	const storeInner = get(store as any) as any;
+	const responses = storeInner.responses;
+	let loading = false;
+	for (let i = 0, iLen = responses.length; i < iLen; i++) {
+		if (responses[i].loading) {
+			loading = true;
+			break;
+		}
+	}
+	storeInner.loading = loading;
+	store.set(storeInner);
+}
 
-function endpointSuccess(store: AnyStore, opts: AnyStoreOpts, _tracker: CallTracker) {
+type EndpointSuccessError = { store: AnyStore; opts: AnyStoreOpts; _tracker: CallTracker };
+function endpointSuccess(o: EndpointSuccessError) {
 	return async function (data: any) {
-		await endpointReponse(true, store, opts, _tracker, data);
+		const { store, opts, _tracker } = o;
+		await endpointReponse({ isSuccess: true, isError: false, store, opts, _tracker, data });
 	};
 }
-function endpointError(store: AnyStore, opts: AnyStoreOpts, _tracker: CallTracker) {
+function endpointError(o: EndpointSuccessError) {
 	return async function (error: any) {
-		await endpointReponse(false, store, opts, _tracker, error);
+		const { store, opts, _tracker } = o;
+		await endpointReponse({ isSuccess: false, isError: true, store, opts, _tracker, error });
 	};
 }
 
-async function endpointReponse(
-	success: true,
-	store: AnyStore,
-	opts: AnyStoreOpts,
-	_tracker: CallTracker,
-	data: any
-): Promise<void>;
-async function endpointReponse(
-	success: false,
-	store: AnyStore,
-	opts: AnyStoreOpts,
-	_tracker: CallTracker,
-	data: Error
-): Promise<void>;
-async function endpointReponse(
-	success: boolean,
-	store: AnyStore,
-	opts: AnyStoreOpts,
-	_tracker: CallTracker,
-	data: any | Error
-): Promise<void> {
-	if (_tracker.skip) {
+type EndpointSuccessOpts = {
+	isSuccess: true;
+	isError: false;
+	store: AnyStore;
+	opts: AnyStoreOpts;
+	_tracker: CallTracker;
+	data: any;
+	error?: undefined;
+};
+type EndpointErrorOpts = {
+	isSuccess: false;
+	isError: true;
+	store: AnyStore;
+	opts: AnyStoreOpts;
+	_tracker: CallTracker;
+	data?: undefined;
+	error: Error;
+};
+type EndpointResponseOpts = {
+	isSuccess: boolean;
+	isError: boolean;
+	store: AnyStore;
+	opts: AnyStoreOpts;
+	_tracker: CallTracker;
+	data?: any;
+	error?: Error;
+};
+
+async function endpointReponse(o: EndpointSuccessOpts): Promise<void>;
+async function endpointReponse(o: EndpointErrorOpts): Promise<void>;
+async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
+	const { isSuccess, isError, store, opts, _tracker, data, error } = o;
+	const { is$once, is$many, is$multiple, has$call, hasRemove } = opts;
+
+	if (is$once) {
+		const responseInner = get(store as any) as any;
+		Object.assign(responseInner, {
+			loading: false,
+			success: isSuccess,
+			error: isError ? error : false,
+			data: isSuccess ? data : undefined
+		});
+		store.set(responseInner as any);
+		return;
+	}
+
+	if (_tracker?.skip) {
 		_tracker.skip = false;
 		return;
 	}
-	const { is$once, is$update, hasRemove } = opts;
 
-	if (is$once || is$update) {
-		const storeInner = get(store as any) as any;
-		delete storeInner?.abort;
-		Object.assign(storeInner, {
+	if (is$many) {
+		const responseInner = get(store as any) as any;
+		delete responseInner?.abort;
+		Object.assign(responseInner, {
 			loading: false,
-			success: success,
-			error: success ? false : data,
-			data: success ? data : undefined
+			success: isSuccess,
+			error: isError ? error : false,
+			data: isSuccess ? data : undefined
 		});
 		if (hasRemove) {
-			storeInner.remove = removeCallFn(store, opts, _tracker, data);
+			responseInner.remove = removeCallFn({ store, opts, _tracker, data });
 		}
-		store.set(storeInner as any);
+		store.set(responseInner as any);
 		return;
 	}
 
+	if (is$multiple) {
+		const storeInner = get(store as any) as any;
+		if (hasRemove) {
+			storeInner.remove = removeCallFn({ store, opts, _tracker, data });
+		}
+		const responseInner = storeInner.responses[_tracker.index];
+		Object.assign(responseInner, {
+			loading: false,
+			success: isSuccess,
+			error: isError ? error : false,
+			data: isSuccess ? data : undefined
+		});
+		store.set(storeInner as any);
+
+		checkForLoading({ store, opts });
+		///CHECK FOR LOADING
+		return;
+	}
 	return;
 }
 

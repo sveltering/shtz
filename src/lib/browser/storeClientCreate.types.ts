@@ -30,6 +30,7 @@ type ResponseObject<
 >;
 
 type StaleReponse<Ext extends {} = {}> = ResponseObject<false, false, false, undefined, Ext>;
+
 type LoadingResponse<Ext extends {} = {}, Data = undefined> = ResponseObject<
 	true,
 	false,
@@ -37,7 +38,9 @@ type LoadingResponse<Ext extends {} = {}, Data = undefined> = ResponseObject<
 	Data,
 	Ext
 >;
+
 type SuccessResponse<Data, Ext extends {} = {}> = ResponseObject<false, true, false, Data, Ext>;
+
 type ErrorResponse<Ext extends {} = {}, Data = undefined> = ResponseObject<
 	false,
 	false,
@@ -45,6 +48,7 @@ type ErrorResponse<Ext extends {} = {}, Data = undefined> = ResponseObject<
 	Data,
 	Ext
 >;
+
 type AbortedResponse<Ext extends {} = {}> = StaleReponse<{ aborted: true } & Omit<Ext, 'aborted'>>;
 
 type replaceInputFn<Input> = (newInput: Input) => Input;
@@ -58,8 +62,10 @@ type beforeRemoveInputFn<Input> = (input: Input) => boolean | void | Promise<boo
 
 type beforeRemoveResponseFn<Data> = (
 	response: Data,
-	replaceData: replaceInputFn<Data>
+	replaceData?: replaceInputFn<Data>
 ) => boolean | void | Promise<boolean | void>;
+
+type beforeRemoveErrorFn = (error: Error) => boolean | void | Promise<boolean | void>;
 /*
  * CALL
  */
@@ -73,9 +79,9 @@ type $OnceStore<Data> = Writable<$OnceInner<Data>>;
 type $OnceFn<Args extends any[], Data> = (...args: Args) => $OnceStore<Data>;
 
 /*
- * UPDATE STORE
+ * MANY STORE
  */
-type $UpdateOpts<Input, Data> = {
+type $ManyOpts<Input, Data> = {
 	prefill?: Data | (() => Data) | (() => Promise<Data | undefined>);
 	remove?: boolean;
 	abort?: boolean;
@@ -83,43 +89,42 @@ type $UpdateOpts<Input, Data> = {
 	beforeCall?: beforeCallFn<Input>;
 	beforeRemoveInput?: beforeRemoveInputFn<Input>;
 	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
+	beforeRemoveError?: beforeRemoveErrorFn;
 };
-type $UpdateExtension<
-	Input,
-	Data,
-	Opts extends $UpdateOpts<Input, Data>
-> = (Opts['remove'] extends true ? { remove: () => Promise<void> } : {}) &
+type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts['remove'] extends true
+	? { remove: () => Promise<void> }
+	: {}) &
 	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
-type $UpdateResponse<Input, Data, Opts extends $UpdateOpts<Input, Data>> =
-	| StaleReponse<$UpdateExtension<Input, Data, Opts>>
-	| SuccessResponse<Data, $UpdateExtension<Input, Data, Opts>>
-	| ErrorResponse<$UpdateExtension<Input, Data, Opts>>
+type $ManyResponse<Input, Data, Opts extends $ManyOpts<Input, Data>> =
+	| StaleReponse<$ManyExtension<Input, Data, Opts>>
+	| SuccessResponse<Data, $ManyExtension<Input, Data, Opts>>
+	| ErrorResponse<$ManyExtension<Input, Data, Opts>>
 	| (Opts['abort'] extends true
-			? AbortedResponse<$UpdateExtension<Input, Data, Opts>>
-			: ErrorResponse<$UpdateExtension<Input, Data, Opts>>)
+			? AbortedResponse<$ManyExtension<Input, Data, Opts>>
+			: ErrorResponse<$ManyExtension<Input, Data, Opts>>)
 	| (Opts['abort'] extends true
-			? LoadingResponse<$UpdateExtension<Input, Data, Opts> & { abort: () => void }>
-			: LoadingResponse<$UpdateExtension<Input, Data, Opts>>);
+			? LoadingResponse<$ManyExtension<Input, Data, Opts> & { abort: () => void }>
+			: LoadingResponse<$ManyExtension<Input, Data, Opts>>);
 
-type $UpdateInner<Args extends any[], Input, Data, Opts extends $UpdateOpts<Input, Data>, DEBUG> = {
+type $ManyInner<Args extends any[], Input, Data, Opts extends $ManyOpts<Input, Data>, DEBUG> = {
 	call: (...args: Args) => void;
 	readonly DEBUG?: DEBUG;
-} & $UpdateResponse<Input, Data, Opts>;
+} & $ManyResponse<Input, Data, Opts>;
 
-type $UpdateStore<
+type $ManyStore<
 	Args extends any[],
 	Input,
 	Data,
-	Opts extends $UpdateOpts<Input, Data>,
+	Opts extends $ManyOpts<Input, Data>,
 	DEBUG
-> = Writable<Prettify<$UpdateInner<Args, Input, Data, Opts, DEBUG>>>;
+> = Writable<Prettify<$ManyInner<Args, Input, Data, Opts, DEBUG>>>;
 
-type $UpdateFn<Args extends any[], Data> = <
+type $ManyFn<Args extends any[], Data> = <
 	AdditionalData extends {},
 	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $UpdateOpts<Args[0], DataFinal>,
+	Opts extends $ManyOpts<Args[0], DataFinal>,
 	DEBUG extends {}
 >(
 	options?: Opts & {
@@ -127,71 +132,13 @@ type $UpdateFn<Args extends any[], Data> = <
 			data?: AdditionalData;
 		};
 	}
-) => $UpdateStore<Args, Args[0], DataFinal, Opts, DEBUG>;
-
-/*
- * ARRAY STORE
- */
-
-type $ArrayOpts<Input, Data> = {
-	prefill?: Data[] | (() => Data[]) | (() => Promise<Data[] | undefined>);
-	loading?: boolean;
-	remove?: boolean;
-	abort?: boolean;
-	abortOnRemove?: boolean;
-	beforeCall?: beforeCallFn<Input>;
-	beforeRemoveInput?: beforeRemoveInputFn<Input>;
-	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
-};
-type $ArrayExtension<
-	Input,
-	Data,
-	Opts extends $ArrayOpts<Input, Data>
-> = (Opts['remove'] extends true ? { remove: () => Promise<void> } : {}) &
-	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
-	(Opts['abort'] extends true ? { aborted: false } : {});
-
-type $ArrayResponseInner<Input, Data, Opts extends $ArrayOpts<Input, Data>> =
-	| SuccessResponse<Data, $ArrayExtension<Input, Data, Opts>>
-	| ErrorResponse<$ArrayExtension<Input, Data, Opts>>
-	| (Opts['abort'] extends true
-			? AbortedResponse<Omit<$ArrayExtension<Input, Data, Opts>, 'aborted'>>
-			: ErrorResponse<$ArrayExtension<Input, Data, Opts>>)
-	| (Opts['abort'] extends true
-			? LoadingResponse<$ArrayExtension<Input, Data, Opts> & { abort: () => void }>
-			: LoadingResponse<$ArrayExtension<Input, Data, Opts>>);
-
-type $ArrayInner<Args extends any[], Input, Data, Opts extends $ArrayOpts<Input, Data>, DEBUG> = {
-	responses: Prettify<$ArrayResponseInner<Input, Data, Opts>>[];
-	call: (...args: Args) => void;
-	readonly DEBUG?: DEBUG;
-} & (Opts['loading'] extends true ? { loading: false } : {});
-
-type $ArrayStore<
-	Args extends any[],
-	Input,
-	Data,
-	Opts extends $ArrayOpts<Input, Data>,
-	DEBUG
-> = Writable<$ArrayInner<Args, Input, Data, Opts, DEBUG>>;
-type $ArrayFn<Args extends any[], Data> = <
-	AdditionalData extends {},
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $ArrayOpts<Args[0], DataFinal>,
-	DEBUG extends {}
->(
-	options?: Opts & {
-		types?: {
-			data?: AdditionalData;
-		};
-	}
-) => $ArrayStore<Args, Args[0], DataFinal, Opts, DEBUG>;
+) => $ManyStore<Args, Args[0], DataFinal, Opts, DEBUG>;
 
 /*
  * ENTRIES STORE
  */
 
-type $EntryOpts<Input, Data> = {
+type $MultipleOpts<Input, Data> = {
 	prefill?: Data[] | (() => Data[]) | (() => Promise<Data[] | undefined>);
 	loading?: boolean;
 	remove?: boolean;
@@ -200,71 +147,73 @@ type $EntryOpts<Input, Data> = {
 	beforeCall?: beforeCallFn<Input>;
 	beforeRemoveInput?: beforeRemoveInputFn<Input>;
 	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
+	beforeRemoveError?: beforeRemoveErrorFn;
 };
-type $EntryExtension<
+type $MultipleExtension<
 	Input,
 	Data,
-	Opts extends $EntryOpts<Input, Data>
+	Opts extends $MultipleOpts<Input, Data>
 > = (Opts['remove'] extends true ? { remove: () => Promise<void> } : {}) &
 	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
-type $EntryResponseInner<
+type $MultipleResponseInner<
 	Input,
 	EntryLoading extends {},
 	EntrySuccess extends {},
 	Data,
-	Opts extends $EntryOpts<Input, Data>
+	Opts extends $MultipleOpts<Input, Data>
 > =
-	| SuccessResponse<Data, $EntryExtension<Input, Data, Opts> & { entry: EntrySuccess }>
-	| ErrorResponse<$EntryExtension<Input, Data, Opts> & { entry: EntryLoading }>
+	| SuccessResponse<Data, $MultipleExtension<Input, Data, Opts> & { entry: EntrySuccess }>
+	| ErrorResponse<$MultipleExtension<Input, Data, Opts> & { entry: EntryLoading }>
 	| (Opts['abort'] extends true
 			? AbortedResponse<
-					Omit<$EntryExtension<Input, Data, Opts>, 'aborted'> & {
+					Omit<$MultipleExtension<Input, Data, Opts>, 'aborted'> & {
 						entry: EntryLoading;
 					}
 			  >
 			: ErrorResponse<
-					$EntryExtension<Input, Data, Opts> & {
+					$MultipleExtension<Input, Data, Opts> & {
 						entry: EntryLoading;
 					}
 			  >)
 	| (Opts['abort'] extends true
 			? LoadingResponse<
-					$EntryExtension<Input, Data, Opts> & {
+					$MultipleExtension<Input, Data, Opts> & {
 						abort: () => void;
 						entry: EntryLoading;
 					}
 			  >
 			: LoadingResponse<
-					$EntryExtension<Input, Data, Opts> & {
+					$MultipleExtension<Input, Data, Opts> & {
 						entry: EntryLoading;
 					}
 			  >);
 
-type $EntryInner<
+type $MultipleInner<
 	Args extends any[],
 	Input,
 	EntryLoading extends {},
 	EntrySuccess extends {},
 	Data,
-	Opts extends $EntryOpts<Input, Data>,
+	Opts extends $MultipleOpts<Input, Data>,
 	DEBUG
 > = {
-	responses: Prettify<$EntryResponseInner<Input, EntryLoading, EntrySuccess, Data, Opts>>[];
+	error?: Error;
+	responses: $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Opts>[];
 	call: (...args: Args) => void;
 	readonly DEBUG?: DEBUG;
 } & (Opts['loading'] extends true ? { loading: false } : {});
 
-type $EntryStore<
+type $MultipleStore<
 	Args extends any[],
 	Input,
 	EntryLoading extends {},
 	EntrySuccess extends {},
 	Data,
-	Opts extends $EntryOpts<Input, Data>,
+	Opts extends $MultipleOpts<Input, Data>,
 	DEBUG
-> = Writable<$EntryInner<Args, Input, EntryLoading, EntrySuccess, Data, Opts, DEBUG>>;
+> = Writable<$MultipleInner<Args, Input, EntryLoading, EntrySuccess, Data, Opts, DEBUG>>;
 
 type $TypeMake<
 	OriginalType,
@@ -278,7 +227,7 @@ type $TypeMake<
 		: Combine<OriginalType, AndType>
 	: OriginalType;
 
-type $EntryFn<Args extends any[], Data> = <
+type $MultipleFn<Args extends any[], Data> = <
 	EntryLoading extends {},
 	EntrySuccess extends {},
 	AndEntryLoading extends {},
@@ -294,7 +243,7 @@ type $EntryFn<Args extends any[], Data> = <
 		OrEntrySuccess
 	>,
 	DataFinal extends $TypeMake<Data, AndData, OrData>,
-	Opts extends $EntryOpts<Args[0], DataFinal>,
+	Opts extends $MultipleOpts<Args[0], DataFinal>,
 	DEBUG extends {}
 >(
 	options:
@@ -315,80 +264,16 @@ type $EntryFn<Args extends any[], Data> = <
 					}>;
 		  })
 		| ((item: Data) => EntryLoading)
-) => $EntryStore<Args, Args[0], EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts, DEBUG>;
+) => $MultipleStore<Args, Args[0], EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts, DEBUG>;
 
-/*
- * OBJECT STORE
- */
-
-type $ObjectOpts<Input, Data> = {
-	key?: (input: Input) => string;
-	keySuccess?: (response: Data) => string;
-	prefill?: Data[] | (() => Data[]) | (() => Promise<Data[] | undefined>);
-	loading?: boolean;
-	remove?: boolean;
-	abort?: boolean;
-	abortOnRemove?: boolean;
-	beforeCall?: beforeCallFn<Input>;
-	beforeRemoveInput?: beforeRemoveInputFn<Input>;
-	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
-};
-type $ObjectExtension<
-	Input,
-	Data,
-	Opts extends $ObjectOpts<Input, Data>
-> = (Opts['remove'] extends true ? { remove: () => Promise<void> } : {}) &
-	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
-	(Opts['abort'] extends true ? { aborted: false } : {});
-
-type $ObjectResponseInner<Input, Data, Opts extends $ObjectOpts<Input, Data>> =
-	| SuccessResponse<Data, $ObjectExtension<Input, Data, Opts>>
-	| ErrorResponse<$ObjectExtension<Input, Data, Opts>>
-	| (Opts['abort'] extends true
-			? AbortedResponse<Omit<$ObjectExtension<Input, Data, Opts>, 'aborted'>>
-			: ErrorResponse<$ObjectExtension<Input, Data, Opts>>)
-	| (Opts['abort'] extends true
-			? LoadingResponse<$ObjectExtension<Input, Data, Opts> & { abort: () => void }>
-			: LoadingResponse<$ObjectExtension<Input, Data, Opts>>);
-
-type $ObjectInner<Args extends any[], Input, Data, Opts extends $ObjectOpts<Input, Data>, DEBUG> = {
-	responses: { [key: string]: Prettify<$ObjectResponseInner<Input, Data, Opts>> };
-	call: (...args: Args) => void;
-	readonly DEBUG?: DEBUG;
-} & (Opts['loading'] extends true ? { loading: false } : {});
-
-type $ObjectStore<
-	Args extends any[],
-	Input,
-	Data,
-	Opts extends $ObjectOpts<Input, Data>,
-	DEBUG
-> = Writable<$ObjectInner<Args, Input, Data, Opts, DEBUG>>;
-
-type $ObjectFn<Args extends any[], Data> = <
-	AdditionalData extends {},
-	DataFinal extends Combine<Data, AdditionalData>,
-	Opts extends $ObjectOpts<Args[0], DataFinal>,
-	DEBUG extends {}
->(
-	options?:
-		| (Opts & {
-				types?: {
-					data?: AdditionalData;
-				};
-		  })
-		| ((item: Args[0]) => string)
-) => $ObjectStore<Args, Args[0], DataFinal, Opts, DEBUG>;
 /*
  * CHANGE PROCEDURES
  */
 type NewStoreProcedures<Args extends any[], Data> = {
 	call: $CallFn<Args, Data>;
 	$once: $OnceFn<Args, Data>;
-	$update: $UpdateFn<Args, Data>;
-	$array: $ArrayFn<Args, Data>;
-	$entry: $EntryFn<Args, Data>;
-	$object: $ObjectFn<Args, Data>;
+	$many: $ManyFn<Args, Data>;
+	$multiple: $MultipleFn<Args, Data>;
 };
 
 type ChangeProceduresType<
@@ -430,19 +315,14 @@ export type StoreOpts = {
 	readonly endpoint: AsyncFunctionType;
 	readonly dotPath: string;
 	readonly is$once: boolean;
-	readonly is$update: boolean;
-	readonly is$array: boolean;
-	readonly is$entry: boolean;
-	readonly is$object: boolean;
+	readonly is$many: boolean;
 	readonly is$multiple: boolean;
-	readonly is$arrayType: boolean;
+	readonly has$call: boolean;
 
 	readonly prefillData: undefined | any;
 	readonly prefillFn: undefined | (() => any | Promise<any>);
 	readonly entryFn: undefined | ((input: object) => object);
 	readonly entrySuccessFn: undefined | ((response: object) => object);
-	readonly keyFn: undefined | ((input: object) => string);
-	readonly keySuccessFn: undefined | ((response: object) => string);
 	readonly hasLoading: boolean;
 	readonly hasRemove: boolean;
 	readonly hasAbort: boolean;
@@ -450,6 +330,7 @@ export type StoreOpts = {
 	readonly beforeCallFn: undefined | beforeCallFn<any>;
 	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
 	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
+	readonly beforeRemoveErrorFn: undefined | beforeRemoveErrorFn;
 };
 
 export type $OnceStoreOpts = {
@@ -458,47 +339,38 @@ export type $OnceStoreOpts = {
 	readonly endpoint: AsyncFunctionType;
 	readonly dotPath: string;
 	readonly is$once: true;
-	readonly is$update: false;
-	readonly is$array: false;
-	readonly is$entry: false;
-	readonly is$object: false;
+	readonly is$many: false;
 	readonly is$multiple: false;
-	readonly is$arrayType: false;
+	readonly has$call: false;
 
 	readonly prefillData: undefined;
 	readonly prefillFn: undefined;
 	readonly entryFn: undefined;
 	readonly entrySuccessFn: undefined;
-	readonly keyFn: undefined;
-	readonly keySuccessFn: undefined;
 	readonly hasLoading: false;
 	readonly hasRemove: false;
 	readonly hasAbort: false;
 	readonly hasAbortOnRemove: false;
-	readonly beforeCallFn: undefined | beforeCallFn<any>;
-	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
-	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
+	readonly beforeCallFn: undefined;
+	readonly beforeRemoveInputFn: undefined;
+	readonly beforeRemoveResponseFn: undefined;
+	readonly beforeRemoveErrorFn: undefined;
 };
 
-export type $UpdateStoreOpts = {
-	readonly method: '$update';
+export type $ManyStoreOpts = {
+	readonly method: '$many';
 	readonly args: any[];
 	readonly endpoint: AsyncFunctionType;
 	readonly dotPath: string;
-	readonly is$once: true;
-	readonly is$update: false;
-	readonly is$array: false;
-	readonly is$entry: false;
-	readonly is$object: false;
+	readonly is$once: false;
+	readonly is$many: true;
 	readonly is$multiple: false;
-	readonly is$arrayType: false;
+	readonly has$call: true;
 
 	readonly prefillData: undefined | any;
 	readonly prefillFn: undefined | (() => any | Promise<any>);
 	readonly entryFn: undefined;
 	readonly entrySuccessFn: undefined;
-	readonly keyFn: undefined;
-	readonly keySuccessFn: undefined;
 	readonly hasLoading: false;
 	readonly hasRemove: boolean;
 	readonly hasAbort: boolean;
@@ -506,55 +378,23 @@ export type $UpdateStoreOpts = {
 	readonly beforeCallFn: undefined | beforeCallFn<any>;
 	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
 	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
+	readonly beforeRemoveErrorFn: undefined | beforeRemoveErrorFn;
 };
 
-export type $ArrayStoreOpts = {
-	readonly method: '$array';
+export type $MultipleStoreOpts = {
+	readonly method: '$multiple';
 	readonly args: any[];
 	readonly endpoint: AsyncFunctionType;
 	readonly dotPath: string;
 	readonly is$once: false;
-	readonly is$update: false;
-	readonly is$array: true;
-	readonly is$entry: false;
-	readonly is$object: false;
+	readonly is$many: false;
 	readonly is$multiple: true;
-	readonly is$arrayType: true;
-
-	readonly prefillData: undefined | any[];
-	readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
-	readonly entryFn: undefined;
-	readonly entrySuccessFn: undefined;
-	readonly keyFn: undefined;
-	readonly keySuccessFn: undefined;
-	readonly hasLoading: boolean;
-	readonly hasRemove: boolean;
-	readonly hasAbort: boolean;
-	readonly hasAbortOnRemove: boolean;
-	readonly beforeCallFn: undefined | beforeCallFn<any>;
-	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
-	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
-};
-
-export type $EntryStoreOpts = {
-	readonly method: '$entry';
-	readonly args: any[];
-	readonly endpoint: AsyncFunctionType;
-	readonly dotPath: string;
-	readonly is$once: false;
-	readonly is$update: false;
-	readonly is$array: false;
-	readonly is$entry: true;
-	readonly is$object: false;
-	readonly is$multiple: true;
-	readonly is$arrayType: true;
+	readonly has$call: true;
 
 	readonly prefillData: undefined | any[];
 	readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
 	readonly entryFn: (input: object) => object;
 	readonly entrySuccessFn: undefined | ((response: object) => object);
-	readonly keyFn: undefined;
-	readonly keySuccessFn: undefined;
 	readonly hasLoading: boolean;
 	readonly hasRemove: boolean;
 	readonly hasAbort: boolean;
@@ -562,74 +402,21 @@ export type $EntryStoreOpts = {
 	readonly beforeCallFn: undefined | beforeCallFn<any>;
 	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
 	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
-};
-
-export type $ObjectStoreOpts = {
-	readonly method: '$object';
-	readonly args: any[];
-	readonly endpoint: AsyncFunctionType;
-	readonly dotPath: string;
-	readonly is$once: false;
-	readonly is$update: false;
-	readonly is$array: false;
-	readonly is$entry: false;
-	readonly is$object: true;
-	readonly is$multiple: true;
-	readonly is$arrayType: false;
-
-	readonly prefillData: undefined | any[];
-	readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
-	readonly entryFn: undefined;
-	readonly entrySuccessFn: undefined;
-	readonly keyFn: (input: object) => string;
-	readonly keySuccessFn: undefined | ((response: object) => string);
-	readonly hasLoading: boolean;
-	readonly hasRemove: boolean;
-	readonly hasAbort: boolean;
-	readonly hasAbortOnRemove: boolean;
-	readonly beforeCallFn: undefined | beforeCallFn<any>;
-	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
-	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
+	readonly beforeRemoveErrorFn: undefined | beforeRemoveErrorFn;
 };
 
 export type AnyOnceStore = $OnceStore<any>;
-export type AnyUpdateStore = $UpdateStore<any[], any, any, any, any>;
-export type AnyArrayStore = $ArrayStore<any[], any, any, any, any>;
-export type AnyEntryStore = $EntryStore<any[], any, any, any, any, any, any>;
-export type AnyObjectStore = $ObjectStore<any[], any, any, any, any>;
+export type AnyManyStore = $ManyStore<any[], any, any, any, any>;
+export type AnyMultipleStore = $MultipleStore<any[], any, any, any, any, any, any>;
 
-export type AnyStore =
-	| AnyOnceStore
-	| AnyUpdateStore
-	| AnyArrayStore
-	| AnyEntryStore
-	| AnyObjectStore;
+export type AnyStore = AnyOnceStore | AnyManyStore | AnyMultipleStore;
 
-// export type AnyNotOnceStore = AnyUpdateStore | AnyArrayStore | AnyEntryStore | AnyObjectStore;
-
-// export type AnyNotOnceStoreInner =
-// 	| $UpdateInner<any[], any, any, any>
-// 	| $ArrayInner<any[], any, any, any>
-// 	| $EntryInner<any[], any, any, any, any, any, any>
-// 	| $ObjectInner<any[], any, any, any>;
-
-export type AnyStoreOpts =
-	| $OnceStoreOpts
-	| $UpdateStoreOpts
-	| $ArrayStoreOpts
-	| $EntryStoreOpts
-	| $ObjectStoreOpts;
-
-// export type AnyNotOnceStoreOpts =
-// 	| $UpdateStoreOpts
-// 	| $ArrayStoreOpts
-// 	| $EntryStoreOpts
-// 	| $ObjectStoreOpts;
+export type AnyStoreOpts = $OnceStoreOpts | $ManyStoreOpts | $MultipleStoreOpts;
 
 export type CallTracker = {
 	// input: any;
-	skip: boolean;
+	skip?: boolean;
 	index: string | number;
-	response?: any;
+	// responseInner: any;
 	abortController?: undefined | AbortController;
 };
