@@ -6,7 +6,7 @@
 
 	const many = storeClient.tests.addToList.mutate.$many({
 		//working
-		// prefill: storeClient.tests.getItem.query.call
+		prefill: storeClient.tests.getItem.query.call
 		//
 		//
 		//working
@@ -14,10 +14,10 @@
 		// 	return storeClient.tests.getItem.query.call();
 		// }
 		//working
-		prefill: {
-			date: new Date().toLocaleString('en-GB'),
-			item: '468e1822-44c2-4021-90f2-34d1e5c57763'
-		}
+		// prefill: {
+		// 	date: new Date().toLocaleString('en-GB'),
+		// 	item: '468e1822-44c2-4021-90f2-34d1e5c57763'
+		// }
 	});
 
 	console.clear();

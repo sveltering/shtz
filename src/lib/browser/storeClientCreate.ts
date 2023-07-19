@@ -222,47 +222,89 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
 	if (!prefillData && !prefillFn) {
 		return;
 	}
-	if (is$many) {
-		const _tracker: CallTracker = {} as CallTracker;
-		const responseInner = {
+	const isBrowser = typeof window !== 'undefined';
+
+	if (prefillFn && !isBrowser) {
+		return;
+	}
+	const _tracker: CallTracker = {} as CallTracker;
+
+	if (!isBrowser && is$many && prefillData) {
+		endpointReponse({
+			isSuccess: true,
+			isError: false,
+			store,
+			opts,
 			_tracker,
-			data: undefined,
-			loading: false,
-			error: false,
-			success: false,
-			call: (...endpointArgs: any[]) => {
-				callEndpoint({ store, opts, endpointArgs, _tracker });
-			}
-		};
-		if (typeof window === 'undefined') {
+			data: prefillData
+		});
+		return;
+	}
+
+	if (isBrowser && is$many) {
+		callEndpoint({
+			store,
+			opts,
+			endpointArgs: [],
+			_tracker,
+			prefillHandle: prefillFn ? callAsync(prefillFn) : async () => prefillData
+		});
+	}
+
+	if (!isBrowser && is$multiple && prefillData) {
+		const storeInner = get(store as any) as any;
+		const startingIndex = storeInner.responses.length;
+		const data = Array.isArray(prefillData) ? prefillData : [prefillData];
+		for (let i = 0, iLen = data.length; i < iLen; i++) {
+			const _tracker: CallTracker = { index: startingIndex + i } as CallTracker;
+			storeInner.responses.push({
+				_tracker,
+				loading: true,
+				success: false,
+				error: false,
+				data: undefined,
+				entry: {}
+			});
 			endpointReponse({
 				isSuccess: true,
 				isError: false,
 				store,
 				opts,
 				_tracker,
-				data: prefillData
-			});
-			return;
-		}
-		if (prefillData) {
-			callEndpoint({
-				store,
-				opts,
-				endpointArgs: [],
-				_tracker,
-				prefillHandle: async () => prefillData
-			});
-		} //
-		else if (prefillFn) {
-			callEndpoint({
-				store,
-				opts,
-				endpointArgs: [],
-				_tracker,
-				prefillHandle: callAsync(prefillFn)
+				data: data[i]
 			});
 		}
+
+		return;
+	}
+	if (isBrowser && is$multiple) {
+		const storeInner = get(store as any) as any;
+		storeInner.loading = true;
+		store.set(storeInner);
+		const prefillFunction = prefillFn ? callAsync(prefillFn) : async () => prefillData;
+		prefillFunction().then(function (data) {
+			data = Array.isArray(data) ? data : [data];
+			const startingIndex = storeInner.responses.length;
+			for (let i = 0, iLen = data.length; i < iLen; i++) {
+				const _tracker: CallTracker = { index: startingIndex + i } as CallTracker;
+				storeInner.responses.push({
+					_tracker,
+					loading: true,
+					success: false,
+					error: false,
+					data: undefined,
+					entry: {}
+				});
+				endpointReponse({
+					isSuccess: true,
+					isError: false,
+					store,
+					opts,
+					_tracker,
+					data: data[i]
+				});
+			}
+		});
 	}
 }
 
@@ -521,7 +563,7 @@ function checkForLoading(o: CheckForLoadingOpts) {
 	const storeInner = get(store as any) as any;
 	const responses = storeInner.responses;
 	let loading = false;
-	for (let i = 0, iLen = responses.length; i < iLen; i++) {
+	for (let i = 0, iLen = responses.length || 0; i < iLen; i++) {
 		if (responses[i].loading) {
 			loading = true;
 			break;
@@ -603,27 +645,27 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
 	}
 
 	const storeInner = get(store as any) as any;
-	const responseInner = is$many ? storeInner : storeInner.responses[_tracker.index];
+	const responseInner = is$many ? storeInner : storeInner?.responses?.[_tracker.index];
 
 	delete responseInner?.abort;
 	delete _tracker?.abortController;
 
 	if (hasRemove) {
-		storeInner.remove = removeCallFn({ store, opts, _tracker, data, error });
+		responseInner.remove = removeCallFn({ store, opts, _tracker, data, error });
 	}
 
 	if (isSuccess && entrySuccessFn) {
 		responseInner.entry = entrySuccessFn(data);
 	}
 
-	store.set(
-		Object.assign(responseInner, {
-			loading: false,
-			success: isSuccess,
-			error: isError ? error : false,
-			data: isSuccess ? data : undefined
-		})
-	);
+	Object.assign(responseInner, {
+		loading: false,
+		success: isSuccess,
+		error: isError ? error : false,
+		data: isSuccess ? data : undefined
+	});
+
+	store.set(storeInner);
 
 	if (is$multiple) {
 		checkForLoading({ store, opts });

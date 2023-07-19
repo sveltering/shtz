@@ -13,7 +13,7 @@
 	// $: console.log($update);
 </script>
 
-TEST: Page data should already fill store<br />
+TEST: Page data should already fill store (view page source)<br />
 {#if $many.loading}
 	Loading <LoadingDots />
 {:else if $many.success}

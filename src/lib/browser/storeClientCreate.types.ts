@@ -181,7 +181,7 @@ type $ManyFn<Args extends any[], Data> = <
  */
 
 type $MultipleOpts<Input, Data> = {
-	prefill?: Data[] | (() => Data[]) | (() => Promise<Data[] | undefined>);
+	prefill?: Data | Data[] | (() => Data | Data[]) | (() => Promise<Data | Data[] | undefined>);
 	loading?: boolean;
 	remove?: boolean;
 	abort?: boolean;
