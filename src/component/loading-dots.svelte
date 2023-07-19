@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import { onDestroy, onMount } from 'svelte';
 
 	export let maxDots: number = 4;
@@ -6,27 +7,29 @@
 
 	let spans: HTMLSpanElement[] = Array(maxDots);
 
-	let styleWord: 'display' | 'visibility' = hidden ? 'display' : 'visibility';
-	let hiddenWord: 'none' | 'hidden' = hidden ? 'none' : 'hidden';
+	if (browser) {
+		let styleWord: 'display' | 'visibility' = hidden ? 'display' : 'visibility';
+		let hiddenWord: 'none' | 'hidden' = hidden ? 'none' : 'hidden';
 
-	let count = 0;
-	let intervalTimer: number;
-	onMount(() => {
-		intervalTimer = setInterval(() => {
-			for (let i = 0; i < maxDots; i++) {
-				spans[i].style[styleWord] = i <= count ? 'unset' : hiddenWord;
+		let count = 0;
+		let intervalTimer: number;
+		onMount(() => {
+			intervalTimer = setInterval(() => {
+				for (let i = 0; i < maxDots; i++) {
+					spans[i].style[styleWord] = i <= count ? 'unset' : hiddenWord;
+				}
+				count++;
+				if (count === maxDots) {
+					count = 0;
+				}
+			}, 250) as unknown as number;
+		});
+		onDestroy(() => {
+			if (intervalTimer) {
+				clearInterval(intervalTimer);
 			}
-			count++;
-			if (count === maxDots) {
-				count = 0;
-			}
-		}, 250) as unknown as number;
-	});
-	onDestroy(() => {
-		if (intervalTimer) {
-			clearInterval(intervalTimer);
-		}
-	});
+		});
+	}
 </script>
 
 {#each spans as span, i}

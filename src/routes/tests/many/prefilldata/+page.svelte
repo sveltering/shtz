@@ -5,11 +5,11 @@
 
 	export let data: PageData;
 
+	console.clear();
 	const many = storeClient.tests.addToList.mutate.$many({
 		prefill: data
 	});
 
-	console.clear();
 	// $: console.log($update);
 </script>
 

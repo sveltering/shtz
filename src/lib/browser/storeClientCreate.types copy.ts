@@ -62,8 +62,10 @@ type beforeRemoveInputFn<Input> = (input: Input) => boolean | void | Promise<boo
 
 type beforeRemoveResponseFn<Data> = (
 	response: Data,
-	replaceData: replaceInputFn<Data>
+	replaceData?: replaceInputFn<Data>
 ) => boolean | void | Promise<boolean | void>;
+
+type beforeRemoveErrorFn = (error: Error) => boolean | void | Promise<boolean | void>;
 /*
  * CALL
  */
@@ -87,6 +89,7 @@ type $ManyOpts<Input, Data> = {
 	beforeCall?: beforeCallFn<Input>;
 	beforeRemoveInput?: beforeRemoveInputFn<Input>;
 	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
+	beforeRemoveError?: beforeRemoveErrorFn;
 };
 type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts['remove'] extends true
 	? { remove: () => Promise<void> }
@@ -94,42 +97,84 @@ type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts['r
 	(Opts['abortOnRemove'] extends true ? { remove: () => Promise<void> } : {}) &
 	(Opts['abort'] extends true ? { aborted: false } : {});
 
-type $ManyResponse<Input, Data, Opts extends $ManyOpts<Input, Data>> =
-	| StaleReponse<$ManyExtension<Input, Data, Opts>>
-	| SuccessResponse<Data, $ManyExtension<Input, Data, Opts>>
-	| ErrorResponse<$ManyExtension<Input, Data, Opts>>
+type $ManyResponse<
+	Input,
+	EntryLoading extends {},
+	EntrySuccess extends {},
+	Data,
+	Opts extends $ManyOpts<Input, Data>
+> =
+	| StaleReponse<$ManyExtension<Input, Data, Opts> & { entry: {} }>
+	| SuccessResponse<Data, $ManyExtension<Input, Data, Opts> & { entry: EntrySuccess }>
+	| ErrorResponse<$ManyExtension<Input, Data, Opts> & { entry: EntryLoading }>
 	| (Opts['abort'] extends true
-			? AbortedResponse<$ManyExtension<Input, Data, Opts>>
-			: ErrorResponse<$ManyExtension<Input, Data, Opts>>)
+			? AbortedResponse<$ManyExtension<Input, Data, Opts> & { entry: EntryLoading }>
+			: ErrorResponse<$ManyExtension<Input, Data, Opts> & { entry: EntryLoading }>)
 	| (Opts['abort'] extends true
-			? LoadingResponse<$ManyExtension<Input, Data, Opts> & { abort: () => void }>
-			: LoadingResponse<$ManyExtension<Input, Data, Opts>>);
+			? LoadingResponse<
+					$ManyExtension<Input, Data, Opts> & { abort: () => void; entry: EntryLoading }
+			  >
+			: LoadingResponse<$ManyExtension<Input, Data, Opts> & { entry: EntryLoading }>);
 
-type $ManyInner<Args extends any[], Input, Data, Opts extends $ManyOpts<Input, Data>, DEBUG> = {
+type $ManyInner<
+	Args extends any[],
+	Input,
+	EntryLoading extends {},
+	EntrySuccess extends {},
+	Data,
+	Opts extends $ManyOpts<Input, Data>,
+	DEBUG
+> = {
 	call: (...args: Args) => void;
 	readonly DEBUG?: DEBUG;
-} & $ManyResponse<Input, Data, Opts>;
+} & $ManyResponse<Input, EntryLoading, EntrySuccess, Data, Opts>;
 
 type $ManyStore<
 	Args extends any[],
 	Input,
+	EntryLoading extends {},
+	EntrySuccess extends {},
 	Data,
 	Opts extends $ManyOpts<Input, Data>,
 	DEBUG
-> = Writable<Prettify<$ManyInner<Args, Input, Data, Opts, DEBUG>>>;
+> = Writable<$ManyInner<Args, Input, EntryLoading, EntrySuccess, Data, Opts, DEBUG>>;
 
 type $ManyFn<Args extends any[], Data> = <
-	AdditionalData extends {},
-	DataFinal extends Combine<Data, AdditionalData>,
+	EntryLoading extends {},
+	EntrySuccess extends {},
+	AndEntryLoading extends {},
+	OrEntryLoading extends {},
+	AndEntrySuccess extends {},
+	OrEntrySuccess extends {},
+	AndData extends {},
+	OrData extends {},
+	EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>,
+	EntrySuccessFinal extends $TypeMake<
+		FirstNotEmpty<EntrySuccess, EntryLoading>,
+		AndEntrySuccess,
+		OrEntrySuccess
+	>,
+	DataFinal extends $TypeMake<Data, AndData, OrData>,
 	Opts extends $ManyOpts<Args[0], DataFinal>,
 	DEBUG extends {}
 >(
 	options?: Opts & {
-		types?: {
-			data?: AdditionalData;
-		};
+		entry?: (input: Args[0]) => EntryLoading;
+		entrySuccess?: (response: DataFinal) => EntrySuccess;
+		types?: OneOf<{
+			orData?: OrData;
+			andData?: AndData;
+		}> &
+			OneOf<{
+				orEntrySuccess?: OrEntrySuccess;
+				andEntrySuccess?: AndEntrySuccess;
+			}> &
+			OneOf<{
+				orEntry?: OrEntryLoading;
+				andEntry?: AndEntryLoading;
+			}>;
 	}
-) => $ManyStore<Args, Args[0], DataFinal, Opts, DEBUG>;
+) => $ManyStore<Args, Args[0], EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts, DEBUG>;
 
 /*
  * ENTRIES STORE
@@ -144,6 +189,7 @@ type $MultipleOpts<Input, Data> = {
 	beforeCall?: beforeCallFn<Input>;
 	beforeRemoveInput?: beforeRemoveInputFn<Input>;
 	beforeRemoveResponse?: beforeRemoveResponseFn<Input>;
+	beforeRemoveError?: beforeRemoveErrorFn;
 };
 type $MultipleExtension<
 	Input,
@@ -195,7 +241,8 @@ type $MultipleInner<
 	Opts extends $MultipleOpts<Input, Data>,
 	DEBUG
 > = {
-	responses: Prettify<$MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Opts>>[];
+	error?: Error;
+	responses: $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Opts>[];
 	call: (...args: Args) => void;
 	readonly DEBUG?: DEBUG;
 } & (Opts['loading'] extends true ? { loading: false } : {});
@@ -241,24 +288,22 @@ type $MultipleFn<Args extends any[], Data> = <
 	Opts extends $MultipleOpts<Args[0], DataFinal>,
 	DEBUG extends {}
 >(
-	options:
-		| (Opts & {
-				entry: (input: Args[0]) => EntryLoading;
-				entrySuccess?: (response: DataFinal) => EntrySuccess;
-				types?: OneOf<{
-					orData?: OrData;
-					andData?: AndData;
-				}> &
-					OneOf<{
-						orEntrySuccess?: OrEntrySuccess;
-						andEntrySuccess?: AndEntrySuccess;
-					}> &
-					OneOf<{
-						orEntry?: OrEntryLoading;
-						andEntry?: AndEntryLoading;
-					}>;
-		  })
-		| ((item: Data) => EntryLoading)
+	options?: Opts & {
+		entry?: (input: Args[0]) => EntryLoading;
+		entrySuccess?: (response: DataFinal) => EntrySuccess;
+		types?: OneOf<{
+			orData?: OrData;
+			andData?: AndData;
+		}> &
+			OneOf<{
+				orEntrySuccess?: OrEntrySuccess;
+				andEntrySuccess?: AndEntrySuccess;
+			}> &
+			OneOf<{
+				orEntry?: OrEntryLoading;
+				andEntry?: AndEntryLoading;
+			}>;
+	}
 ) => $MultipleStore<Args, Args[0], EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts, DEBUG>;
 
 /*
@@ -325,6 +370,7 @@ export type StoreOpts = {
 	readonly beforeCallFn: undefined | beforeCallFn<any>;
 	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
 	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
+	readonly beforeRemoveErrorFn: undefined | beforeRemoveErrorFn;
 };
 
 export type $OnceStoreOpts = {
@@ -348,6 +394,7 @@ export type $OnceStoreOpts = {
 	readonly beforeCallFn: undefined;
 	readonly beforeRemoveInputFn: undefined;
 	readonly beforeRemoveResponseFn: undefined;
+	readonly beforeRemoveErrorFn: undefined;
 };
 
 export type $ManyStoreOpts = {
@@ -371,6 +418,7 @@ export type $ManyStoreOpts = {
 	readonly beforeCallFn: undefined | beforeCallFn<any>;
 	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
 	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
+	readonly beforeRemoveErrorFn: undefined | beforeRemoveErrorFn;
 };
 
 export type $MultipleStoreOpts = {
@@ -394,10 +442,11 @@ export type $MultipleStoreOpts = {
 	readonly beforeCallFn: undefined | beforeCallFn<any>;
 	readonly beforeRemoveInputFn: undefined | beforeRemoveInputFn<any>;
 	readonly beforeRemoveResponseFn: undefined | beforeRemoveResponseFn<any>;
+	readonly beforeRemoveErrorFn: undefined | beforeRemoveErrorFn;
 };
 
 export type AnyOnceStore = $OnceStore<any>;
-export type AnyManyStore = $ManyStore<any[], any, any, any, any>;
+export type AnyManyStore = $ManyStore<any[], any, any, any, any, any, any>;
 export type AnyMultipleStore = $MultipleStore<any[], any, any, any, any, any, any>;
 
 export type AnyStore = AnyOnceStore | AnyManyStore | AnyMultipleStore;
@@ -407,7 +456,7 @@ export type AnyStoreOpts = $OnceStoreOpts | $ManyStoreOpts | $MultipleStoreOpts;
 export type CallTracker = {
 	// input: any;
 	skip?: boolean;
-	index: string | number;
-	responseInner: any;
+	index: number;
+	// responseInner: any;
 	abortController?: undefined | AbortController;
 };

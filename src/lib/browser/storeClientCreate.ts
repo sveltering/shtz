@@ -17,14 +17,13 @@ import type {
 	CallTracker,
 	AnyStore
 } from './storeClientCreate.types.js';
-import { error } from '@sveltejs/kit';
 
 function storeClientCreate<Router extends AnyRouter>(options: storeClientOpt): storeCC<Router> {
 	const { url, batchLinkOptions, transformer } = options;
 
-	if (typeof window === 'undefined') {
-		return pseudoOuterProxy([]) as storeCC<Router>;
-	}
+	// if (typeof window === 'undefined') {
+	// 	return pseudoOuterProxy([]) as storeCC<Router>;
+	// }
 
 	return outerProxy(
 		createTRPCProxyClient<Router>({
@@ -137,6 +136,14 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
 				}
 			}
 
+			if (typeof window === 'undefined') {
+				hasRemove = false;
+				hasAbort = false;
+				hasAbortOnRemove = false;
+				entryFn = undefined;
+				beforeCallFn = undefined;
+			}
+
 			const storeOpts: StoreOpts = {
 				method,
 				endpoint,
@@ -182,6 +189,7 @@ const storeClientMethods = {
 		const { hasAbort } = opts;
 		const store: AnyManyStore = writable({
 			data: undefined,
+			entry: {},
 			loading: false,
 			error: false,
 			success: false,
@@ -226,16 +234,24 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
 				callEndpoint({ store, opts, endpointArgs, _tracker });
 			}
 		};
-
+		if (typeof window === 'undefined') {
+			endpointReponse({
+				isSuccess: true,
+				isError: false,
+				store,
+				opts,
+				_tracker,
+				data: prefillData
+			});
+			return;
+		}
 		if (prefillData) {
 			callEndpoint({
 				store,
 				opts,
 				endpointArgs: [],
 				_tracker,
-				prefillHandle: async function () {
-					return prefillData;
-				}
+				prefillHandle: async () => prefillData
 			});
 		} //
 		else if (prefillFn) {
@@ -271,24 +287,14 @@ type CallEndpointOpts = {
 function callEndpoint(o: CallEndpointOpts) {
 	const { store, opts, endpointArgs, prefillHandle, _tracker } = o;
 	const {
-		// method,
 		endpoint,
-		// args,
-		// dotPath,
-		// is$once,
 		is$many,
-		// is$multiple,
 		has$call,
-
-		// prefillData,
-		// prefillFn,
 		entryFn,
-		entrySuccessFn,
 		hasLoading,
 		hasRemove,
 		hasAbort,
 		hasAbortOnRemove,
-		//beforeRemoveFn, used in removeCallFn
 		beforeCallFn
 	} = opts;
 
@@ -300,7 +306,8 @@ function callEndpoint(o: CallEndpointOpts) {
 			loading: true,
 			success: false,
 			error: false,
-			data: undefined
+			data: undefined,
+			entry: {}
 		};
 		//ADD METHODS TO RESPONSE
 		if (hasAbort || hasAbortOnRemove) {
@@ -317,6 +324,9 @@ function callEndpoint(o: CallEndpointOpts) {
 			responseInner.remove = removeCallFn({ store, opts, _tracker, input: endpointArgs?.[0] });
 		}
 
+		if (entryFn) {
+			responseInner.entry = entryFn(endpointArgs?.[0]);
+		}
 		// UPDATE STORES
 		if (is$many) {
 			Object.assign(storeInner, responseInner);
@@ -332,12 +342,15 @@ function callEndpoint(o: CallEndpointOpts) {
 		}
 	}
 
+	if (typeof window === 'undefined') {
+		return;
+	}
+
 	if (prefillHandle) {
 		prefillHandle()
 			.then(endpointSuccess({ store, opts, _tracker }))
 			.catch(endpointError({ store, opts, _tracker }));
-	} //
-	else if (beforeCallFn) {
+	} else if (beforeCallFn) {
 		callAsync(beforeCallFn)(endpointArgs?.[0], function (newInput: any) {
 			endpointArgs[0] = newInput;
 		})
@@ -388,70 +401,44 @@ function removeCallFn(o: RemoveCallFnOpts) {
 		const isError = responseInner.error;
 
 		if (isSuccess && beforeRemoveResponseFn) {
-			const continueToRemove = await beforeRemoveResponseFn(data, (replaceResponse: any) => {
-				newResponse.value = replaceResponse;
-			});
-			if (continueToRemove === true) {
-				abortCallFn({ store, opts, _tracker, fromRemove: true })();
-			} else {
-				remove = false;
-			}
+			remove =
+				(await beforeRemoveResponseFn(data, (replaceResponse: any) => {
+					newResponse.value = replaceResponse;
+				})) === true
+					? true
+					: false;
 		} //
-		if (isError && beforeRemoveErrorFn) {
-			const continueToRemove = await beforeRemoveErrorFn(error);
-			if (continueToRemove === true) {
-				abortCallFn({ store, opts, _tracker, fromRemove: true })();
-			} else {
-				remove = false;
-			}
+		else if (isError && beforeRemoveErrorFn) {
+			remove = (await beforeRemoveErrorFn(error)) === true ? true : false;
 		} //
 		else if (!(isSuccess || isError) && beforeRemoveInputFn) {
-			const continueRemove = await beforeRemoveInputFn(input);
-			if (continueRemove === true) {
-				abortCallFn({ store, opts, _tracker, fromRemove: true })();
-			} else {
-				remove = false;
-			}
-		} //
-		else {
-			abortCallFn({ store, opts, _tracker, fromRemove: true })();
-		}
-
-		if (!remove && !newResponse?.hasOwnProperty('value')) {
-			return;
-		}
-
-		if (!remove && newResponse.hasOwnProperty('value')) {
-			if (is$many) {
-				if (responseInner.success) {
-					responseInner.data = newResponse.value;
-				} else if (responseInner.error) {
-					responseInner.error = newResponse.value;
-				}
-				store.set(responseInner);
-			} // MULTIPLE UPDATE STORE
-			else {
-			}
+			remove = (await beforeRemoveInputFn(input)) === true ? true : false;
 		}
 
 		if (remove) {
+			abortCallFn({ store, opts, _tracker, fromRemove: true })();
 			_tracker.skip = true;
-		} else {
+		} //
+		else {
+			if (newResponse.hasOwnProperty('value')) {
+				responseInner.data = newResponse.value;
+				store.set(responseInner);
+			}
 			return;
 		}
 
 		if (is$many) {
-			Object.assign(responseInner, {
-				loading: false,
-				success: false,
-				error: false,
-				data: undefined
-			});
-			store.set(responseInner as any);
-		} // REMOVE FOR MULTIPLE RE-INDEX ARRAYS, CHECK FOR LOADING
-		else {
-			const index = _tracker.index;
-			allResponses.splice(index, 1)?.[0];
+			store.set(
+				Object.assign(responseInner, {
+					loading: false,
+					success: false,
+					error: false,
+					data: undefined
+				})
+			);
+		} //
+		else if (typeof _tracker.index === 'number') {
+			allResponses.splice(_tracker.index, 1)?.[0];
 			_tracker.index = null;
 			for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
 				const response = allResponses[i];
@@ -472,6 +459,7 @@ type AbortCallFnOpts = {
 function abortCallFn(o: AbortCallFnOpts) {
 	return function () {
 		const {
+			_tracker,
 			fromRemove,
 			opts: { hasAbortOnRemove }
 		} = o;
@@ -480,12 +468,12 @@ function abortCallFn(o: AbortCallFnOpts) {
 			return;
 		}
 
-		const { store, opts, _tracker } = o;
-		const { is$many, is$multiple, hasAbort } = opts;
-
 		if (!_tracker?.abortController) {
 			return;
 		}
+
+		const { store, opts } = o;
+		const { is$many, is$multiple, hasAbort } = opts;
 
 		_tracker.abortController?.abort();
 		delete _tracker.abortController;
@@ -493,16 +481,18 @@ function abortCallFn(o: AbortCallFnOpts) {
 
 		if (is$many) {
 			const responseInner = get(store as any) as any;
-			Object.assign(responseInner, {
-				loading: false,
-				success: false,
-				error: false,
-				data: undefined,
-				...(hasAbort ? { aborted: true } : {})
-			});
-			store.set(responseInner as any);
+			store.set(
+				Object.assign(responseInner, {
+					loading: false,
+					success: false,
+					error: false,
+					data: undefined,
+					...(hasAbort ? { aborted: true } : {})
+				})
+			);
 			return;
 		}
+
 		if (fromRemove) {
 			return;
 		}
@@ -514,8 +504,6 @@ function abortCallFn(o: AbortCallFnOpts) {
 			store.set(storeInner);
 			checkForLoading({ store, opts });
 		}
-
-		// ABORT FOR MULTIPLE AND CHECK FOR LOADING IF NOT FROM REMOVE
 	};
 }
 type CheckForLoadingOpts = {
@@ -588,61 +576,58 @@ type EndpointResponseOpts = {
 async function endpointReponse(o: EndpointSuccessOpts): Promise<void>;
 async function endpointReponse(o: EndpointErrorOpts): Promise<void>;
 async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
-	const { isSuccess, isError, store, opts, _tracker, data, error } = o;
-	const { is$once, is$many, is$multiple, has$call, hasRemove } = opts;
-
-	if (is$once) {
-		const responseInner = get(store as any) as any;
-		Object.assign(responseInner, {
-			loading: false,
-			success: isSuccess,
-			error: isError ? error : false,
-			data: isSuccess ? data : undefined
-		});
-		store.set(responseInner as any);
-		return;
-	}
+	const { error, isError, _tracker } = o;
 
 	if (_tracker?.skip) {
 		_tracker.skip = false;
 		return;
 	}
+	if (isError && error?.cause?.name === 'ObservableAbortError') {
+		return;
+	}
 
-	if (is$many) {
+	const { isSuccess, store, opts, data } = o;
+	const { is$once, is$many, is$multiple, hasRemove, entrySuccessFn } = opts;
+
+	if (is$once) {
 		const responseInner = get(store as any) as any;
-		delete responseInner?.abort;
+		store.set(
+			Object.assign(responseInner, {
+				loading: false,
+				success: isSuccess,
+				error: isError ? error : false,
+				data: isSuccess ? data : undefined
+			})
+		);
+		return;
+	}
+
+	const storeInner = get(store as any) as any;
+	const responseInner = is$many ? storeInner : storeInner.responses[_tracker.index];
+
+	delete responseInner?.abort;
+	delete _tracker?.abortController;
+
+	if (hasRemove) {
+		storeInner.remove = removeCallFn({ store, opts, _tracker, data, error });
+	}
+
+	if (isSuccess && entrySuccessFn) {
+		responseInner.entry = entrySuccessFn(data);
+	}
+
+	store.set(
 		Object.assign(responseInner, {
 			loading: false,
 			success: isSuccess,
 			error: isError ? error : false,
 			data: isSuccess ? data : undefined
-		});
-		if (hasRemove) {
-			responseInner.remove = removeCallFn({ store, opts, _tracker, data, error });
-		}
-		store.set(responseInner as any);
-		return;
-	}
+		})
+	);
 
 	if (is$multiple) {
-		const storeInner = get(store as any) as any;
-		if (hasRemove) {
-			storeInner.remove = removeCallFn({ store, opts, _tracker, data, error });
-		}
-		const responseInner = storeInner.responses[_tracker.index];
-		Object.assign(responseInner, {
-			loading: false,
-			success: isSuccess,
-			error: isError ? error : false,
-			data: isSuccess ? data : undefined
-		});
-		store.set(storeInner as any);
-
 		checkForLoading({ store, opts });
-		///CHECK FOR LOADING
-		return;
 	}
-	return;
 }
 
 export { storeClientCreate };

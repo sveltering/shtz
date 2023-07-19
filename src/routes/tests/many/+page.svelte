@@ -4,7 +4,7 @@
 
 	var shouldError = Math.random() < 0.5;
 
-	const many = storeClient.tests.addToList.mutate.$many();
+	const many = storeClient.tests.addToList.mutate.$many({});
 
 	$many.call({
 		item: 'Test ' + (shouldError ? 'error' : ''),
