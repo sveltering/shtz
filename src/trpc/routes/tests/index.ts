@@ -2,10 +2,6 @@ import { t } from '$trpc/init';
 import { z } from 'zod';
 import * as crypto from 'crypto';
 import { sleep, strContainsError } from '$trpc/functions';
-const syncWait = (ms) => {
-	const end = Date.now() + ms;
-	while (Date.now() < end) continue;
-};
 export default t.router({
 	getList: t.procedure.input(z.boolean().optional()).query(async function ({ input: throwErr }) {
 		await sleep(0.3, 1);
@@ -19,7 +15,6 @@ export default t.router({
 				item: crypto.randomUUID() as string
 			});
 		}
-		syncWait(1000);
 		return returnData;
 	}),
 	getItem: t.procedure.input(z.boolean().optional()).query(async function ({ input: throwErr }) {

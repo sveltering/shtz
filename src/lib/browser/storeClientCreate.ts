@@ -282,29 +282,35 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
 		storeInner.loading = true;
 		store.set(storeInner);
 		const prefillFunction = prefillFn ? callAsync(prefillFn) : async () => prefillData;
-		prefillFunction().then(function (data) {
-			data = Array.isArray(data) ? data : [data];
-			const startingIndex = storeInner.responses.length;
-			for (let i = 0, iLen = data.length; i < iLen; i++) {
-				const _tracker: CallTracker = { index: startingIndex + i } as CallTracker;
-				storeInner.responses.push({
-					_tracker,
-					loading: true,
-					success: false,
-					error: false,
-					data: undefined,
-					entry: {}
-				});
-				endpointReponse({
-					isSuccess: true,
-					isError: false,
-					store,
-					opts,
-					_tracker,
-					data: data[i]
-				});
-			}
-		});
+		prefillFunction()
+			.then(function (data) {
+				data = Array.isArray(data) ? data : [data];
+				const startingIndex = storeInner.responses.length;
+				for (let i = 0, iLen = data.length; i < iLen; i++) {
+					const _tracker: CallTracker = { index: startingIndex + i } as CallTracker;
+					storeInner.responses.push({
+						_tracker,
+						loading: true,
+						success: false,
+						error: false,
+						data: undefined,
+						entry: {}
+					});
+					endpointReponse({
+						isSuccess: true,
+						isError: false,
+						store,
+						opts,
+						_tracker,
+						data: data[i]
+					});
+				}
+			})
+			.catch(function (error) {
+				storeInner.prefillError = error;
+				storeInner.loading = false;
+				store.set(storeInner);
+			});
 	}
 }
 

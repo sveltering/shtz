@@ -241,7 +241,7 @@ type $MultipleInner<
 	Opts extends $MultipleOpts<Input, Data>,
 	DEBUG
 > = {
-	error?: Error;
+	prefillError?: Error;
 	responses: $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Opts>[];
 	call: (...args: Args) => void;
 	readonly DEBUG?: DEBUG;

@@ -5,7 +5,7 @@
 	const multiple = storeClient.tests.addToList.mutate.$multiple({
 		loading: true,
 		//working
-		prefill: storeClient.tests.getItem.query.call
+		prefill: storeClient.tests.getList.query.call
 		//
 		//
 		//working
@@ -25,11 +25,13 @@
 
 TEST: Data should already fill store<br />
 {#if $multiple.loading}
-	List item loading <LoadingDots /><br /><br />
+	List item loading <LoadingDots /><br />
 {/if}
-{#if $multiple.error}
-	{$multiple.error.message}
-{:else if $multiple.responses.length}
+{#if $multiple.prefillError}
+	Failed to prefil store <br />
+	{$multiple.prefillError.message}
+{/if}<br />
+{#if $multiple.responses.length}
 	{#each $multiple.responses as response}
 		{#if response.loading}
 			adding item <LoadingDots />
