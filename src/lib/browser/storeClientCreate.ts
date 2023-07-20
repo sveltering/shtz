@@ -3,7 +3,7 @@ import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { get, writable } from "svelte/store";
 
 import type { ArgumentTypes, AsyncFunctionType, FunctionType } from "../types.js";
-import type { storeClientOpt, storeCC } from "./types.js";
+import type { StoreClientOpt, StoreCC } from "./types.js";
 
 import type {
     StoreOpts,
@@ -19,7 +19,7 @@ import type {
 } from "./storeClientCreate.types.js";
 import { browser as isBrowser } from "$app/environment";
 
-function storeClientCreate<Router extends AnyRouter>(options: storeClientOpt): storeCC<Router> {
+function storeClientCreate<Router extends AnyRouter>(options: StoreClientOpt): StoreCC<Router> {
     const { url, batchLinkOptions, transformer } = options;
 
     const proxyClient = isBrowser
@@ -29,7 +29,7 @@ function storeClientCreate<Router extends AnyRouter>(options: storeClientOpt): s
           })
         : pseudoProxyClient();
 
-    return outerProxy(proxyClient, [], options) as storeCC<Router>;
+    return outerProxy(proxyClient, [], options) as StoreCC<Router>;
 }
 
 function noop() {}
@@ -40,7 +40,7 @@ function pseudoProxyClient(): any {
     });
 }
 
-function outerProxy(callback: any, path: string[], options: storeClientOpt): any {
+function outerProxy(callback: any, path: string[], options: StoreClientOpt): any {
     return new Proxy(noop, {
         get(_obj, key) {
             if (typeof key !== "string") {
@@ -329,7 +329,7 @@ function callEndpoint(o: CallEndpointOpts) {
     if (has$call) {
         const storeInner = get(store as any) as any;
 
-        const responseInner = {
+        const responseInner: any = {
             _tracker,
             loading: true,
             success: false,
@@ -371,7 +371,7 @@ function callEndpoint(o: CallEndpointOpts) {
         }
     }
 
-    if (typeof window === "undefined") {
+    if (!isBrowser) {
         return;
     }
 
@@ -430,7 +430,7 @@ function removeCallFn(o: RemoveCallFnOpts) {
                     : false;
         } //
         else if (isError && beforeRemoveErrorFn) {
-            remove = (await beforeRemoveErrorFn(error)) === true ? true : false;
+            remove = (await beforeRemoveErrorFn(error as Error)) === true ? true : false;
         } //
         else if (!(isSuccess || isError) && beforeRemoveInputFn) {
             remove = (await beforeRemoveInputFn(input)) === true ? true : false;
@@ -460,7 +460,7 @@ function removeCallFn(o: RemoveCallFnOpts) {
         } //
         else if (typeof _tracker.index === "number") {
             allResponses.splice(_tracker.index, 1)?.[0];
-            _tracker.index = null;
+            _tracker.index = null as any;
             for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
                 const response = allResponses[i];
                 response._tracker.index = i;
@@ -532,13 +532,10 @@ type CheckForLoadingOpts = {
     opts: AnyStoreOpts;
 };
 function checkForLoading(o: CheckForLoadingOpts) {
-    const {
-        store,
-        opts: { hasLoading },
-    } = o;
-    if (!hasLoading) {
+    if (!o.opts.hasLoading) {
         return;
     }
+    const { store } = o;
     const storeInner = get(store as any) as any;
     const responses = storeInner.responses;
     let loading = false;
@@ -603,7 +600,7 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
         _tracker.skip = false;
         return;
     }
-    if (isError && error?.cause?.name === "ObservableAbortError") {
+    if (isError && (error?.cause as any)?.name === "ObservableAbortError") {
         return;
     }
 
