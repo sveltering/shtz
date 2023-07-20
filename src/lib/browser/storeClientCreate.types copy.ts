@@ -470,5 +470,4 @@ export type CallTracker = {
     index: number;
     // responseInner: any;
     abortController?: undefined | AbortController;
-    isLastPrefill?: boolean;
 };

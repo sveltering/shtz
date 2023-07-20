@@ -10,6 +10,11 @@
         loading: true,
         //working
         prefill: data.prefill,
+
+        entry: function (input) {
+            console.log("HERE");
+            return input;
+        },
         //
         //
         //working
@@ -24,6 +29,7 @@
 
         methods: {
             test: function (response, merge) {
+                console.log(response);
                 merge(
                     {
                         data: {
