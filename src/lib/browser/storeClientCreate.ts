@@ -453,12 +453,21 @@ async function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
         return;
     }
     const { methodsFns, is$many } = opts;
-    let response = await methodsFns[key](responseInner, mergeResponse({ store, _tracker, opts }));
+    let response = await methodsFns[key](responseInner, mergeResponse(_tracker, responseInner));
+    if (response === false) {
+        return;
+    }
+    if (response === true) {
+        console.log("HERE TRUE");
+        console.log(responseInner);
+        store.set(storeInner);
+        return;
+    }
     if (response !== undefined) {
         if (is$many) {
-            store.set(responseInner);
+            store.set(response);
         } else {
-            allResponses[_tracker.index] = responseInner;
+            allResponses[_tracker.index] = response;
             store.set(storeInner);
         }
     }
@@ -483,34 +492,21 @@ function addResponseMethods(o: AddResponseMethodsOpts) {
     }
 }
 
-type MergeResponseOpts = {
-    store: AnyStore;
-    opts: AnyStoreOpts;
-    _tracker: CallTracker;
-};
-function mergeResponse(o: MergeResponseOpts) {
-    const { _tracker } = o; //outside to maintain refrence in case get's overwritten/deleted by user error
+function mergeResponse(_tracker: CallTracker, responseInner: any) {
     return function (newResponse: any, mergeDeep: boolean = false, mergeOpts?: {}) {
         if (typeof newResponse === undefined) {
             return;
         }
-        const { store, opts } = o;
-        const { is$many, is$multiple } = opts;
-        const storeInner = get(store as any) as any;
-        const allResponses = is$multiple ? storeInner.responses : undefined;
-        let responseInner = is$many ? storeInner : allResponses[_tracker.index];
         if (mergeDeep) {
             responseInner = deepmerge(responseInner, newResponse, mergeOpts);
         } else {
             Object.assign(responseInner, newResponse);
         }
-        responseInner._tracker = _tracker;
-        if (is$many) {
-            store.set(responseInner);
-        } else {
-            allResponses[_tracker.index] = responseInner;
-            store.set(storeInner);
+        if (responseInner === undefined) {
+            return;
         }
+        responseInner._tracker = _tracker;
+        return responseInner;
     };
 }
 

@@ -68,7 +68,7 @@ interface AdditionalMethodMerge<Response> {
     (newResponse: DeepPartial<Response>, deep: true, mergeOpts?: undefined): void;
 }
 
-type AdditionalMethodFn<Response> = (response: Response, merge: AdditionalMethodMerge<Response>) => void;
+type AdditionalMethodFn<Response> = (response: Response, merge: AdditionalMethodMerge<Response>) => Response | boolean;
 
 type AdditionalMethods<Methods extends {}, Response> = {
     [key in keyof Methods]: AdditionalMethodFn<Response>;

@@ -19,21 +19,24 @@
         // }
 
         entrySuccess: function (input) {
-            console.log("HERE");
             return input;
         },
         methods: {
-            test: async function (response, merge) {
-                console.log(response);
-                merge(
-                    {
-                        data: {
-                            date: "dsadsd",
-                            item: "ejjeje",
-                        },
-                    },
-                    true
-                );
+            test: function (response, merge) {
+                // merge(
+                //     {
+                //         data: {
+                //             date: "dsadsd",
+                //             item: "ejjeje",
+                //         },
+                //     },
+                //     true
+                // );
+                if (response.success) {
+                    response.data.date = "POOOOOP";
+                    return true;
+                }
+                return false;
             },
         },
     });
