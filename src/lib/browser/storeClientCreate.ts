@@ -351,7 +351,7 @@ function callEndpoint(o: CallEndpointOpts) {
         };
         //ADD METHODS TO RESPONSE
 
-        addResponseMethods({ store, opts, _tracker });
+        addResponseMethods({ responseInner, store, opts, _tracker });
         if (!prefillHandle) {
             if (hasAbort || hasAbortOnRemove) {
                 _tracker.abortController = new AbortController();
@@ -413,16 +413,14 @@ function callEndpoint(o: CallEndpointOpts) {
 }
 
 type AddResponseMethodsOpts = {
+    responseInner: any;
     store: AnyStore;
     opts: AnyStoreOpts;
     _tracker: CallTracker;
 };
 function addResponseMethods(o: AddResponseMethodsOpts) {
-    const { store, opts, _tracker } = o;
+    const { store, opts, _tracker, responseInner } = o;
     const { methodsFns, is$multiple, is$many } = opts;
-    const storeInner = get(store as any) as any;
-    const allResponses = is$multiple ? storeInner.responses : undefined;
-    let responseInner = is$many ? storeInner : allResponses[_tracker.index];
 
     for (let key in methodsFns) {
         if (typeof methodsFns[key] !== "function") continue;
@@ -452,7 +450,6 @@ type RefreshResponseOpts = {
 function refreshResponse(o: RefreshResponseOpts) {
     const { _tracker } = o; //outside to maintain refrence in case get's overwritten/deleted by user error
     return function (newResponse: any, mergeDeep: boolean = false, mergeOpts?: {}) {
-        console.log(newResponse);
         if (typeof newResponse === undefined) {
             return;
         }

@@ -21,6 +21,20 @@
         // 	date: new Date().toLocaleString('en-GB'),
         // 	item: '468e1822-44c2-4021-90f2-34d1e5c57763'
         // }
+
+        methods: {
+            test: function (response, merge) {
+                merge(
+                    {
+                        data: {
+                            date: "dsadsd",
+                            item: "ejjeje",
+                        },
+                    },
+                    true
+                );
+            },
+        },
     });
 
     // console.clear();
@@ -41,8 +55,10 @@ TEST: Data should already fill store<br />
         {:else if response.success}
             {@const item = response.data}
             date: {item.date}<br />
-            item: {item.item}<br /><br />
-            {index}<br />
+            item: {item.item}<br />
+            <button on:click={response.test}>Test</button>
+            <br />
+            <br />
         {:else}
             Error adding item
         {/if}
