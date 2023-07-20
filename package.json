@@ -40,6 +40,7 @@
 		"url": "https://github.com/sveltering/trpc"
 	},
 	"dependencies": {
+		"deepmerge": "^4.3.1",
 		"fast-deep-equal": "^3.1.3"
 	}
 }

@@ -1,34 +1,46 @@
 <script>
-	import LoadingDots from '$component/loading-dots.svelte';
-	import { storeClient } from '$trpc/browserClient';
+    import LoadingDots from "$component/loading-dots.svelte";
+    import { storeClient } from "$trpc/browserClient";
 
-	var shouldError = Math.random() < 0.5;
+    var shouldError = Math.random() < 0.5;
 
-	const many = storeClient.tests.addToList.mutate.$many({});
+    const many = storeClient.tests.addToList.mutate.$many({
+        methods: {
+            test: function (response, merge) {
+                merge({
+                    data: {
+                        date: "dsadsd",
+                        item: "ejjeje",
+                    },
+                });
+            },
+        },
+    });
 
-	$many.call({
-		item: 'Test ' + (shouldError ? 'error' : ''),
-		qty: 20
-	});
+    $many.call({
+        item: "Test " + (shouldError ? "error" : ""),
+        qty: 20,
+    });
 
-	console.clear();
-	$: console.log($many);
+    $: console.log($many);
 </script>
 
 {#if shouldError}
-	TEST: Endpoint should error (keep refreshing for success response)
+    TEST: Endpoint should error (keep refreshing for success response)
 {:else}
-	TEST: Endpoint should return data successfully (keep refreshing for error response)
+    TEST: Endpoint should return data successfully (keep refreshing for error response)
 {/if}
 <br />
 {#if $many.loading}
-	Loading <LoadingDots />
+    Loading <LoadingDots />
 {:else if $many.success}
-	{@const item = $many.data}
-	date: {item.date}<br />
-	item: {item.item}<br /><br /><br /><br />
+    {@const item = $many.data}
+    date: {item.date}<br />
+    item: {item.item}<br />
+    <button on:click={$many.test}>Test</button>
+    <br /><br /><br />
 {:else if $many.error}
-	{$many.error.message}
+    {$many.error.message}
 {:else}
-	Store is stagnant
+    Store is stagnant
 {/if}

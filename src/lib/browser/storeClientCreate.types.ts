@@ -12,6 +12,8 @@ import type {
     KeyValueObject,
 } from "../types.js";
 
+import type { Options as DeepMergeOpts } from "deepmerge";
+
 type ResponseObject<
     Loading extends boolean,
     Success extends boolean,
@@ -48,6 +50,34 @@ type BeforeRemoveInputFn<Input> = (input: Input) => boolean | void | Promise<boo
 type BeforeRemoveResponseFn<Data> = (response: Data, replaceData?: ReplaceInputFn<Data>) => boolean | void | Promise<boolean | void>;
 
 type BeforeRemoveErrorFn = (error: Error) => boolean | void | Promise<boolean | void>;
+
+type ReservedMethodKeys = "loading" | "success" | "error" | "data" | "aborted" | "abort" | "remove";
+
+export type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
+
+type Partial<T> = {
+    [P in keyof T]?: T[P];
+};
+type DeepPartial<T> = {
+    [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+interface AdditionalMethodMerge<Response> {
+    (newResponse: Partial<Response>): void;
+    (newResponse: Partial<Response>, deep: false): void;
+    (newResponse: DeepPartial<Response>, deep: true, mergeOpts?: undefined): void;
+}
+
+type AdditionalMethodFn<Response> = (response: Response, merge: AdditionalMethodMerge<Response>) => void;
+
+type AdditionalMethods<Methods extends {}, Response> = {
+    [key in keyof Methods]: AdditionalMethodFn<Response>;
+};
+
+type AdditionalMethodsFinal<Methods> = {
+    [key in keyof Methods]: () => void | Promise<void>;
+};
+
 /*
  * CALL
  */
@@ -96,12 +126,14 @@ type $ManyInner<
     EntryLoading extends {},
     EntrySuccess extends {},
     Data,
+    Methods,
     Opts extends $ManyOpts<Input, Data>,
     DEBUG
 > = {
     call: (...args: Args) => void;
     readonly DEBUG?: DEBUG;
-} & $ManyResponse<Input, EntryLoading, EntrySuccess, Data, Opts>;
+} & Methods &
+    $ManyResponse<Input, EntryLoading, EntrySuccess, Data, Opts>;
 
 type $ManyStore<
     Args extends any[],
@@ -109,11 +141,13 @@ type $ManyStore<
     EntryLoading extends {},
     EntrySuccess extends {},
     Data,
+    Methods,
     Opts extends $ManyOpts<Input, Data>,
     DEBUG
-> = Writable<$ManyInner<Args, Input, EntryLoading, EntrySuccess, Data, Opts, DEBUG>>;
+> = Writable<$ManyInner<Args, Input, EntryLoading, EntrySuccess, Data, Methods, Opts, DEBUG>>;
 
 type $ManyFn<Args extends any[], Data> = <
+    Input extends Args[0],
     EntryLoading extends {},
     EntrySuccess extends {},
     AndEntryLoading extends {},
@@ -125,12 +159,17 @@ type $ManyFn<Args extends any[], Data> = <
     EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>,
     EntrySuccessFinal extends $TypeMake<FirstNotEmpty<EntrySuccess, EntryLoading>, AndEntrySuccess, OrEntrySuccess>,
     DataFinal extends $TypeMake<Data, AndData, OrData>,
+    Response extends $ManyResponse<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts>,
     Opts extends $ManyOpts<Args[0], DataFinal>,
-    DEBUG extends {}
+    Methods extends AdditionalMethods<{ [key: string]: FunctionType }, Response>,
+    MethodsInner extends AdditionalMethods<Methods, Response>,
+    MethodsFinal extends AdditionalMethodsFinal<MethodsInner>,
+    DEBUG extends MethodsInner
 >(
     options?: Opts & {
-        entry?: (input: Args[0]) => EntryLoading;
+        entry?: (input: Input) => EntryLoading;
         entrySuccess?: (response: DataFinal) => EntrySuccess;
+        methods?: Methods;
         types?: OneOf<{
             orData?: OrData;
             andData?: AndData;
@@ -144,7 +183,7 @@ type $ManyFn<Args extends any[], Data> = <
                 andEntry?: AndEntryLoading;
             }>;
     }
-) => $ManyStore<Args, Args[0], EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts, DEBUG>;
+) => $ManyStore<Args, Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, MethodsFinal, Opts, DEBUG>;
 
 /*
  * ENTRIES STORE
@@ -320,6 +359,7 @@ export type StoreOpts = {
     readonly beforeRemoveInputFn: undefined | BeforeRemoveInputFn<any>;
     readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
     readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
+    readonly methodsFns: AdditionalMethods<any, any>;
 };
 
 export type $OnceStoreOpts = {
@@ -344,6 +384,7 @@ export type $OnceStoreOpts = {
     readonly beforeRemoveInputFn: undefined;
     readonly beforeRemoveResponseFn: undefined;
     readonly beforeRemoveErrorFn: undefined;
+    readonly methodsFns: AdditionalMethods<any, any>;
 };
 
 export type $ManyStoreOpts = {
@@ -368,6 +409,7 @@ export type $ManyStoreOpts = {
     readonly beforeRemoveInputFn: undefined | BeforeRemoveInputFn<any>;
     readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
     readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
+    readonly methodsFns: AdditionalMethods<any, any>;
 };
 
 export type $MultipleStoreOpts = {
@@ -392,10 +434,11 @@ export type $MultipleStoreOpts = {
     readonly beforeRemoveInputFn: undefined | BeforeRemoveInputFn<any>;
     readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
     readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
+    readonly methodsFns: AdditionalMethods<any, any>;
 };
 
 export type AnyOnceStore = $OnceStore<any>;
-export type AnyManyStore = $ManyStore<any[], any, any, any, any, any, any>;
+export type AnyManyStore = $ManyStore<any[], any, any, any, any, any, any, any>;
 export type AnyMultipleStore = $MultipleStore<any[], any, any, any, any, any, any>;
 
 export type AnyStore = AnyOnceStore | AnyManyStore | AnyMultipleStore;
