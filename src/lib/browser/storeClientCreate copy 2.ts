@@ -17,31 +17,26 @@ import type {
     CallTracker,
     AnyStore,
 } from "./storeClientCreate.types.js";
-import { browser as isBrowser } from "$app/environment";
 
 function storeClientCreate<Router extends AnyRouter>(options: storeClientOpt): storeCC<Router> {
     const { url, batchLinkOptions, transformer } = options;
 
-    const proxyClient = isBrowser
-        ? createTRPCProxyClient<Router>({
-              links: [httpBatchLink({ ...batchLinkOptions, url })],
-              transformer: transformer,
-          })
-        : pseudoProxyClient();
-
-    return outerProxy(proxyClient, [], options) as storeCC<Router>;
+    return outerProxy(
+        createTRPCProxyClient<Router>({
+            links: [httpBatchLink({ ...batchLinkOptions, url })],
+            transformer: transformer,
+        }),
+        [],
+        options
+    ) as storeCC<Router>;
 }
 
 function noop() {}
-function pseudoProxyClient(): any {
-    return new Proxy(noop, {
-        get: (_1, _2) => pseudoProxyClient(),
-        apply: (_1, _2, _3) => undefined,
-    });
-}
+
+const generateKey = () => Math.random().toString(36).substring(2, 12);
 
 function outerProxy(callback: any, path: string[], options: storeClientOpt): any {
-    return new Proxy(noop, {
+    const proxy: unknown = new Proxy(noop, {
         get(_obj, key) {
             if (typeof key !== "string") {
                 return undefined;
@@ -90,46 +85,46 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
             let beforeRemoveErrorFn = undefined;
 
             const storeOptArg = hasArguments ? args[0] : false;
-            if (isBrowser && storeOptArg && has$call) {
-                hasRemove = !!storeOptArg?.remove;
-                beforeRemoveInputFn = storeOptArg?.beforeRemoveInput;
-                beforeRemoveResponseFn = storeOptArg?.beforeRemoveResponse;
-                beforeRemoveErrorFn = storeOptArg?.beforeRemoveError;
-                beforeCallFn = storeOptArg?.beforeCall;
-
-                const prefillType = typeof storeOptArg?.prefill;
-                if (prefillType === "function") {
-                    prefillFn = storeOptArg.prefill;
+            if (storeOptArg && has$call) {
+                if (typeof storeOptArg === "function") {
+                    if (is$multiple) {
+                        entryFn = storeOptArg;
+                    }
                 } //
-                else if (prefillType !== "undefined") {
-                    prefillData = storeOptArg.prefill;
-                }
-                if (is$multiple) {
-                    hasLoading = !!storeOptArg?.loading;
-                    entryFn = storeOptArg?.entry;
-                    entrySuccessFn = storeOptArg?.entrySuccess;
-                }
+                else {
+                    hasRemove = !!storeOptArg?.remove;
+                    beforeRemoveInputFn = storeOptArg?.beforeRemoveInput;
+                    beforeRemoveResponseFn = storeOptArg?.beforeRemoveResponse;
+                    beforeRemoveErrorFn = storeOptArg?.beforeRemoveError;
+                    beforeCallFn = storeOptArg?.beforeCall;
 
-                hasAbort = !!storeOptArg?.abort;
-                if (storeOptArg?.abortOnRemove) {
-                    hasRemove = true;
-                    hasAbortOnRemove = true;
+                    const prefillType = typeof storeOptArg?.prefill;
+                    if (prefillType === "function") {
+                        prefillFn = storeOptArg.prefill;
+                    } //
+                    else if (typeof prefillType !== "undefined") {
+                        prefillData = storeOptArg.prefill;
+                    }
+                    if (is$multiple) {
+                        hasLoading = !!storeOptArg?.loading;
+                        entryFn = storeOptArg?.entry;
+                        entrySuccessFn = storeOptArg?.entrySuccess;
+                    }
+
+                    hasAbort = !!storeOptArg?.abort;
+                    if (storeOptArg?.abortOnRemove) {
+                        hasRemove = true;
+                        hasAbortOnRemove = true;
+                    }
                 }
             }
 
-            if (!isBrowser && storeOptArg && has$call) {
-                hasRemove = !!storeOptArg?.remove;
-                const prefillType = typeof storeOptArg?.prefill;
-                if (prefillType !== "function" && prefillType !== "undefined") {
-                    prefillData = storeOptArg.prefill;
-                }
-                if (is$multiple) {
-                    hasLoading = !!storeOptArg?.loading;
-                    entrySuccessFn = storeOptArg?.entrySuccess;
-                }
-                if (storeOptArg?.abortOnRemove) {
-                    hasRemove = true;
-                }
+            if (typeof window === "undefined") {
+                hasRemove = false;
+                hasAbort = false;
+                hasAbortOnRemove = false;
+                entryFn = undefined;
+                beforeCallFn = undefined;
             }
 
             const storeOpts: StoreOpts = {
@@ -159,6 +154,7 @@ function outerProxy(callback: any, path: string[], options: storeClientOpt): any
             return storeClientMethods[method](storeOpts as any);
         },
     });
+    return proxy;
 }
 const storeClientMethods = {
     $once: function (opts: $OnceStoreOpts) {
@@ -169,9 +165,7 @@ const storeClientMethods = {
             error: false,
             success: false,
         });
-        if (isBrowser) {
-            callEndpoint({ store, opts, endpointArgs: opts.args, _tracker });
-        }
+        callEndpoint({ store, opts, endpointArgs: opts.args, _tracker });
         return store;
     },
     $many: function (opts: $ManyStoreOpts) {
@@ -183,12 +177,10 @@ const storeClientMethods = {
             error: false,
             success: false,
             ...(hasAbort ? { aborted: false } : {}),
-            call: isBrowser
-                ? (...endpointArgs: any[]) => {
-                      const _tracker: CallTracker = {} as CallTracker;
-                      callEndpoint({ store, opts, endpointArgs, _tracker });
-                  }
-                : noop,
+            call: (...endpointArgs: any[]) => {
+                const _tracker: CallTracker = {} as CallTracker;
+                callEndpoint({ store, opts, endpointArgs, _tracker });
+            },
         });
         handlePrefill(store, opts);
         return store;
@@ -198,12 +190,10 @@ const storeClientMethods = {
         const store: AnyMultipleStore = writable({
             ...(hasLoading ? { loading: false } : {}),
             responses: [],
-            call: isBrowser
-                ? (...endpointArgs: any[]) => {
-                      const _tracker: CallTracker = {} as CallTracker;
-                      callEndpoint({ store, opts, endpointArgs, _tracker });
-                  }
-                : noop,
+            call: (...endpointArgs: any[]) => {
+                const _tracker: CallTracker = {} as CallTracker;
+                callEndpoint({ store, opts, endpointArgs, _tracker });
+            },
         });
         handlePrefill(store, opts);
         return store;
@@ -211,18 +201,18 @@ const storeClientMethods = {
 };
 
 function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
-    const { prefillData, prefillFn, is$many, is$multiple, hasLoading } = opts;
-
+    const { prefillData, prefillFn, is$many, is$multiple } = opts;
     if (!prefillData && !prefillFn) {
         return;
     }
+    const isBrowser = typeof window !== "undefined";
 
-    if (prefillData === undefined && !isBrowser) {
+    if (prefillFn && !isBrowser) {
         return;
     }
+    const _tracker: CallTracker = {} as CallTracker;
 
     if (!isBrowser && is$many && prefillData) {
-        const _tracker: CallTracker = {} as CallTracker;
         endpointReponse({
             isSuccess: true,
             isError: false,
@@ -235,7 +225,6 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
     }
 
     if (isBrowser && is$many) {
-        const _tracker: CallTracker = {} as CallTracker;
         callEndpoint({
             store,
             opts,
@@ -243,11 +232,10 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
             _tracker,
             prefillHandle: prefillFn ? callAsync(prefillFn) : async () => prefillData,
         });
-        return;
     }
 
     if (!isBrowser && is$multiple && prefillData) {
-        const storeInner: any = get(store as any);
+        const storeInner = get(store as any) as any;
         const startingIndex = storeInner.responses.length;
         const data = Array.isArray(prefillData) ? prefillData : [prefillData];
         for (let i = 0, iLen = data.length; i < iLen; i++) {
@@ -269,42 +257,47 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
                 data: data[i],
             });
         }
+
         return;
     }
-
     if (isBrowser && is$multiple) {
         const storeInner = get(store as any) as any;
-        if (hasLoading) {
-            storeInner.loading = true;
-            store.set(storeInner);
-        }
+        storeInner.loading = true;
+        store.set(storeInner);
         const prefillFunction = prefillFn ? callAsync(prefillFn) : async () => prefillData;
         prefillFunction()
-            .then(function (data: any) {
+            .then(function (data) {
                 data = Array.isArray(data) ? data : [data];
+                const startingIndex = storeInner.responses.length;
                 for (let i = 0, iLen = data.length; i < iLen; i++) {
-                    const _tracker: CallTracker = {} as CallTracker;
-                    callEndpoint({
+                    const _tracker: CallTracker = { index: startingIndex + i } as CallTracker;
+                    storeInner.responses.push({
+                        _tracker,
+                        loading: true,
+                        success: false,
+                        error: false,
+                        data: undefined,
+                        entry: {},
+                    });
+                    endpointReponse({
+                        isSuccess: true,
+                        isError: false,
                         store,
                         opts,
-                        endpointArgs: [],
                         _tracker,
-                        prefillHandle: async () => data[i],
+                        data: data[i],
                     });
                 }
             })
-            .catch(function (error: Error) {
+            .catch(function (error) {
                 storeInner.prefillError = error;
+                storeInner.loading = false;
                 store.set(storeInner);
             });
-        return;
     }
 }
 
 const callAsync = function <Fn extends FunctionType>(fn: FunctionType) {
-    if (fn?.constructor?.name === "AsyncFunction") {
-        return fn;
-    }
     return async function (...args: ArgumentTypes<Fn>) {
         try {
             return await fn(...args);
@@ -338,23 +331,22 @@ function callEndpoint(o: CallEndpointOpts) {
             entry: {},
         };
         //ADD METHODS TO RESPONSE
-        if (!prefillHandle) {
-            if (hasAbort || hasAbortOnRemove) {
-                _tracker.abortController = new AbortController();
-                endpointArgs[0] = endpointArgs?.[0];
-                endpointArgs[1] = endpointArgs.hasOwnProperty(1) ? endpointArgs[1] : {};
-                endpointArgs[1].signal = _tracker.abortController.signal;
-            }
-            if (hasAbort) {
-                responseInner.aborted = false;
-                responseInner.abort = abortCallFn({ store, opts, _tracker, fromRemove: false });
-            }
-            if (hasRemove) {
-                responseInner.remove = removeCallFn({ store, opts, _tracker, input: endpointArgs?.[0] });
-            }
-            if (entryFn) {
-                responseInner.entry = entryFn(endpointArgs?.[0]);
-            }
+        if (hasAbort || hasAbortOnRemove) {
+            _tracker.abortController = new AbortController();
+            endpointArgs[0] = endpointArgs?.[0];
+            endpointArgs[1] = endpointArgs.hasOwnProperty(1) ? endpointArgs[1] : {};
+            endpointArgs[1].signal = _tracker.abortController.signal;
+        }
+        if (hasAbort) {
+            responseInner.aborted = false;
+            responseInner.abort = abortCallFn({ store, opts, _tracker, fromRemove: false });
+        }
+        if (hasRemove) {
+            responseInner.remove = removeCallFn({ store, opts, _tracker, input: endpointArgs?.[0] });
+        }
+
+        if (entryFn) {
+            responseInner.entry = entryFn(endpointArgs?.[0]);
         }
         // UPDATE STORES
         if (is$many) {
@@ -630,7 +622,7 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
     delete _tracker?.abortController;
 
     if (hasRemove) {
-        responseInner.remove = isBrowser ? removeCallFn({ store, opts, _tracker, data, error }) : noop;
+        responseInner.remove = removeCallFn({ store, opts, _tracker, data, error });
     }
 
     if (isSuccess && entrySuccessFn) {
