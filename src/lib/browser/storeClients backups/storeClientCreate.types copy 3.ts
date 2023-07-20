@@ -53,8 +53,6 @@ type BeforeRemoveErrorFn = (error: Error) => boolean | void | Promise<boolean | 
 
 type ReservedMethodKeys = "loading" | "success" | "error" | "data" | "aborted" | "abort" | "remove";
 
-export type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
-
 type Partial<T> = {
     [P in keyof T]?: T[P];
 };
@@ -62,19 +60,13 @@ type DeepPartial<T> = {
     [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
 
-interface AdditionalMethodMerge<Response> {
-    (newResponse: Partial<Response>): void;
-    (newResponse: Partial<Response>, deep: false): void;
-    (newResponse: DeepPartial<Response>, deep: true, mergeOpts?: undefined): void;
-}
-
-type AdditionalMethodFn<Response> = (response: Response, merge: AdditionalMethodMerge<Response>) => void;
+type AdditionalMethodFn<Response> = (response: Response) => Response | boolean;
 
 type AdditionalMethods<Methods extends {}, Response> = {
     [key in keyof Methods]: AdditionalMethodFn<Response>;
 };
 
-type AdditionalMethodsFinal<Methods> = {
+type AdditionalMethodsFinal<Methods extends { [key: string]: FunctionType }> = {
     [key in keyof Methods]: () => void | Promise<void>;
 };
 
@@ -257,8 +249,9 @@ type $MultipleInner<
     prefillError?: Error;
     responses: $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Methods, Opts>[];
     call: (...args: Args) => void;
-    readonly DEBUG?: DEBUG;
-} & (Opts["loading"] extends true ? { loading: false } : {});
+    readonly DEBUG: DEBUG;
+} & Methods &
+    (Opts["loading"] extends true ? { loading: false } : {});
 
 type $MultipleStore<
     Args extends any[],
@@ -292,17 +285,18 @@ type $MultipleFn<Args extends any[], Data> = <
     EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>,
     EntrySuccessFinal extends $TypeMake<FirstNotEmpty<EntrySuccess, EntryLoading>, AndEntrySuccess, OrEntrySuccess>,
     DataFinal extends $TypeMake<Data, AndData, OrData>,
-    Response extends $MultipleResponseInner<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, {}, Opts>,
     Opts extends $MultipleOpts<Input, DataFinal>,
-    Methods extends AdditionalMethods<{ [key: string]: FunctionType }, Response>,
-    MethodsInner extends AdditionalMethods<Methods, Response>,
-    MethodsFinal extends AdditionalMethodsFinal<MethodsInner>,
+    Response extends $MultipleResponseInner<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, {}, Opts>,
+    Methods extends {},
+    MethodsFinal extends { [key in keyof Methods]: () => void },
     DEBUG extends {}
 >(
     options?: Opts & {
         entry?: (input: Input) => EntryLoading;
         entrySuccess?: (response: DataFinal) => EntrySuccess;
-        methods?: Methods;
+        methods?: Methods & {
+            [key: string]: AdditionalMethodFn<Response>;
+        };
         types?: OneOf<{
             orData?: OrData;
             andData?: AndData;
@@ -370,6 +364,7 @@ export type StoreOpts = {
     readonly prefillFn: undefined | (() => any | Promise<any>);
     readonly entryFn: undefined | ((input: object) => object);
     readonly entrySuccessFn: undefined | ((response: object) => object);
+    readonly entryUnique: boolean;
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
@@ -379,6 +374,7 @@ export type StoreOpts = {
     readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
     readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
     readonly methodsFns: AdditionalMethods<any, any>;
+    readonly entryTracker: any[];
 };
 
 export type $OnceStoreOpts = {
@@ -395,6 +391,7 @@ export type $OnceStoreOpts = {
     readonly prefillFn: undefined;
     readonly entryFn: undefined;
     readonly entrySuccessFn: undefined;
+    readonly entryUnique: false;
     readonly hasLoading: false;
     readonly hasRemove: false;
     readonly hasAbort: false;
@@ -404,6 +401,7 @@ export type $OnceStoreOpts = {
     readonly beforeRemoveResponseFn: undefined;
     readonly beforeRemoveErrorFn: undefined;
     readonly methodsFns: AdditionalMethods<any, any>;
+    readonly entryTracker: any[];
 };
 
 export type $ManyStoreOpts = {
@@ -420,6 +418,7 @@ export type $ManyStoreOpts = {
     readonly prefillFn: undefined | (() => any | Promise<any>);
     readonly entryFn: undefined;
     readonly entrySuccessFn: undefined;
+    readonly entryUnique: false;
     readonly hasLoading: false;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
@@ -429,6 +428,7 @@ export type $ManyStoreOpts = {
     readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
     readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
     readonly methodsFns: AdditionalMethods<any, any>;
+    readonly entryTracker: any[];
 };
 
 export type $MultipleStoreOpts = {
@@ -445,6 +445,7 @@ export type $MultipleStoreOpts = {
     readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
     readonly entryFn: (input: object) => object;
     readonly entrySuccessFn: undefined | ((response: object) => object);
+    readonly entryUnique: boolean;
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
@@ -454,6 +455,7 @@ export type $MultipleStoreOpts = {
     readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
     readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
     readonly methodsFns: AdditionalMethods<any, any>;
+    readonly entryTracker: any[];
 };
 
 export type AnyOnceStore = $OnceStore<any>;
@@ -470,4 +472,5 @@ export type CallTracker = {
     index: number;
     // responseInner: any;
     abortController?: undefined | AbortController;
+    isLastPrefill?: boolean;
 };

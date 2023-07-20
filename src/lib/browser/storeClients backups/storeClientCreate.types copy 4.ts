@@ -51,6 +51,15 @@ type BeforeRemoveResponseFn<Data> = (response: Data, replaceData?: ReplaceInputF
 
 type BeforeRemoveErrorFn = (error: Error) => boolean | void | Promise<boolean | void>;
 
+type ReservedMethodKeys = "loading" | "success" | "error" | "data" | "aborted" | "abort" | "remove";
+
+type Partial<T> = {
+    [P in keyof T]?: T[P];
+};
+type DeepPartial<T> = {
+    [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
 type AdditionalMethodFn<Response> = (response: Response) => Response | boolean;
 
 type AdditionalMethods<Methods extends {}, Response> = {
@@ -144,16 +153,15 @@ type $ManyFn<Args extends any[], Data> = <
     DataFinal extends $TypeMake<Data, AndData, OrData>,
     Response extends $ManyResponse<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts>,
     Opts extends $ManyOpts<Args[0], DataFinal>,
-    Methods extends {},
-    MethodsFinal extends AdditionalMethodsFinal<Methods>,
+    Methods extends AdditionalMethods<{ [key: string]: FunctionType }, Response>,
+    MethodsInner extends AdditionalMethods<Methods, Response>,
+    MethodsFinal extends AdditionalMethodsFinal<MethodsInner>,
     DEBUG extends {}
 >(
     options?: Opts & {
         entry?: (input: Input) => EntryLoading;
         entrySuccess?: (response: DataFinal) => EntrySuccess;
-        methods?: Methods & {
-            [key: string]: AdditionalMethodFn<Response>;
-        };
+        methods?: Methods;
         types?: OneOf<{
             orData?: OrData;
             andData?: AndData;
@@ -280,7 +288,7 @@ type $MultipleFn<Args extends any[], Data> = <
     Opts extends $MultipleOpts<Input, DataFinal>,
     Response extends $MultipleResponseInner<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, {}, Opts>,
     Methods extends {},
-    MethodsFinal extends AdditionalMethodsFinal<Methods>,
+    MethodsFinal extends { [key in keyof Methods]: () => void },
     DEBUG extends {}
 >(
     options?: Opts & {

@@ -51,13 +51,30 @@ type BeforeRemoveResponseFn<Data> = (response: Data, replaceData?: ReplaceInputF
 
 type BeforeRemoveErrorFn = (error: Error) => boolean | void | Promise<boolean | void>;
 
-type AdditionalMethodFn<Response> = (response: Response) => Response | boolean;
+type ReservedMethodKeys = "loading" | "success" | "error" | "data" | "aborted" | "abort" | "remove";
+
+export type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
+
+type Partial<T> = {
+    [P in keyof T]?: T[P];
+};
+type DeepPartial<T> = {
+    [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+interface AdditionalMethodMerge<Response> {
+    (newResponse: Partial<Response>): void;
+    (newResponse: Partial<Response>, deep: false): void;
+    (newResponse: DeepPartial<Response>, deep: true, mergeOpts?: undefined): void;
+}
+
+type AdditionalMethodFn<Response> = (response: Response, merge: AdditionalMethodMerge<Response>) => Response | boolean;
 
 type AdditionalMethods<Methods extends {}, Response> = {
     [key in keyof Methods]: AdditionalMethodFn<Response>;
 };
 
-type AdditionalMethodsFinal<Methods extends { [key: string]: FunctionType }> = {
+type AdditionalMethodsFinal<Methods> = {
     [key in keyof Methods]: () => void | Promise<void>;
 };
 
@@ -144,16 +161,15 @@ type $ManyFn<Args extends any[], Data> = <
     DataFinal extends $TypeMake<Data, AndData, OrData>,
     Response extends $ManyResponse<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts>,
     Opts extends $ManyOpts<Args[0], DataFinal>,
-    Methods extends {},
-    MethodsFinal extends AdditionalMethodsFinal<Methods>,
+    Methods extends AdditionalMethods<{ [key: string]: FunctionType }, Response>,
+    MethodsInner extends AdditionalMethods<Methods, Response>,
+    MethodsFinal extends AdditionalMethodsFinal<MethodsInner>,
     DEBUG extends {}
 >(
     options?: Opts & {
         entry?: (input: Input) => EntryLoading;
         entrySuccess?: (response: DataFinal) => EntrySuccess;
-        methods?: Methods & {
-            [key: string]: AdditionalMethodFn<Response>;
-        };
+        methods?: Methods;
         types?: OneOf<{
             orData?: OrData;
             andData?: AndData;
@@ -241,9 +257,8 @@ type $MultipleInner<
     prefillError?: Error;
     responses: $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Methods, Opts>[];
     call: (...args: Args) => void;
-    readonly DEBUG: DEBUG;
-} & Methods &
-    (Opts["loading"] extends true ? { loading: false } : {});
+    readonly DEBUG?: DEBUG;
+} & (Opts["loading"] extends true ? { loading: false } : {});
 
 type $MultipleStore<
     Args extends any[],
@@ -277,18 +292,17 @@ type $MultipleFn<Args extends any[], Data> = <
     EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>,
     EntrySuccessFinal extends $TypeMake<FirstNotEmpty<EntrySuccess, EntryLoading>, AndEntrySuccess, OrEntrySuccess>,
     DataFinal extends $TypeMake<Data, AndData, OrData>,
-    Opts extends $MultipleOpts<Input, DataFinal>,
     Response extends $MultipleResponseInner<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, {}, Opts>,
-    Methods extends {},
-    MethodsFinal extends AdditionalMethodsFinal<Methods>,
+    Opts extends $MultipleOpts<Input, DataFinal>,
+    Methods extends AdditionalMethods<{ [key: string]: FunctionType }, Response>,
+    MethodsInner extends AdditionalMethods<Methods, Response>,
+    MethodsFinal extends AdditionalMethodsFinal<MethodsInner>,
     DEBUG extends {}
 >(
     options?: Opts & {
         entry?: (input: Input) => EntryLoading;
         entrySuccess?: (response: DataFinal) => EntrySuccess;
-        methods?: Methods & {
-            [key: string]: AdditionalMethodFn<Response>;
-        };
+        methods?: Methods;
         types?: OneOf<{
             orData?: OrData;
             andData?: AndData;

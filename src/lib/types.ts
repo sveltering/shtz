@@ -35,7 +35,7 @@ export type Combine<T1, T2> = T2 extends EmptyObject ? T1 : T1 extends EmptyObje
 
 export type Union<T1, T2> = T2 extends EmptyObject ? T1 : T1 extends EmptyObject ? T2 : Prettify<T1 | T2>;
 
-export type FirstNotEmpty<T1 extends {}, T2 extends {}> = T1 extends EmptyObject ? (T2 extends EmptyObject ? never : T2) : T1;
+export type FirstNotEmpty<T1 extends {}, T2 extends {}> = T1 extends EmptyObject ? (T2 extends EmptyObject ? {} : T2) : T1;
 
 // type test = Combine<FirstNotEmpty<{ one: 1 }, { two: 2 }>, { three: 3 }>;
 
@@ -63,6 +63,13 @@ export type RequireAllOrNone<ObjectType, KeysType extends keyof ObjectType = nev
 export type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
 export type ToPromiseUnion<T> = Promise<T> | T;
+
+export type Partial<T> = {
+    [P in keyof T]?: T[P];
+};
+export type DeepPartial<T> = {
+    [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
 
 // import type { TRPCClientError } from '@trpc/client';
 // export type TRPCClientError = TRPCClientError<any>;

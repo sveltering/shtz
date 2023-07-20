@@ -35,6 +35,7 @@ function storeClientCreate<Router extends AnyRouter>(options: StoreClientOpt): S
 }
 
 function noop() {}
+
 function pseudoProxyClient(): any {
     return new Proxy(noop, {
         get: (_1, _2) => pseudoProxyClient(),
@@ -59,6 +60,9 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
             }
 
             if (method === "call") {
+                if (!isBrowser) {
+                    return;
+                }
                 return endpoint(...args);
             }
 
@@ -82,6 +86,7 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
             let prefillFn = undefined;
             let entryFn = undefined;
             let entrySuccessFn = undefined;
+            let entryUnique = false;
             let hasLoading = false;
             let hasRemove = false;
             let hasAbort = false;
@@ -91,6 +96,7 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
             let beforeRemoveResponseFn = undefined;
             let beforeRemoveErrorFn = undefined;
             let methodsFns: any = {};
+            const entryTracker: any[] = [];
 
             const storeOptArg = hasArguments ? args[0] : false;
             if (isBrowser && storeOptArg && has$call) {
@@ -112,6 +118,7 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                     hasLoading = !!storeOptArg?.loading;
                     entryFn = storeOptArg?.entry;
                     entrySuccessFn = storeOptArg?.entrySuccess;
+                    entryUnique = !!storeOptArg?.entrySuccess;
                 }
 
                 hasAbort = !!storeOptArg?.abort;
@@ -125,11 +132,12 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 hasRemove = !!storeOptArg?.remove;
                 const prefillType = typeof storeOptArg?.prefill;
                 if (prefillType !== "function" && prefillType !== "undefined") {
-                    prefillData = storeOptArg.prefill;
+                    prefillData = storeOptArg.prefill; // delete prefill data once store made
                 }
                 if (is$multiple) {
                     hasLoading = !!storeOptArg?.loading;
                     entrySuccessFn = storeOptArg?.entrySuccess;
+                    entryUnique = !!storeOptArg?.entrySuccess;
                 }
                 if (storeOptArg?.abortOnRemove) {
                     hasRemove = true;
@@ -155,6 +163,7 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 prefillFn,
                 entryFn,
                 entrySuccessFn,
+                entryUnique,
                 hasLoading,
                 hasRemove,
                 hasAbort,
@@ -164,12 +173,14 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 beforeRemoveResponseFn,
                 beforeRemoveErrorFn,
                 methodsFns,
+                entryTracker,
             };
 
             return storeClientMethods[method](storeOpts as any);
         },
     });
 }
+
 const storeClientMethods = {
     $once: function (opts: $OnceStoreOpts) {
         const _tracker: CallTracker = {} as CallTracker;
@@ -234,7 +245,7 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
     if (!isBrowser && is$many && prefillData) {
         const _tracker: CallTracker = {} as CallTracker;
         endpointReponse({
-            prefill: true,
+            prefillSSR: true,
             isSuccess: true,
             isError: false,
             store,
@@ -242,11 +253,13 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
             _tracker,
             data: prefillData,
         });
+        //@ts-ignore
+        delete opts.prefillData;
         return;
     }
 
     if (isBrowser && is$many) {
-        const _tracker: CallTracker = {} as CallTracker;
+        const _tracker: CallTracker = { isLastPrefill: true } as CallTracker;
         callEndpoint({
             store,
             opts,
@@ -272,7 +285,7 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
                 entry: {},
             });
             endpointReponse({
-                prefill: true,
+                prefillSSR: true,
                 isSuccess: true,
                 isError: false,
                 store,
@@ -280,6 +293,8 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
                 _tracker,
                 data: data[i],
             });
+            //@ts-ignore
+            delete opts.prefillData;
         }
         return;
     }
@@ -296,6 +311,9 @@ function handlePrefill(store: AnyStore, opts: AnyStoreOpts) {
                 data = Array.isArray(data) ? data : [data];
                 for (let i = 0, iLen = data.length; i < iLen; i++) {
                     const _tracker: CallTracker = {} as CallTracker;
+                    if (i === iLen - 1) {
+                        _tracker.isLastPrefill = true;
+                    }
                     callEndpoint({
                         store,
                         opts,
@@ -391,7 +409,8 @@ function callEndpoint(o: CallEndpointOpts) {
 
     if (prefillHandle) {
         prefillHandle().then(endpointSuccess({ store, opts, _tracker })).catch(endpointError({ store, opts, _tracker }));
-    } else if (beforeCallFn) {
+    } //
+    else if (beforeCallFn) {
         callAsync(beforeCallFn)(endpointArgs?.[0], function (newInput: any) {
             endpointArgs[0] = newInput;
         })
@@ -412,64 +431,86 @@ function callEndpoint(o: CallEndpointOpts) {
     }
 }
 
+type GetResponseInnerOpts = {
+    store: AnyStore;
+    opts: AnyStoreOpts;
+    _tracker: CallTracker;
+};
+function getResponseInner(o: GetResponseInnerOpts) {
+    const { store, opts, _tracker } = o;
+    const { is$multiple, is$many } = opts;
+    const storeInner = get(store as any) as any;
+    const allResponses = is$multiple ? storeInner.responses : undefined;
+    const responseInner = is$many ? storeInner : allResponses.hasOwnProperty(_tracker.index) ? allResponses[_tracker.index] : null;
+    return { storeInner, responseInner, allResponses };
+}
+
 type AddResponseMethodsOpts = {
     responseInner: any;
     store: AnyStore;
     opts: AnyStoreOpts;
     _tracker: CallTracker;
 };
-function addResponseMethods(o: AddResponseMethodsOpts) {
-    const { store, opts, _tracker, responseInner } = o;
-    const { methodsFns, is$multiple, is$many } = opts;
 
+async function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
+    const { store, opts, _tracker } = o;
+    let { storeInner, responseInner, allResponses } = getResponseInner(o);
+    if (responseInner === null) {
+        return;
+    }
+    const { methodsFns, is$many } = opts;
+    let response = await methodsFns[key](responseInner, mergeResponse(_tracker, responseInner));
+    if (response === false) {
+        return;
+    }
+    if (response === true) {
+        store.set(storeInner);
+        return;
+    }
+    if (response !== undefined) {
+        if (is$many) {
+            store.set(response);
+        } else {
+            allResponses[_tracker.index] = response;
+            store.set(storeInner);
+        }
+    }
+}
+
+function addResponseMethods(o: AddResponseMethodsOpts) {
+    const {
+        opts: { methodsFns },
+        responseInner,
+    } = o;
     for (let key in methodsFns) {
         if (typeof methodsFns[key] !== "function") continue;
         if (methodsFns[key]?.constructor?.name === "AsyncFunction") {
             responseInner[key] = async function () {
-                const storeInner = get(store as any) as any;
-                const allResponses = is$multiple ? storeInner.responses : undefined;
-                let responseInner = is$many ? storeInner : allResponses[_tracker.index];
-                await methodsFns[key](responseInner, refreshResponse({ store, _tracker, opts }));
+                await reponseMethodCall(o, key);
             };
         } else {
             responseInner[key] = function () {
-                const storeInner = get(store as any) as any;
-                const allResponses = is$multiple ? storeInner.responses : undefined;
-                let responseInner = is$many ? storeInner : allResponses[_tracker.index];
-                methodsFns[key](responseInner, refreshResponse({ store, _tracker, opts }));
+                reponseMethodCall(o, key);
             };
         }
     }
 }
 
-type RefreshResponseOpts = {
-    store: AnyStore;
-    opts: AnyStoreOpts;
-    _tracker: CallTracker;
-};
-function refreshResponse(o: RefreshResponseOpts) {
-    const { _tracker } = o; //outside to maintain refrence in case get's overwritten/deleted by user error
+function mergeResponse(_tracker: CallTracker, responseInner: any) {
     return function (newResponse: any, mergeDeep: boolean = false, mergeOpts?: {}) {
         if (typeof newResponse === undefined) {
             return;
         }
-        const { store, opts } = o;
-        const { is$many, is$multiple } = opts;
-        const storeInner = get(store as any) as any;
-        const allResponses = is$multiple ? storeInner.responses : undefined;
-        let responseInner = is$many ? storeInner : allResponses[_tracker.index];
         if (mergeDeep) {
             responseInner = deepmerge(responseInner, newResponse, mergeOpts);
         } else {
             Object.assign(responseInner, newResponse);
         }
-        responseInner._tracker = _tracker;
-        if (is$many) {
-            store.set(responseInner);
-        } else {
-            allResponses[_tracker.index] = responseInner;
-            store.set(storeInner);
+        if (responseInner === undefined) {
+            return;
         }
+        responseInner._tracker = _tracker;
+        return responseInner;
     };
 }
 
@@ -481,68 +522,77 @@ type RemoveCallFnOpts = {
     error?: Error;
     input?: any;
 };
+async function removeCall(o: RemoveCallFnOpts) {
+    const { store, opts, _tracker, data, error, input } = o;
+    const { is$many, beforeRemoveInputFn, beforeRemoveResponseFn, beforeRemoveErrorFn } = opts;
+
+    const { storeInner, responseInner, allResponses } = getResponseInner(o);
+
+    if (responseInner === null) {
+        return;
+    }
+
+    let remove = true;
+    let newResponse: any = {};
+
+    const isSuccess = responseInner.success;
+    const isError = responseInner.error;
+
+    if (isSuccess && beforeRemoveResponseFn) {
+        remove =
+            (await beforeRemoveResponseFn(data, (replaceResponse: any) => {
+                newResponse.value = replaceResponse;
+            })) === true
+                ? true
+                : false;
+    } //
+    else if (isError && beforeRemoveErrorFn) {
+        remove = (await beforeRemoveErrorFn(error as Error)) === true ? true : false;
+    } //
+    else if (!(isSuccess || isError) && beforeRemoveInputFn) {
+        remove = (await beforeRemoveInputFn(input)) === true ? true : false;
+    }
+
+    if (remove) {
+        abortCallFn({ store, opts, _tracker, fromRemove: true })();
+        _tracker.skip = true;
+    } //
+    else {
+        if (newResponse.hasOwnProperty("value")) {
+            responseInner.data = newResponse.value;
+            store.set(responseInner);
+        }
+        return;
+    }
+
+    if (is$many) {
+        store.set(
+            Object.assign(responseInner, {
+                loading: false,
+                success: false,
+                error: false,
+                data: undefined,
+            })
+        );
+    } //
+    else if (typeof _tracker.index === "number") {
+        let removed = allResponses.splice(_tracker.index, 1)?.[0];
+        for (let key in removed) {
+            delete removed[key];
+        }
+        _tracker.index = null as any;
+        for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+            const response = allResponses[i];
+            response._tracker.index = i;
+        }
+        store.set(storeInner as any);
+        checkForLoading({ store, opts });
+    }
+}
+
 function removeCallFn(o: RemoveCallFnOpts) {
     return async function () {
-        const { store, opts, _tracker, data, error, input } = o;
-        const { is$many, is$multiple, beforeRemoveInputFn, beforeRemoveResponseFn, beforeRemoveErrorFn } = opts;
-
-        const storeInner = get(store as any) as any;
-        const allResponses = is$multiple ? storeInner.responses : undefined;
-        const responseInner = is$many ? storeInner : allResponses[_tracker.index];
-
-        let remove = true;
-        let newResponse: any = {};
-
-        const isSuccess = responseInner.success;
-        const isError = responseInner.error;
-
-        if (isSuccess && beforeRemoveResponseFn) {
-            remove =
-                (await beforeRemoveResponseFn(data, (replaceResponse: any) => {
-                    newResponse.value = replaceResponse;
-                })) === true
-                    ? true
-                    : false;
-        } //
-        else if (isError && beforeRemoveErrorFn) {
-            remove = (await beforeRemoveErrorFn(error as Error)) === true ? true : false;
-        } //
-        else if (!(isSuccess || isError) && beforeRemoveInputFn) {
-            remove = (await beforeRemoveInputFn(input)) === true ? true : false;
-        }
-
-        if (remove) {
-            abortCallFn({ store, opts, _tracker, fromRemove: true })();
-            _tracker.skip = true;
-        } //
-        else {
-            if (newResponse.hasOwnProperty("value")) {
-                responseInner.data = newResponse.value;
-                store.set(responseInner);
-            }
-            return;
-        }
-
-        if (is$many) {
-            store.set(
-                Object.assign(responseInner, {
-                    loading: false,
-                    success: false,
-                    error: false,
-                    data: undefined,
-                })
-            );
-        } //
-        else if (typeof _tracker.index === "number") {
-            allResponses.splice(_tracker.index, 1)?.[0];
-            _tracker.index = null as any;
-            for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-                const response = allResponses[i];
-                response._tracker.index = i;
-            }
-            store.set(storeInner as any);
-            checkForLoading({ store, opts });
-        }
+        await removeCall(o);
     };
 }
 
@@ -552,54 +602,57 @@ type AbortCallFnOpts = {
     _tracker: CallTracker;
     fromRemove: boolean;
 };
+function abortCall(o: AbortCallFnOpts) {
+    const {
+        _tracker,
+        fromRemove,
+        opts: { hasAbortOnRemove },
+    } = o;
+
+    if (fromRemove && !hasAbortOnRemove) {
+        return;
+    }
+
+    if (!_tracker?.abortController) {
+        return;
+    }
+
+    const { store, opts } = o;
+    const { is$many, is$multiple, hasAbort } = opts;
+
+    _tracker.abortController?.abort();
+    delete _tracker.abortController;
+    _tracker.skip = true;
+
+    if (is$many) {
+        const responseInner = get(store as any) as any;
+        store.set(
+            Object.assign(responseInner, {
+                loading: false,
+                success: false,
+                error: false,
+                data: undefined,
+                ...(hasAbort ? { aborted: true } : {}),
+            })
+        );
+        return;
+    }
+
+    if (fromRemove) {
+        return;
+    }
+
+    if (is$multiple) {
+        const storeInner = get(store as any) as any;
+        storeInner.responses[_tracker.index].aborted = true;
+        storeInner.responses[_tracker.index].loading = false;
+        store.set(storeInner);
+        checkForLoading({ store, opts });
+    }
+}
 function abortCallFn(o: AbortCallFnOpts) {
     return function () {
-        const {
-            _tracker,
-            fromRemove,
-            opts: { hasAbortOnRemove },
-        } = o;
-
-        if (fromRemove && !hasAbortOnRemove) {
-            return;
-        }
-
-        if (!_tracker?.abortController) {
-            return;
-        }
-
-        const { store, opts } = o;
-        const { is$many, is$multiple, hasAbort } = opts;
-
-        _tracker.abortController?.abort();
-        delete _tracker.abortController;
-        _tracker.skip = true;
-
-        if (is$many) {
-            const responseInner = get(store as any) as any;
-            store.set(
-                Object.assign(responseInner, {
-                    loading: false,
-                    success: false,
-                    error: false,
-                    data: undefined,
-                    ...(hasAbort ? { aborted: true } : {}),
-                })
-            );
-            return;
-        }
-
-        if (fromRemove) {
-            return;
-        }
-
-        if (is$multiple) {
-            const storeInner = get(store as any) as any;
-            storeInner.responses[_tracker.index].aborted = true;
-            storeInner.responses[_tracker.index].loading = false;
-            store.set(storeInner);
-            checkForLoading({ store, opts });
-        }
+        abortCall(o);
     };
 }
 type CheckForLoadingOpts = {
@@ -624,22 +677,20 @@ function checkForLoading(o: CheckForLoadingOpts) {
     store.set(storeInner);
 }
 
-type EndpointSuccessError = { store: AnyStore; opts: AnyStoreOpts; _tracker: CallTracker };
-function endpointSuccess(o: EndpointSuccessError) {
+type EndpointSuccessOrError = { store: AnyStore; opts: AnyStoreOpts; _tracker: CallTracker };
+function endpointSuccess(o: EndpointSuccessOrError) {
     return async function (data: any) {
-        const { store, opts, _tracker } = o;
-        await endpointReponse({ isSuccess: true, isError: false, store, opts, _tracker, data });
+        await endpointReponse({ isSuccess: true, isError: false, data, ...o });
     };
 }
-function endpointError(o: EndpointSuccessError) {
+function endpointError(o: EndpointSuccessOrError) {
     return async function (error: any) {
-        const { store, opts, _tracker } = o;
-        await endpointReponse({ isSuccess: false, isError: true, store, opts, _tracker, error });
+        await endpointReponse({ isSuccess: false, isError: true, error, ...o });
     };
 }
 
 type EndpointSuccessOpts = {
-    prefill?: boolean;
+    prefillSSR?: boolean;
     isSuccess: true;
     isError: false;
     store: AnyStore;
@@ -649,7 +700,7 @@ type EndpointSuccessOpts = {
     error?: undefined;
 };
 type EndpointErrorOpts = {
-    prefill?: boolean;
+    prefillSSR?: boolean;
     isSuccess: false;
     isError: true;
     store: AnyStore;
@@ -659,7 +710,7 @@ type EndpointErrorOpts = {
     error: Error;
 };
 type EndpointResponseOpts = {
-    prefill?: boolean;
+    prefillSSR?: boolean;
     isSuccess: boolean;
     isError: boolean;
     store: AnyStore;
@@ -668,11 +719,10 @@ type EndpointResponseOpts = {
     data?: any;
     error?: Error;
 };
-
 async function endpointReponse(o: EndpointSuccessOpts): Promise<void>;
 async function endpointReponse(o: EndpointErrorOpts): Promise<void>;
 async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
-    const { error, isError, _tracker, prefill } = o;
+    const { error, isError, _tracker, prefillSSR } = o;
 
     if (_tracker?.skip) {
         _tracker.skip = false;
@@ -683,7 +733,7 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
     }
 
     const { isSuccess, store, opts, data } = o;
-    const { is$once, is$many, is$multiple, hasRemove, entrySuccessFn, methodsFns } = opts;
+    const { is$once, is$multiple, hasRemove, entrySuccessFn, methodsFns } = opts;
 
     if (is$once) {
         const responseInner = get(store as any) as any;
@@ -698,15 +748,18 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
         return;
     }
 
-    const storeInner = get(store as any) as any;
-    const responseInner = is$many ? storeInner : storeInner?.responses?.[_tracker.index];
+    const { storeInner, responseInner } = getResponseInner(o);
+
+    if (responseInner === null) {
+        return;
+    }
 
     delete responseInner?.abort;
     delete _tracker?.abortController;
 
-    if (prefill === true) {
+    if (prefillSSR === true) {
         for (let key in methodsFns) {
-            responseInner[key] = methodsFns[key];
+            responseInner[key] = noop;
         }
     }
 
@@ -727,6 +780,13 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
 
     store.set(storeInner);
 
+    if (_tracker?.isLastPrefill) {
+        delete _tracker?.isLastPrefill;
+        //@ts-ignore
+        delete o?.opts?.prefillData;
+        //@ts-ignore
+        delete o?.opts?.prefillFn;
+    }
     if (is$multiple) {
         checkForLoading({ store, opts });
     }

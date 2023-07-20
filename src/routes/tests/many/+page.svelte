@@ -6,13 +6,8 @@
 
     const many = storeClient.tests.addToList.mutate.$many({
         methods: {
-            test: function (response, merge) {
-                merge({
-                    data: {
-                        date: "dsadsd",
-                        item: "ejjeje",
-                    },
-                });
+            test: function (response) {
+                return true;
             },
         },
     });

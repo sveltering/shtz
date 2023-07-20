@@ -10,41 +10,28 @@
         loading: true,
         //working
         prefill: data.prefill,
-
         entry: function (input) {
-            console.log("HERE");
             return input;
         },
-        //
-        //
-        //working
-        // prefill: async function () {
-        // 	return storeClient.tests.getItem.query.call();
-        // }
-        //working
-        // prefill: {
-        // 	date: new Date().toLocaleString('en-GB'),
-        // 	item: '468e1822-44c2-4021-90f2-34d1e5c57763'
-        // }
-
+        entrySuccess: function (input) {
+            return input;
+        },
         methods: {
-            test: function (response, merge) {
-                console.log(response);
-                merge(
-                    {
-                        data: {
-                            date: "dsadsd",
-                            item: "ejjeje",
-                        },
-                    },
-                    true
-                );
+            test: function (response) {
+                if (response.success) {
+                    response.entry;
+                }
+                if (response.loading) {
+                    response.entry;
+                }
+                return response;
             },
         },
     });
 
+    $multiple.DEBUG;
     // console.clear();
-    // $: console.log($multiple);
+    $: console.log($multiple);
 </script>
 
 TEST: Data should already fill store<br />
@@ -57,9 +44,11 @@ TEST: Data should already fill store<br />
 {#if $multiple.responses.length}
     {#each $multiple.responses as response, index}
         {#if response.loading}
+            {@const entry = response.entry}
             adding item <LoadingDots />
         {:else if response.success}
             {@const item = response.data}
+            {@const entry = response.entry}
             date: {item.date}<br />
             item: {item.item}<br />
             <button on:click={response.test}>Test</button>
