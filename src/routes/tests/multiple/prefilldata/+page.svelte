@@ -8,6 +8,7 @@
 
     const multiple = storeClient.tests.addToList.mutate.$multiple({
         loading: true,
+        remove: true,
         //working
         prefill: data.prefill,
         entry: function (input) {
@@ -17,21 +18,19 @@
             return input;
         },
         methods: {
-            test: function (response) {
+            test: async function (response, remove) {
                 if (response.success) {
-                    response.entry;
+                    response.data.item = "WOHOOOO!";
+                    return remove();
                 }
-                if (response.loading) {
-                    response.entry;
-                }
-                return response;
+                return false;
             },
         },
     });
 
     $multiple.DEBUG;
     // console.clear();
-    $: console.log($multiple);
+    // $: console.log($multiple);
 </script>
 
 TEST: Data should already fill store<br />

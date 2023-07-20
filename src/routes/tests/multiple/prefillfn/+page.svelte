@@ -22,16 +22,7 @@
             return input;
         },
         methods: {
-            test: function (response, merge) {
-                // merge(
-                //     {
-                //         data: {
-                //             date: "dsadsd",
-                //             item: "ejjeje",
-                //         },
-                //     },
-                //     true
-                // );
+            test: function (response) {
                 if (response.success) {
                     response.data.date = "POOOOOP";
                     return true;

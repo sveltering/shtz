@@ -12,8 +12,6 @@ import type {
     KeyValueObject,
 } from "../types.js";
 
-import type { Options as DeepMergeOpts } from "deepmerge";
-
 type ResponseObject<
     Loading extends boolean,
     Success extends boolean,
@@ -51,7 +49,10 @@ type BeforeRemoveResponseFn<Data> = (response: Data, replaceData?: ReplaceInputF
 
 type BeforeRemoveErrorFn = (error: Error) => boolean | void | Promise<boolean | void>;
 
-type AdditionalMethodFn<Response> = (response: Response) => Response | boolean;
+type AdditionalMethodFn<Response> = (
+    response: Response,
+    remove: () => { remove: "REMOVE" }
+) => Response | boolean | { remove: "REMOVE" } | Promise<Response | boolean | { remove: "REMOVE" }>;
 
 type AdditionalMethods<Methods extends {}, Response> = {
     [key in keyof Methods]: AdditionalMethodFn<Response>;

@@ -19,8 +19,6 @@ import type {
 } from "./storeClientCreate.types.js";
 import { browser as isBrowser } from "$app/environment";
 
-import deepmerge from "deepmerge";
-
 function storeClientCreate<Router extends AnyRouter>(options: StoreClientOpt): StoreCC<Router> {
     const { url, batchLinkOptions, transformer } = options;
 
@@ -452,6 +450,8 @@ type AddResponseMethodsOpts = {
     _tracker: CallTracker;
 };
 
+const removeObj = { remove: "REMOVE" as const };
+const removeFn = () => removeObj;
 async function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
     const { store, opts, _tracker } = o;
     let { storeInner, responseInner, allResponses } = getResponseInner(o);
@@ -459,7 +459,11 @@ async function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
         return;
     }
     const { methodsFns, is$many } = opts;
-    let response = await methodsFns[key](responseInner);
+    let response = await methodsFns[key](responseInner, removeFn);
+    if (response === removeObj) {
+        removeCall(o);
+        return;
+    }
     if (response === false) {
         return;
     }
