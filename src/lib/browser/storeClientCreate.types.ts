@@ -363,7 +363,7 @@ export type StoreOpts = {
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
     readonly zod: any;
-    readonly change: undefined;
+    readonly changeTimer: undefined;
 };
 
 export type $OnceStoreOpts = {
@@ -390,7 +390,7 @@ export type $OnceStoreOpts = {
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
     readonly zod: any;
-    readonly change: undefined;
+    readonly changeTimer: undefined;
 };
 
 export type $ManyStoreOpts = {
@@ -418,7 +418,7 @@ export type $ManyStoreOpts = {
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
     readonly zod: any;
-    readonly change: number;
+    readonly changeTimer: number;
 };
 
 export type $MultipleStoreOpts = {
@@ -445,7 +445,7 @@ export type $MultipleStoreOpts = {
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
     readonly zod: any;
-    readonly change: number;
+    readonly changeTimer: number;
 };
 
 export type AnyOnceStore = $OnceStore<any>;

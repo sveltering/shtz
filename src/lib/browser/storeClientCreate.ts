@@ -95,7 +95,7 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
             let beforeCallFn = undefined;
             let methodsFns: any = {};
             let zod = undefined;
-            let change = undefined;
+            let changeTimer = undefined;
             const uniqueTracker: any[] = [];
 
             const storeOptArg = hasArguments ? args[0] : false;
@@ -104,7 +104,7 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 zod = typeof storeOptArg?.zod?.safeParse === "function" ? storeOptArg.zod : undefined;
                 beforeCallFn = storeOptArg?.beforeCall;
                 methodsFns = storeOptArg?.methods;
-                change = typeof change === "number" ? change : undefined;
+                changeTimer = typeof storeOptArg.changeTimer === "number" ? storeOptArg.changeTimer : undefined;
 
                 const prefillType = typeof storeOptArg?.prefill;
                 if (prefillType === "function") {
@@ -173,7 +173,7 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 methodsFns,
                 uniqueTracker,
                 zod,
-                change,
+                changeTimer,
             };
 
             return storeClientMethods[method](storeOpts as any);
@@ -540,22 +540,24 @@ function getResponseInner(o: GetResponseInnerOpts) {
 
 function responseChanged(o: GetResponseInnerOpts) {
     const {
-        opts: { change },
+        opts: { changeTimer },
     } = o;
-    if (!change) {
+    if (!changeTimer) {
         return;
     }
     const { store, opts, _tracker } = o;
     const { is$multiple, is$many } = opts;
     const { storeInner, responseInner, allResponses } = getResponseInner(o);
-    if (_tracker.timeout) {
-        clearTimeout(_tracker.timeout);
+    if (_tracker?.timeout) {
+        clearTimeout(_tracker?.timeout);
     }
     responseInner.changed = true;
-    if (is$many) {
-        store.set();
-    }
-    _tracker.timeout = setTimeout(function () {}, change);
+    store.set(is$many ? responseInner : storeInner);
+    _tracker.timeout = setTimeout(function () {
+        responseInner.changed = false;
+        store.set(is$many ? responseInner : storeInner);
+        delete _tracker.timeout;
+    }, changeTimer) as any as number;
     /*
      *
      *
@@ -897,6 +899,7 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
         }
     }
 
+    responseChanged(o);
     store.set(storeInner);
 
     if (_tracker?.isLastPrefill) {

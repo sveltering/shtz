@@ -233,7 +233,7 @@
         {#each $store.responses as response}
             {#if response.success}
                 {@const data = response.data}
-                <tr>
+                <tr class:changed={response.changed}>
                     <td>{data.friend1}</td>
                     <td>{data.friend2}</td>
                     <td>{data.date}</td>
@@ -250,10 +250,12 @@
 </table>
 
 <style>
-    tr:hover {
+    tr {
+        background-color: transparent;
         transition: background-color 1s linear;
     }
-    tr:hover {
+    tr.changed {
         background-color: rgb(163, 233, 163);
+        transition: background-color 1s linear;
     }
 </style>
