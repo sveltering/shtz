@@ -8,7 +8,7 @@
 
     const multiple = storeClient.tests.addToList.mutate.$multiple({
         loading: true,
-        remove: true,
+        // remove: true,
         //working
         prefill: data.prefill,
         entry: function (input) {
@@ -17,6 +17,7 @@
         entrySuccess: function (input) {
             return input;
         },
+        unique: function (input, response) {},
         methods: {
             test: async function (response, remove) {
                 if (response.success) {

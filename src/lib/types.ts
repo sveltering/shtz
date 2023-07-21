@@ -70,6 +70,8 @@ export type Partial<T> = {
 export type DeepPartial<T> = {
     [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
 };
+//https://stackoverflow.com/questions/72040788/typescript-non-empty-object-with-unknown-properties
+export type NotEmpty<T> = keyof T extends never ? never : T;
 
 // import type { TRPCClientError } from '@trpc/client';
 // export type TRPCClientError = TRPCClientError<any>;

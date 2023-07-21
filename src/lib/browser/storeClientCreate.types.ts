@@ -10,6 +10,7 @@ import type {
     OneOf,
     EmptyObject,
     KeyValueObject,
+    NotEmpty,
 } from "../types.js";
 
 type ResponseObject<
@@ -42,12 +43,6 @@ type AbortedResponse<Ext extends {} = {}> = StaleReponse<{ aborted: true } & Omi
 type ReplaceInputFn<Input> = (newInput: Input) => Input;
 
 type BeforeCallFn<Input> = (input: Input, replaceInput: ReplaceInputFn<Input>) => boolean | void | Promise<boolean | void>;
-
-type BeforeRemoveInputFn<Input> = (input: Input) => boolean | void | Promise<boolean | void>;
-
-type BeforeRemoveResponseFn<Data> = (response: Data, replaceData?: ReplaceInputFn<Data>) => boolean | void | Promise<boolean | void>;
-
-type BeforeRemoveErrorFn = (error: Error) => boolean | void | Promise<boolean | void>;
 
 type AdditionalMethodFn<Response> = (
     response: Response,
@@ -83,9 +78,6 @@ type $ManyOpts<Input, Data> = {
     abort?: boolean;
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
-    beforeRemoveInput?: BeforeRemoveInputFn<Input>;
-    beforeRemoveResponse?: BeforeRemoveResponseFn<Input>;
-    beforeRemoveError?: BeforeRemoveErrorFn;
 };
 type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts["remove"] extends true
     ? { remove: () => Promise<void> }
@@ -181,9 +173,6 @@ type $MultipleOpts<Input, Data> = {
     abort?: boolean;
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
-    beforeRemoveInput?: BeforeRemoveInputFn<Input>;
-    beforeRemoveResponse?: BeforeRemoveResponseFn<Input>;
-    beforeRemoveError?: BeforeRemoveErrorFn;
 };
 type $MultipleExtension<Input, Data, Opts extends $MultipleOpts<Input, Data>> = (Opts["remove"] extends true
     ? { remove: () => Promise<void> }
@@ -290,6 +279,7 @@ type $MultipleFn<Args extends any[], Data> = <
         methods?: Methods & {
             [key: string]: AdditionalMethodFn<Response>;
         };
+        unique?: (input?: Input, data?: DataFinal) => void | undefined | string | number | KeyValueObject;
         types?: OneOf<{
             orData?: OrData;
             andData?: AndData;
@@ -357,17 +347,14 @@ export type StoreOpts = {
     readonly prefillFn: undefined | (() => any | Promise<any>);
     readonly entryFn: undefined | ((input: object) => object);
     readonly entrySuccessFn: undefined | ((response: object) => object);
-    readonly entryUnique: boolean;
+    readonly uniqueFn: undefined | ((input: any, response: any) => any);
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
     readonly hasAbortOnRemove: boolean;
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
-    readonly beforeRemoveInputFn: undefined | BeforeRemoveInputFn<any>;
-    readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
-    readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
     readonly methodsFns: AdditionalMethods<any, any>;
-    readonly entryTracker: any[];
+    readonly uniqueTracker: any[];
 };
 
 export type $OnceStoreOpts = {
@@ -384,17 +371,14 @@ export type $OnceStoreOpts = {
     readonly prefillFn: undefined;
     readonly entryFn: undefined;
     readonly entrySuccessFn: undefined;
-    readonly entryUnique: false;
+    readonly uniqueFn: undefined;
     readonly hasLoading: false;
     readonly hasRemove: false;
     readonly hasAbort: false;
     readonly hasAbortOnRemove: false;
     readonly beforeCallFn: undefined;
-    readonly beforeRemoveInputFn: undefined;
-    readonly beforeRemoveResponseFn: undefined;
-    readonly beforeRemoveErrorFn: undefined;
     readonly methodsFns: AdditionalMethods<any, any>;
-    readonly entryTracker: any[];
+    readonly uniqueTracker: any[];
 };
 
 export type $ManyStoreOpts = {
@@ -411,17 +395,15 @@ export type $ManyStoreOpts = {
     readonly prefillFn: undefined | (() => any | Promise<any>);
     readonly entryFn: undefined;
     readonly entrySuccessFn: undefined;
+    readonly uniqueFn: undefined;
     readonly entryUnique: false;
     readonly hasLoading: false;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
     readonly hasAbortOnRemove: boolean;
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
-    readonly beforeRemoveInputFn: undefined | BeforeRemoveInputFn<any>;
-    readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
-    readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
     readonly methodsFns: AdditionalMethods<any, any>;
-    readonly entryTracker: any[];
+    readonly uniqueTracker: any[];
 };
 
 export type $MultipleStoreOpts = {
@@ -438,17 +420,14 @@ export type $MultipleStoreOpts = {
     readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
     readonly entryFn: (input: object) => object;
     readonly entrySuccessFn: undefined | ((response: object) => object);
-    readonly entryUnique: boolean;
+    readonly uniqueFn: undefined | ((input: any, response: any) => any);
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
     readonly hasAbortOnRemove: boolean;
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
-    readonly beforeRemoveInputFn: undefined | BeforeRemoveInputFn<any>;
-    readonly beforeRemoveResponseFn: undefined | BeforeRemoveResponseFn<any>;
-    readonly beforeRemoveErrorFn: undefined | BeforeRemoveErrorFn;
     readonly methodsFns: AdditionalMethods<any, any>;
-    readonly entryTracker: any[];
+    readonly uniqueTracker: any[];
 };
 
 export type AnyOnceStore = $OnceStore<any>;
@@ -462,8 +441,10 @@ export type AnyStoreOpts = $OnceStoreOpts | $ManyStoreOpts | $MultipleStoreOpts;
 export type CallTracker = {
     // input: any;
     skip?: boolean;
+    removed?: boolean;
     index: number;
     // responseInner: any;
     abortController?: undefined | AbortController;
     isLastPrefill?: boolean;
+    uniqueKey?: any;
 };
