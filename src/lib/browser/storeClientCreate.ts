@@ -443,6 +443,7 @@ function callEndpoint(o: CallEndpointOpts) {
         // UPDATE STORES
         if (is$many) {
             Object.assign(storeInner, responseInner);
+            responseChanged(o);
             store.set(storeInner);
         } // is$multiple
         else {
@@ -477,7 +478,7 @@ function callEndpoint(o: CallEndpointOpts) {
                     }
                 }
             }
-
+            responseChanged(o);
             store.set(storeInner);
         }
         if (zod) {
@@ -592,14 +593,17 @@ async function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
         return;
     }
     if (response === true) {
+        responseChanged(o);
         store.set(storeInner);
         return;
     }
     if (response !== undefined) {
         if (is$many) {
+            responseChanged(o);
             store.set(response);
         } else {
             allResponses[_tracker.index] = response;
+            responseChanged(o);
             store.set(storeInner);
         }
     }
@@ -651,6 +655,7 @@ function removeCall(o: RemoveCallFnOpts) {
         delete _tracker?.uniqueKey;
     }
     if (is$many) {
+        responseChanged(o);
         store.set(
             Object.assign(responseInner, {
                 loading: false,
@@ -711,6 +716,7 @@ function abortCall(o: AbortCallFnOpts) {
 
     if (is$many) {
         const responseInner = get(store as any) as any;
+        responseChanged(o);
         store.set(
             Object.assign(responseInner, {
                 loading: false,
@@ -731,6 +737,7 @@ function abortCall(o: AbortCallFnOpts) {
         const storeInner = get(store as any) as any;
         storeInner.responses[_tracker.index].aborted = true;
         storeInner.responses[_tracker.index].loading = false;
+        responseChanged(o);
         store.set(storeInner);
         checkForLoading({ store, opts });
     }
