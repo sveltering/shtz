@@ -187,7 +187,9 @@
     const store = storeClient.tests.friends.mutate.$multiple({
         loading: true,
         remove: true,
-        zod: z.object({ friend1: z.string().max(6), friend2: z.string() }),
+        // zod: z.object({ friend1: z.string().max(6), friend2: z.string() }),
+        uniqueMethod: "replace",
+        changeTimer: 1000,
         unique: function (input, response) {
             if (response) {
                 let { friend1, friend2 } = response;
@@ -223,6 +225,7 @@
         <tr>
             <th>Friend 1</th>
             <th>Friend 2</th>
+            <th>Date</th>
             <th>Remove</th>
         </tr>
     </thead>
@@ -233,14 +236,24 @@
                 <tr>
                     <td>{data.friend1}</td>
                     <td>{data.friend2}</td>
+                    <td>{data.date}</td>
                     <td><button on:click={response.remove}>remove</button></td>
                 </tr>
             {:else if response.error}
                 <tr>
-                    <td colspan="2">{response.error.message}</td>
+                    <td colspan="3">{response.error.message}</td>
                     <td><button on:click={response.remove}>remove</button></td>
                 </tr>
             {/if}
         {/each}
     </tbody>
 </table>
+
+<style>
+    tr:hover {
+        transition: background-color 1s linear;
+    }
+    tr:hover {
+        background-color: rgb(163, 233, 163);
+    }
+</style>

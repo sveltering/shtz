@@ -176,15 +176,12 @@ type $MultipleOpts<Input, Data> = {
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
     zod?: ZodAny;
-    uniqueMethod?: "remove" | "replace";
-    changeTimer?: number;
 };
 type $MultipleExtension<Input, Data, Opts extends $MultipleOpts<Input, Data>> = (Opts["remove"] extends true
     ? { remove: () => Promise<void> }
     : {}) &
     (Opts["abortOnRemove"] extends true ? { remove: () => Promise<void> } : {}) &
-    (Opts["abort"] extends true ? { aborted: false } : {}) &
-    (Opts["changeTimer"] extends number ? { changed: boolean } : {});
+    (Opts["abort"] extends true ? { aborted: false } : {});
 
 type $MultipleResponseInner<
     Input,
@@ -354,7 +351,7 @@ export type StoreOpts = {
     readonly entryFn: undefined | ((input: object) => object);
     readonly entrySuccessFn: undefined | ((response: object) => object);
     readonly uniqueFn: undefined | ((input: any, response: any) => any);
-    readonly uniqueMethod: undefined | string;
+    readonly uniqueMethod: undefined;
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
@@ -363,7 +360,6 @@ export type StoreOpts = {
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
     readonly zod: any;
-    readonly change: undefined;
 };
 
 export type $OnceStoreOpts = {
@@ -390,7 +386,6 @@ export type $OnceStoreOpts = {
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
     readonly zod: any;
-    readonly change: undefined;
 };
 
 export type $ManyStoreOpts = {
@@ -418,7 +413,6 @@ export type $ManyStoreOpts = {
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
     readonly zod: any;
-    readonly change: number;
 };
 
 export type $MultipleStoreOpts = {
@@ -445,7 +439,6 @@ export type $MultipleStoreOpts = {
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
     readonly zod: any;
-    readonly change: number;
 };
 
 export type AnyOnceStore = $OnceStore<any>;
@@ -465,5 +458,4 @@ export type CallTracker = {
     abortController?: undefined | AbortController;
     isLastPrefill?: boolean;
     uniqueKey?: any;
-    timeout?: number;
 };

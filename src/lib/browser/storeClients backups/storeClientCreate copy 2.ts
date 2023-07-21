@@ -95,7 +95,6 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
             let beforeCallFn = undefined;
             let methodsFns: any = {};
             let zod = undefined;
-            let change = undefined;
             const uniqueTracker: any[] = [];
 
             const storeOptArg = hasArguments ? args[0] : false;
@@ -104,7 +103,6 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 zod = typeof storeOptArg?.zod?.safeParse === "function" ? storeOptArg.zod : undefined;
                 beforeCallFn = storeOptArg?.beforeCall;
                 methodsFns = storeOptArg?.methods;
-                change = typeof change === "number" ? change : undefined;
 
                 const prefillType = typeof storeOptArg?.prefill;
                 if (prefillType === "function") {
@@ -173,7 +171,6 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 methodsFns,
                 uniqueTracker,
                 zod,
-                change,
             };
 
             return storeClientMethods[method](storeOpts as any);
@@ -385,7 +382,6 @@ function callEndpoint(o: CallEndpointOpts) {
         hasAbortOnRemove,
         beforeCallFn,
         uniqueFn,
-        uniqueMethod,
         uniqueTracker,
         zod,
     } = opts;
@@ -458,19 +454,8 @@ function callEndpoint(o: CallEndpointOpts) {
                     const trackerFound = findUniqueTracker(uniqueKey, uniqueTracker);
                     _tracker.uniqueKey = uniqueKey;
                     if (trackerFound) {
-                        if (uniqueMethod === "remove") {
-                            removeCall({ store, opts, _tracker: trackerFound });
-                            uniqueTracker.push([uniqueKey, _tracker]);
-                        } //
-                        else {
-                            const oldIndex = trackerFound.index;
-                            removeCall({ store, opts, _tracker: trackerFound });
-                            const responseInner = storeInner.responses.splice(_tracker.index, 1);
-                            storeInner.responses.splice(oldIndex, 0, responseInner[0]);
-                            for (let i = oldIndex, iLen = storeInner.responses.length; i < iLen; i++) {
-                                storeInner.responses[i]._tracker.index = i;
-                            }
-                        }
+                        removeCall({ store, opts, _tracker: trackerFound });
+                        uniqueTracker.push([uniqueKey, _tracker]);
                     } //
                     else {
                         uniqueTracker.push([uniqueKey, _tracker]);
@@ -536,33 +521,6 @@ function getResponseInner(o: GetResponseInnerOpts) {
     const allResponses = is$multiple ? storeInner.responses : undefined;
     const responseInner = is$many ? storeInner : allResponses.hasOwnProperty(_tracker.index) ? allResponses[_tracker.index] : null;
     return { storeInner, responseInner, allResponses };
-}
-
-function responseChanged(o: GetResponseInnerOpts) {
-    const {
-        opts: { change },
-    } = o;
-    if (!change) {
-        return;
-    }
-    const { store, opts, _tracker } = o;
-    const { is$multiple, is$many } = opts;
-    const { storeInner, responseInner, allResponses } = getResponseInner(o);
-    if (_tracker.timeout) {
-        clearTimeout(_tracker.timeout);
-    }
-    responseInner.changed = true;
-    if (is$many) {
-        store.set();
-    }
-    _tracker.timeout = setTimeout(function () {}, change);
-    /*
-     *
-     *
-     *
-     *
-     *
-     */
 }
 
 type AddResponseMethodsOpts = {
@@ -820,7 +778,7 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
     }
 
     const { isSuccess, store, opts, data } = o;
-    const { is$once, is$multiple, hasRemove, entrySuccessFn, methodsFns, uniqueFn, uniqueMethod, uniqueTracker } = opts;
+    const { is$once, is$multiple, hasRemove, entrySuccessFn, methodsFns, uniqueFn, uniqueTracker } = opts;
 
     if (is$once) {
         const responseInner = get(store as any) as any;
@@ -869,23 +827,12 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
         const newKey = uniqueFn(undefined, data);
         if (newKey) {
             const previousKey = _tracker?.uniqueKey;
-            const trackerFound = findUniqueTracker(newKey, uniqueTracker);
+            const find_tracker = findUniqueTracker(newKey, uniqueTracker);
 
             _tracker.uniqueKey = newKey;
-            if (trackerFound && trackerFound !== _tracker) {
-                if (uniqueMethod === "remove") {
-                    removeCall({ store, opts, _tracker: trackerFound });
-                    uniqueTracker.push([newKey, _tracker]);
-                } //
-                else {
-                    const oldIndex = trackerFound.index;
-                    removeCall({ store, opts, _tracker: trackerFound });
-                    const responseInner = storeInner.responses.splice(_tracker.index, 1);
-                    storeInner.responses.splice(oldIndex, 0, responseInner[0]);
-                    for (let i = oldIndex, iLen = storeInner.responses.length; i < iLen; i++) {
-                        storeInner.responses[i]._tracker.index = i;
-                    }
-                }
+            if (find_tracker && find_tracker !== _tracker) {
+                removeCall({ store, opts, _tracker: find_tracker });
+                uniqueTracker.push([newKey, _tracker]);
             } //
             else if (previousKey && !equal(newKey, previousKey)) {
                 removeUniqueTracker(previousKey, uniqueTracker);
