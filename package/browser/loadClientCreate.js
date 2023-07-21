@@ -1,10 +1,11 @@
-import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
+import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 function loadClientCreate(options) {
-    const { url, batchLinkOptions } = options;
-    return function ({ fetch }) {
-        //@ts-ignore
+    const { url, batchLinkOptions, transformer } = options;
+    return function (event) {
+        const { fetch } = event;
         return createTRPCProxyClient({
-            links: [httpBatchLink({ ...batchLinkOptions, url, fetch })]
+            links: [httpBatchLink({ ...batchLinkOptions, url, fetch: fetch })],
+            transformer: transformer,
         });
     };
 }

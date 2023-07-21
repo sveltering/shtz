@@ -1,39 +1,38 @@
-import type { CreateTRPCProxyClient, createTRPCProxyClient, httpBatchLink } from '@trpc/client';
-import type { AnyRouter } from '@trpc/server';
-import type { LoadEvent } from '@sveltejs/kit';
-import type { MakeStoreType } from './storeClientCreate.types.js';
-import type { TRPCClientError } from '@trpc/client';
-export type Prettify<Obj> = Obj extends object ? {
-    [Key in keyof Obj]: Obj[Key];
-} : Obj;
-export type FunctionType = (...args: any) => any;
-export type ArgumentTypes<F extends Function> = F extends (...args: infer A) => any ? A : never;
-export type EndpointReturnType<T extends (...args: any) => Promise<any>> = T extends (...args: any) => Promise<infer R> ? R : any;
-export type AsyncReturnType<T extends (...args: any) => Promise<any>> = T extends (...args: any) => Promise<infer R> ? R : any;
+import type { CreateTRPCProxyClient, createTRPCProxyClient, httpBatchLink } from "@trpc/client";
+import type { AnyRouter } from "@trpc/server";
+import type { ServerLoadEvent, LoadEvent } from "@sveltejs/kit";
+import type { MakeStoreType } from "./storeClientCreate.types.js";
+import type { TRPCClientError } from "@trpc/client";
+import type { ArgumentTypes } from "../types.js";
+type TransformerOpts = ArgumentTypes<typeof createTRPCProxyClient>[0]["transformer"];
+type BatchLinkOptions = Omit<ArgumentTypes<typeof httpBatchLink>[0], "url">;
+type AllClientOpts = {
+    url: string;
+    transformer?: TransformerOpts;
+    batchLinkOptions?: BatchLinkOptions;
+};
 type ReplaceFunctionReturnOrUndefined<Fn> = Fn extends (...a: infer A) => Promise<infer R> ? (...a: A) => Promise<R | undefined> : Fn;
-type RecursiveReplaceFunctionReturnsOrUndefined<Obj extends object> = {
+type ChangeReturns<Obj extends object> = {
     [Key in keyof Obj]: Obj[Key] extends Function ? ReplaceFunctionReturnOrUndefined<Obj[Key]> : Obj[Key] extends {
         [Key2: string]: any;
-    } ? RecursiveReplaceFunctionReturnsOrUndefined<Obj[Key]> : Obj[Key];
+    } ? ChangeReturns<Obj[Key]> : Obj[Key];
 };
-export type browserClientOpt = {
-    url: string;
+export type BrowserClientOpt = AllClientOpts & {
     browserOnly?: boolean;
-    transformer?: ArgumentTypes<typeof createTRPCProxyClient>[0]['transformer'];
-    batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url'>;
 };
-export type browserClientOptF = browserClientOpt & {
+export type BrowserClientOptF = AllClientOpts & {
     browserOnly: false;
 };
-export type browserOCC<T extends AnyRouter> = RecursiveReplaceFunctionReturnsOrUndefined<CreateTRPCProxyClient<T>>;
-export type browserFCC<T extends AnyRouter> = CreateTRPCProxyClient<T>;
-export interface loadClientOpt extends Omit<browserClientOpt, 'browserOnly'> {
-    batchLinkOptions?: Omit<ArgumentTypes<typeof httpBatchLink>[0], 'url' | 'fetch'>;
-}
-export type loadCC<T extends AnyRouter> = (event: LoadEvent) => CreateTRPCProxyClient<T>;
-export type storeClientOpt = Omit<browserClientOpt, 'browserOnly'> & {
+export type BrowserOCC<T extends AnyRouter> = ChangeReturns<CreateTRPCProxyClient<T>>;
+export type BrowserACC<T extends AnyRouter> = CreateTRPCProxyClient<T>;
+type LoadBatchLinkOptions = Omit<ArgumentTypes<typeof httpBatchLink>[0], "url" | "fetch">;
+export type LoadClientOpt = AllClientOpts & {
+    batchLinkOptions?: LoadBatchLinkOptions;
+};
+export type LoadCC<T extends AnyRouter> = (event: ServerLoadEvent | LoadEvent) => CreateTRPCProxyClient<T>;
+export type StoreClientOpt = AllClientOpts & {
     interceptData?: (data: any, path: string) => Promise<{}> | {};
     interceptError?: (error: TRPCClientError<any>, path: string) => Promise<{}> | {};
 };
-export type storeCC<T extends AnyRouter> = MakeStoreType<CreateTRPCProxyClient<T>>;
+export type StoreCC<T extends AnyRouter> = MakeStoreType<CreateTRPCProxyClient<T>>;
 export {};

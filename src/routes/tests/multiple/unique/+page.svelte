@@ -1,6 +1,8 @@
 <script lang="ts">
     import LoadingDots from "$component/loading-dots.svelte";
     import { storeClient } from "$trpc/browserClient";
+    import { error } from "@sveltejs/kit";
+    import { z } from "zod";
     console.clear();
     const nameList = [
         "Time",
@@ -185,6 +187,7 @@
     const store = storeClient.tests.friends.mutate.$multiple({
         loading: true,
         remove: true,
+        zod: z.object({ friend1: z.string().max(6), friend2: z.string() }),
         unique: function (input, response) {
             if (response) {
                 let { friend1, friend2 } = response;
@@ -230,6 +233,11 @@
                 <tr>
                     <td>{data.friend1}</td>
                     <td>{data.friend2}</td>
+                    <td><button on:click={response.remove}>remove</button></td>
+                </tr>
+            {:else if response.error}
+                <tr>
+                    <td colspan="2">{response.error.message}</td>
                     <td><button on:click={response.remove}>remove</button></td>
                 </tr>
             {/if}

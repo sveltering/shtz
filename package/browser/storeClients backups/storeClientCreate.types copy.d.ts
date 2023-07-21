@@ -1,6 +1,5 @@
 import type { Writable } from "svelte/store";
 import type { Prettify, Combine, FirstNotEmpty, ArgumentTypes, FunctionType, AsyncFunctionType, AsyncReturnType, OneOf, EmptyObject, KeyValueObject } from "../types.js";
-type ZodAny = import("zod").ZodTypeAny;
 type ResponseObject<Loading extends boolean, Success extends boolean, Err extends false | Error, Data extends any, Ext extends {}> = Prettify<{
     loading: Loading;
     success: Success;
@@ -43,7 +42,6 @@ type $ManyOpts<Input, Data> = {
     abort?: boolean;
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
-    zod?: ZodAny;
 };
 type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts["remove"] extends true ? {
     remove: () => Promise<void>;
@@ -97,7 +95,6 @@ type $MultipleOpts<Input, Data> = {
     abort?: boolean;
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
-    zod?: ZodAny;
 };
 type $MultipleExtension<Input, Data, Opts extends $MultipleOpts<Input, Data>> = (Opts["remove"] extends true ? {
     remove: () => Promise<void>;

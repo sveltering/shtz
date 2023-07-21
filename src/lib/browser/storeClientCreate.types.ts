@@ -10,8 +10,9 @@ import type {
     OneOf,
     EmptyObject,
     KeyValueObject,
-    NotEmpty,
 } from "../types.js";
+
+type ZodAny = import("zod").ZodTypeAny;
 
 type ResponseObject<
     Loading extends boolean,
@@ -78,6 +79,7 @@ type $ManyOpts<Input, Data> = {
     abort?: boolean;
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
+    zod?: ZodAny;
 };
 type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts["remove"] extends true
     ? { remove: () => Promise<void> }
@@ -173,6 +175,7 @@ type $MultipleOpts<Input, Data> = {
     abort?: boolean;
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
+    zod?: ZodAny;
 };
 type $MultipleExtension<Input, Data, Opts extends $MultipleOpts<Input, Data>> = (Opts["remove"] extends true
     ? { remove: () => Promise<void> }
@@ -355,6 +358,7 @@ export type StoreOpts = {
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
+    readonly zod: any;
 };
 
 export type $OnceStoreOpts = {
@@ -379,6 +383,7 @@ export type $OnceStoreOpts = {
     readonly beforeCallFn: undefined;
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
+    readonly zod: any;
 };
 
 export type $ManyStoreOpts = {
@@ -404,6 +409,7 @@ export type $ManyStoreOpts = {
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
+    readonly zod: any;
 };
 
 export type $MultipleStoreOpts = {
@@ -428,6 +434,7 @@ export type $MultipleStoreOpts = {
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
+    readonly zod: any;
 };
 
 export type AnyOnceStore = $OnceStore<any>;

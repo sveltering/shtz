@@ -1,21 +1,26 @@
-import type { RequestEvent } from '@sveltejs/kit';
-import type { TRPCOpts, TRPCContextFn, TRPCInner, TRPCErrorOpts } from './types.js';
-import { TRPCError, type AnyRouter } from '@trpc/server';
-export declare class TRPC<T extends object> {
-    options: TRPCOpts<T> & TRPCContextFn<T>;
-    tRPCInner: TRPCInner<T>;
+import type { RequestEvent, ServerLoadEvent } from "@sveltejs/kit";
+import type { TRPCOpts, TRPCInner, TRPCErrorOpts, CreateContextType, KeyValueObject } from "./types.js";
+import { TRPCError, type AnyRouter } from "@trpc/server";
+export declare class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
+    options: TRPCOpts<Ctx, LocalsKey, LocalsType> & {
+        path: string;
+        context: CreateContextType<Ctx>;
+        localsKey: string;
+    };
     _routes?: AnyRouter;
-    constructor(options: TRPCOpts<T>);
+    tRPCInner: TRPCInner<Ctx>;
+    localsKeySet: boolean;
+    constructor(options: TRPCOpts<Ctx, LocalsKey, LocalsType>);
     get router(): <TProcRouterRecord extends import("@trpc/server").ProcedureRouterRecord>(procedures: TProcRouterRecord) => import("@trpc/server").CreateRouterInner<import("@trpc/server").RootConfig<{
         ctx: import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["ctx"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["ctx"] : object;
         meta: import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["meta"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["meta"] : object;
         errorShape: import("@trpc/server").DefaultErrorShape;
         transformer: import("@trpc/server").DefaultDataTransformer;
@@ -23,14 +28,14 @@ export declare class TRPC<T extends object> {
     get middleware(): <TNewParams extends import("@trpc/server").ProcedureParams<import("@trpc/server").AnyRootConfig, unknown, unknown, unknown, unknown, unknown, unknown>>(fn: import("@trpc/server").MiddlewareFunction<{
         _config: import("@trpc/server").RootConfig<{
             ctx: import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["ctx"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["ctx"] : object;
             meta: import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["meta"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["meta"] : object;
             errorShape: import("@trpc/server").DefaultErrorShape;
             transformer: import("@trpc/server").DefaultDataTransformer;
@@ -41,21 +46,21 @@ export declare class TRPC<T extends object> {
         _output_in: unknown;
         _output_out: unknown;
         _meta: import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["meta"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["meta"] : object;
     }, TNewParams>) => import("@trpc/server").MiddlewareBuilder<{
         _config: import("@trpc/server").RootConfig<{
             ctx: import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["ctx"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["ctx"] : object;
             meta: import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["meta"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["meta"] : object;
             errorShape: import("@trpc/server").DefaultErrorShape;
             transformer: import("@trpc/server").DefaultDataTransformer;
@@ -66,46 +71,45 @@ export declare class TRPC<T extends object> {
         _output_in: unknown;
         _output_out: unknown;
         _meta: import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["meta"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["meta"] : object;
     }, TNewParams>;
     get procedure(): import("@trpc/server").ProcedureBuilder<{
         _config: import("@trpc/server").RootConfig<{
             ctx: import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["ctx"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["ctx"] : object;
             meta: import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["meta"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-                ctx: import("@trpc/server").Unwrap<T>;
+                ctx: import("@trpc/server").Unwrap<Ctx>;
             }>["meta"] : object;
             errorShape: import("@trpc/server").DefaultErrorShape;
             transformer: import("@trpc/server").DefaultDataTransformer;
         }>;
         _ctx_out: import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["ctx"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["ctx"] : object;
         _input_in: typeof import("@trpc/server").unsetMarker;
         _input_out: typeof import("@trpc/server").unsetMarker;
         _output_in: typeof import("@trpc/server").unsetMarker;
         _output_out: typeof import("@trpc/server").unsetMarker;
         _meta: import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["meta"] extends object ? import("@trpc/server").FlatOverwrite<object, {
-            ctx: import("@trpc/server").Unwrap<T>;
+            ctx: import("@trpc/server").Unwrap<Ctx>;
         }>["meta"] : object;
     }>;
-    get context(): import("./types.js").createContextType<T>;
-    error(message: string | TRPCErrorOpts, code?: TRPCErrorOpts['code']): TRPCError;
-    set routes(routes: AnyRouter);
-    hook(router: AnyRouter): (event: RequestEvent) => Promise<false | Response>;
-    handleFetch(): (request: Request) => Request;
+    get context(): CreateContextType<Ctx>;
+    error(message: TRPCErrorOpts): TRPCError;
+    error(message: string, code?: TRPCErrorOpts["code"]): TRPCError;
+    hookCreate(router: AnyRouter): (event: RequestEvent) => Promise<false | Response>;
+    handleFetchCreate(): (request: Request) => Request;
 }
-export declare const asyncServerClientCreate: <R extends AnyRouter>(t: TRPC<any>) => (event: RequestEvent) => Promise<ReturnType<R["createCaller"]>>;
-export declare const syncServerClientCreate: <R extends AnyRouter>(t: TRPC<any>) => (event: RequestEvent) => ReturnType<R["createCaller"]>;
+export declare const serverClientCreate: <R extends AnyRouter>(t: TRPC<any, any, any>) => (event: RequestEvent | ServerLoadEvent) => Promise<ReturnType<R["createCaller"]>>;

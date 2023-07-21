@@ -1,12 +1,12 @@
-import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
+import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 function browserClientCreate(options) {
-    const { url, batchLinkOptions, browserOnly } = options;
-    if (browserOnly !== false && typeof window === 'undefined') {
+    const { url, batchLinkOptions, browserOnly, transformer } = options;
+    if (browserOnly !== false && typeof window === "undefined") {
         return browserPseudoClient();
     }
-    //@ts-ignore
     return createTRPCProxyClient({
-        links: [httpBatchLink({ ...batchLinkOptions, url })]
+        links: [httpBatchLink({ ...batchLinkOptions, url })],
+        transformer: transformer,
     });
 }
 function noop() { }
