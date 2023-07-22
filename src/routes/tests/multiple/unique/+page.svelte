@@ -187,7 +187,7 @@
         loading: true,
         remove: true,
         zod: z.object({ friend1: z.string().max(8), friend2: z.string().max(8) }),
-        uniqueMethod: "replace",
+        // uniqueMethod: "replace",
         changeTimer: 1000,
         abortOnRemove: true,
         entry: function (input) {
@@ -216,14 +216,24 @@
         target[0].value = name();
         target[1].value = name();
         target[0].focus();
+        target[0].select();
         $store.call({ friend1, friend2 });
+    }
+    function focussed(e: FocusEvent) {
+        const target = e.target as any;
+        target.select();
     }
 </script>
 
 <form on:submit|preventDefault={addFriends}>
-    <input type="text" placeholder="friend 1" value={name()} required />
-    <input type="text" placeholder="friend 2" value={name()} required />
+    <input type="text" list="countrydata" placeholder="friend 1" value={name()} on:focus={focussed} required />
+    <input type="text" list="countrydata" placeholder="friend 2" value={name()} on:focus={focussed} required />
     <input type="submit" hidden />
+    <datalist id="countrydata">
+        {#each nameList as name}
+            <option>{name}</option>
+        {/each}
+    </datalist>
 </form>
 {#if $store.loading}
     Adding Friends <LoadingDots />
@@ -283,5 +293,9 @@
     tr.errored {
         background-color: rgb(251, 129, 105);
         transition: background-color 1s linear;
+    }
+    tr td,
+    tr th {
+        padding: 5px;
     }
 </style>

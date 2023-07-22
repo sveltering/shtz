@@ -98,6 +98,8 @@ type $MultipleOpts<Input, Data> = {
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
     zod?: ZodAny;
+    uniqueMethod?: "remove" | "replace";
+    changeTimer?: number;
 };
 type $MultipleExtension<Input, Data, Opts extends $MultipleOpts<Input, Data>> = (Opts["remove"] extends true ? {
     remove: () => Promise<void>;
@@ -105,6 +107,8 @@ type $MultipleExtension<Input, Data, Opts extends $MultipleOpts<Input, Data>> = 
     remove: () => Promise<void>;
 } : {}) & (Opts["abort"] extends true ? {
     aborted: false;
+} : {}) & (Opts["changeTimer"] extends number ? {
+    changed: boolean;
 } : {});
 type $MultipleResponseInner<Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $MultipleOpts<Input, Data>> = SuccessResponse<Data, Methods & $MultipleExtension<Input, Data, Opts> & {
     entry: EntrySuccess;
@@ -174,6 +178,7 @@ export type StoreOpts = {
     readonly entryFn: undefined | ((input: object) => object);
     readonly entrySuccessFn: undefined | ((response: object) => object);
     readonly uniqueFn: undefined | ((input: any, response: any) => any);
+    readonly uniqueMethod: undefined | string;
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
@@ -181,6 +186,8 @@ export type StoreOpts = {
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
+    readonly zod: any;
+    readonly changeTimer: undefined;
 };
 export type $OnceStoreOpts = {
     readonly method: "$once";
@@ -196,6 +203,7 @@ export type $OnceStoreOpts = {
     readonly entryFn: undefined;
     readonly entrySuccessFn: undefined;
     readonly uniqueFn: undefined;
+    readonly uniqueMethod: undefined;
     readonly hasLoading: false;
     readonly hasRemove: false;
     readonly hasAbort: false;
@@ -203,6 +211,8 @@ export type $OnceStoreOpts = {
     readonly beforeCallFn: undefined;
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
+    readonly zod: any;
+    readonly changeTimer: undefined;
 };
 export type $ManyStoreOpts = {
     readonly method: "$many";
@@ -218,6 +228,7 @@ export type $ManyStoreOpts = {
     readonly entryFn: undefined;
     readonly entrySuccessFn: undefined;
     readonly uniqueFn: undefined;
+    readonly uniqueMethod: undefined;
     readonly entryUnique: false;
     readonly hasLoading: false;
     readonly hasRemove: boolean;
@@ -226,6 +237,8 @@ export type $ManyStoreOpts = {
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
+    readonly zod: any;
+    readonly changeTimer: number;
 };
 export type $MultipleStoreOpts = {
     readonly method: "$multiple";
@@ -241,6 +254,7 @@ export type $MultipleStoreOpts = {
     readonly entryFn: (input: object) => object;
     readonly entrySuccessFn: undefined | ((response: object) => object);
     readonly uniqueFn: undefined | ((input: any, response: any) => any);
+    readonly uniqueMethod: "remove" | "replace";
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
@@ -248,6 +262,8 @@ export type $MultipleStoreOpts = {
     readonly beforeCallFn: undefined | BeforeCallFn<any>;
     readonly methodsFns: AdditionalMethods<any, any>;
     readonly uniqueTracker: any[];
+    readonly zod: any;
+    readonly changeTimer: number;
 };
 export type AnyOnceStore = $OnceStore<any>;
 export type AnyManyStore = $ManyStore<any[], any, any, any, any, any, any, any>;
@@ -261,5 +277,6 @@ export type CallTracker = {
     abortController?: undefined | AbortController;
     isLastPrefill?: boolean;
     uniqueKey?: any;
+    timeout?: number | null;
 };
 export {};

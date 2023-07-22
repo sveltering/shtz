@@ -17,7 +17,7 @@ import type {
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { get, writable } from "svelte/store";
 
-import { browser, browser as isBrowser } from "$app/environment";
+import { browser as isBrowser } from "$app/environment";
 
 import equal from "fast-deep-equal";
 
@@ -792,7 +792,7 @@ type EndpointResponseOpts = {
 async function endpointReponse(o: EndpointSuccessOpts): Promise<void>;
 async function endpointReponse(o: EndpointErrorOpts): Promise<void>;
 async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
-    const { error, isError, prefillSSR } = o;
+    const { error, isError } = o;
     let { _tracker } = o;
 
     if (_tracker?.removed) {

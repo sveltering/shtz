@@ -15,8 +15,8 @@ function storeClientCreate(options) {
 function noop() { }
 function pseudoProxyClient() {
     return new Proxy(noop, {
-        get: (_1, _2) => pseudoProxyClient(),
-        apply: (_1, _2, _3) => undefined,
+        get: () => pseudoProxyClient(),
+        apply: () => undefined,
     });
 }
 function outerProxy(callback, path, options) {
@@ -57,18 +57,23 @@ function outerProxy(callback, path, options) {
             let entryFn = undefined;
             let entrySuccessFn = undefined;
             let uniqueFn = undefined;
+            let uniqueMethod = undefined;
             let hasLoading = false;
             let hasRemove = false;
             let hasAbort = false;
             let hasAbortOnRemove = false;
             let beforeCallFn = undefined;
             let methodsFns = {};
+            let zod = undefined;
+            let changeTimer = undefined;
             const uniqueTracker = [];
             const storeOptArg = hasArguments ? args[0] : false;
             if (isBrowser && storeOptArg && has$call) {
-                hasRemove = !!storeOptArg?.remove;
-                beforeCallFn = storeOptArg?.beforeCall;
-                methodsFns = storeOptArg?.methods;
+                hasRemove = storeOptArg?.remove === true ? true : false;
+                zod = typeof storeOptArg?.zod?.safeParse === "function" ? storeOptArg.zod : undefined;
+                beforeCallFn = typeof storeOptArg?.beforeCall === "function" ? storeOptArg.beforeCall : undefined;
+                methodsFns = typeof storeOptArg?.methods === "object" ? storeOptArg.methods : {};
+                changeTimer = typeof storeOptArg.changeTimer === "number" ? storeOptArg.changeTimer : undefined;
                 const prefillType = typeof storeOptArg?.prefill;
                 if (prefillType === "function") {
                     prefillFn = storeOptArg.prefill;
@@ -77,36 +82,39 @@ function outerProxy(callback, path, options) {
                     prefillData = storeOptArg.prefill;
                 }
                 if (is$multiple) {
-                    hasLoading = !!storeOptArg?.loading;
-                    entryFn = storeOptArg?.entry;
-                    entrySuccessFn = storeOptArg?.entrySuccess;
-                    uniqueFn = storeOptArg?.unique;
+                    hasLoading = storeOptArg?.loading === true ? true : false;
+                    entryFn = typeof storeOptArg?.entry === "function" ? storeOptArg.entry : undefined;
+                    entrySuccessFn = typeof storeOptArg?.entrySuccess === "function" ? storeOptArg.entrySuccess : undefined;
+                    uniqueFn = typeof storeOptArg?.unique === "function" ? storeOptArg.unique : undefined;
+                    uniqueMethod = storeOptArg?.uniqueMethod === "replace" ? "replace" : "remove";
                 }
-                hasAbort = !!storeOptArg?.abort;
-                if (storeOptArg?.abortOnRemove) {
+                hasAbort = storeOptArg?.abort === true ? true : false;
+                if (storeOptArg?.abortOnRemove === true) {
                     hasRemove = true;
                     hasAbortOnRemove = true;
                 }
             }
             if (!isBrowser && storeOptArg && has$call) {
-                hasRemove = !!storeOptArg?.remove;
+                hasRemove = storeOptArg?.remove === true ? true : false;
                 const prefillType = typeof storeOptArg?.prefill;
                 if (prefillType !== "function" && prefillType !== "undefined") {
-                    prefillData = storeOptArg.prefill; // delete prefill data once store made
+                    prefillData = storeOptArg.prefill;
                 }
                 if (is$multiple) {
-                    hasLoading = !!storeOptArg?.loading;
-                    entrySuccessFn = storeOptArg?.entrySuccess;
-                    uniqueFn = storeOptArg?.unique;
+                    hasLoading = storeOptArg?.loading === true ? true : false;
+                    entrySuccessFn = typeof storeOptArg?.entrySuccess === "function" ? storeOptArg.entrySuccess : undefined;
+                    uniqueFn = typeof storeOptArg?.unique === "function" ? storeOptArg.unique : undefined;
                 }
-                if (storeOptArg?.abortOnRemove) {
+                if (storeOptArg?.abortOnRemove === true) {
                     hasRemove = true;
                 }
-                if (storeOptArg?.methods) {
-                    for (let key in storeOptArg?.methods) {
-                        methodsFns[key] = noop;
-                    }
-                }
+                // Methods not required for ssr from tests
+                // Commented for now unless behaviour changes
+                // if (typeof storeOptArg?.methods === "object") {
+                //     for (let key in storeOptArg?.methods) {
+                //         methodsFns[key] = noop;
+                //     }
+                // }
             }
             const storeOpts = {
                 method,
@@ -122,6 +130,7 @@ function outerProxy(callback, path, options) {
                 entryFn,
                 entrySuccessFn,
                 uniqueFn,
+                uniqueMethod,
                 hasLoading,
                 hasRemove,
                 hasAbort,
@@ -129,6 +138,8 @@ function outerProxy(callback, path, options) {
                 beforeCallFn,
                 methodsFns,
                 uniqueTracker,
+                zod,
+                changeTimer,
             };
             return storeClientMethods[method](storeOpts);
         },
@@ -191,8 +202,8 @@ function handlePrefill(store, opts) {
     if (prefillData === undefined && !isBrowser) {
         return;
     }
-    if (!isBrowser && is$many && prefillData) {
-        const _tracker = {};
+    if (!isBrowser && is$many) {
+        const _tracker = { isLastPrefill: true };
         endpointReponse({
             prefillSSR: true,
             isSuccess: true,
@@ -217,12 +228,15 @@ function handlePrefill(store, opts) {
         });
         return;
     }
-    if (!isBrowser && is$multiple && prefillData) {
+    if (!isBrowser && is$multiple) {
         const storeInner = get(store);
         const startingIndex = storeInner.responses.length;
         const data = Array.isArray(prefillData) ? prefillData : [prefillData];
         for (let i = 0, iLen = data.length; i < iLen; i++) {
             const _tracker = { index: startingIndex + i };
+            if (i === iLen - 1) {
+                _tracker.isLastPrefill = true;
+            }
             storeInner.responses.push({
                 _tracker,
                 loading: true,
@@ -309,23 +323,12 @@ function removeUniqueTracker(key, keys) {
     }
 }
 function callEndpoint(o) {
+    if (!isBrowser) {
+        return;
+    }
     const { store, opts, endpointArgs, prefillHandle } = o;
-    const { endpoint, is$many, has$call, entryFn, hasLoading, hasRemove, hasAbort, hasAbortOnRemove, beforeCallFn, uniqueFn, uniqueTracker, } = opts;
     let { _tracker } = o;
-    // if (typeof uniqueFn === "function") {
-    //     const uniqueKey = uniqueFn(endpointArgs?.[0], undefined);
-    //     if (uniqueKey) {
-    //         const find_tracker = findUniqueTracker(uniqueKey, uniqueTracker);
-    //         if (find_tracker) {
-    //             _tracker = find_tracker;
-    //             trackerFound = true;
-    //         } //
-    //         else {
-    //             uniqueTracker.push([uniqueKey, _tracker]);
-    //         }
-    //         _tracker.uniqueKey = uniqueKey;
-    //     }
-    // }
+    const { endpoint, is$many, has$call, entryFn, hasLoading, hasRemove, hasAbort, hasAbortOnRemove, beforeCallFn, uniqueFn, uniqueMethod, uniqueTracker, zod, } = opts;
     if (has$call) {
         const responseInner = {
             _tracker,
@@ -345,47 +348,69 @@ function callEndpoint(o) {
                 endpointArgs[1] = endpointArgs.hasOwnProperty(1) ? endpointArgs[1] : {};
                 endpointArgs[1].signal = _tracker.abortController.signal;
             }
-            if (hasAbort) {
-                responseInner.aborted = false;
-                responseInner.abort = abortCallFn({ store, opts, _tracker, fromRemove: false });
-            }
-            if (hasRemove) {
-                responseInner.remove = removeCallFn({ store, opts, _tracker });
-            }
             if (typeof entryFn === "function") {
                 responseInner.entry = entryFn(endpointArgs?.[0]);
             }
         }
+        if (hasAbort) {
+            responseInner.aborted = false;
+            responseInner.abort = abortCallFn({ store, opts, _tracker, fromRemove: false });
+        }
+        if (hasRemove) {
+            responseInner.remove = removeCallFn({ store, opts, _tracker });
+        }
         // UPDATE STORES
         if (is$many) {
-            Object.assign(storeInner, responseInner);
-            store.set(storeInner);
+            responseChanged(o, Object.assign(storeInner, responseInner));
         } // is$multiple
         else {
             if (hasLoading) {
                 storeInner.loading = true;
             }
-            _tracker.index = storeInner.responses.length;
-            storeInner.responses.push(responseInner);
+            let pushResponse = true;
             if (typeof uniqueFn === "function") {
                 const uniqueKey = uniqueFn(endpointArgs?.[0], undefined);
-                if (uniqueKey) {
+                if (uniqueKey !== undefined) {
                     const trackerFound = findUniqueTracker(uniqueKey, uniqueTracker);
                     _tracker.uniqueKey = uniqueKey;
                     if (trackerFound) {
-                        removeCall({ store, opts, _tracker: trackerFound });
-                        uniqueTracker.push([uniqueKey, _tracker]);
+                        if (uniqueMethod === "remove") {
+                            removeCall({ store, opts, _tracker: trackerFound });
+                        } //
+                        else {
+                            pushResponse = false;
+                            const oldIndex = trackerFound.index;
+                            removeCall({ store, opts, _tracker: trackerFound });
+                            storeInner.responses.splice(oldIndex, 0, responseInner);
+                            for (let i = oldIndex, iLen = storeInner.responses.length; i < iLen; i++) {
+                                storeInner.responses[i]._tracker.index = i;
+                            }
+                        }
                     } //
-                    else {
-                        uniqueTracker.push([uniqueKey, _tracker]);
-                    }
+                    uniqueTracker.push([uniqueKey, _tracker]);
                 }
             }
-            store.set(storeInner);
+            if (pushResponse) {
+                _tracker.index = storeInner.responses.length;
+                storeInner.responses.push(responseInner);
+            }
+            responseChanged(o, responseInner);
         }
-    }
-    if (!isBrowser) {
-        return;
+        if (zod) {
+            const parse = zod.safeParse(endpointArgs?.[0]);
+            if (parse?.error) {
+                console.dir(parse.error);
+                endpointReponse({
+                    isSuccess: false,
+                    isError: true,
+                    store,
+                    opts,
+                    _tracker,
+                    error: parse.error,
+                });
+                return;
+            }
+        }
     }
     if (prefillHandle) {
         prefillHandle().then(endpointSuccess({ store, opts, _tracker })).catch(endpointError({ store, opts, _tracker }));
@@ -418,36 +443,57 @@ function getResponseInner(o) {
     const responseInner = is$many ? storeInner : allResponses.hasOwnProperty(_tracker.index) ? allResponses[_tracker.index] : null;
     return { storeInner, responseInner, allResponses };
 }
+function responseChanged(o, responseInner) {
+    const { store, opts } = o;
+    const { is$many, changeTimer } = opts;
+    const storeInner = is$many ? undefined : get(store);
+    if (!isBrowser || !changeTimer) {
+        store.set(is$many ? responseInner : storeInner);
+        return;
+    }
+    const { _tracker } = o;
+    if (_tracker?.timeout !== null) {
+        clearTimeout(_tracker?.timeout);
+    }
+    responseInner.changed = true;
+    store.set(is$many ? responseInner : storeInner);
+    _tracker.timeout = setTimeout(function () {
+        responseInner.changed = false;
+        store.set(is$many ? responseInner : storeInner);
+        _tracker.timeout = null;
+    }, changeTimer);
+}
 const removeObj = { remove: "REMOVE" };
 const removeFn = () => removeObj;
-async function reponseMethodCall(o, key) {
-    const { store, opts, _tracker } = o;
-    let { storeInner, responseInner, allResponses } = getResponseInner(o);
+function reponseMethodCall(o, key, isAsync) {
+    const { opts, _tracker } = o;
+    let { responseInner, allResponses } = getResponseInner(o);
     if (responseInner === null) {
         return;
     }
     const { methodsFns, is$many } = opts;
-    let response = await methodsFns[key](responseInner, removeFn);
-    if (response === removeObj) {
-        removeCall(o);
-        return;
-    }
-    if (response === false) {
-        return;
-    }
-    if (response === true) {
-        store.set(storeInner);
-        return;
-    }
-    if (response !== undefined) {
-        if (is$many) {
-            store.set(response);
+    return callAsync(methodsFns[key])(responseInner, removeFn).then(function (response) {
+        if (response === removeObj) {
+            removeCall(o);
+            return;
         }
-        else {
-            allResponses[_tracker.index] = response;
-            store.set(storeInner);
+        if (response === false) {
+            return;
         }
-    }
+        if (response === true) {
+            responseChanged(o, responseInner);
+            return;
+        }
+        if (response !== undefined) {
+            if (is$many) {
+                responseChanged(o, responseInner);
+            }
+            else {
+                allResponses[_tracker.index] = response;
+                responseChanged(o, responseInner);
+            }
+        }
+    });
 }
 function addResponseMethods(o) {
     const { opts: { methodsFns }, responseInner, } = o;
@@ -455,14 +501,10 @@ function addResponseMethods(o) {
         if (typeof methodsFns[key] !== "function")
             continue;
         if (methodsFns[key]?.constructor?.name === "AsyncFunction") {
-            responseInner[key] = async function () {
-                await reponseMethodCall(o, key);
-            };
+            responseInner[key] = async () => await reponseMethodCall(o, key, true);
         }
         else {
-            responseInner[key] = function () {
-                reponseMethodCall(o, key);
-            };
+            responseInner[key] = () => reponseMethodCall(o, key, false);
         }
     }
 }
@@ -473,15 +515,19 @@ function removeCall(o) {
     if (_tracker.removed === true) {
         return;
     }
-    abortCallFn({ store, opts, _tracker, fromRemove: true })();
+    abortCall({ store, opts, _tracker, fromRemove: true });
     _tracker.removed = true;
+    delete _tracker?.abortController;
+    if (_tracker?.timeout) {
+        clearTimeout(_tracker?.timeout);
+    }
     if (_tracker?.uniqueKey) {
         const { uniqueTracker } = opts;
         removeUniqueTracker(_tracker?.uniqueKey, uniqueTracker);
         delete _tracker?.uniqueKey;
     }
     if (is$many) {
-        store.set(Object.assign(responseInner, {
+        responseChanged(o, Object.assign(responseInner, {
             loading: false,
             success: false,
             error: false,
@@ -489,14 +535,15 @@ function removeCall(o) {
         }));
     } //
     else if (typeof _tracker.index === "number") {
-        let removed = allResponses.splice(_tracker.index, 1)?.[0];
-        for (let key in removed) {
-            delete removed[key];
+        const responseIndex = _tracker.index;
+        let response = allResponses.splice(_tracker.index, 1)?.[0];
+        for (let key in response) {
+            response[key] = null;
+            delete response[key];
         }
         _tracker.index = null;
-        for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
-            const response = allResponses[i];
-            response._tracker.index = i;
+        for (let i = responseIndex, iLen = allResponses.length; i < iLen; i++) {
+            allResponses[i]._tracker.index = i;
         }
         store.set(storeInner);
         checkForLoading({ store, opts });
@@ -517,12 +564,12 @@ function abortCall(o) {
     }
     const { store, opts } = o;
     const { is$many, is$multiple, hasAbort } = opts;
-    _tracker.abortController?.abort();
+    _tracker.abortController?.abort?.();
     delete _tracker.abortController;
     _tracker.skip = true;
     if (is$many) {
         const responseInner = get(store);
-        store.set(Object.assign(responseInner, {
+        responseChanged(o, Object.assign(responseInner, {
             loading: false,
             success: false,
             error: false,
@@ -536,9 +583,10 @@ function abortCall(o) {
     }
     if (is$multiple) {
         const storeInner = get(store);
-        storeInner.responses[_tracker.index].aborted = true;
-        storeInner.responses[_tracker.index].loading = false;
-        store.set(storeInner);
+        const responseInner = storeInner.responses[_tracker.index];
+        responseInner.aborted = true;
+        responseInner.loading = false;
+        responseChanged(o, responseInner);
         checkForLoading({ store, opts });
     }
 }
@@ -575,7 +623,7 @@ function endpointError(o) {
     };
 }
 async function endpointReponse(o) {
-    const { error, isError, prefillSSR } = o;
+    const { error, isError } = o;
     let { _tracker } = o;
     if (_tracker?.removed) {
         return;
@@ -588,7 +636,7 @@ async function endpointReponse(o) {
         return;
     }
     const { isSuccess, store, opts, data } = o;
-    const { is$once, is$multiple, hasRemove, entrySuccessFn, methodsFns, uniqueFn, uniqueTracker } = opts;
+    const { is$once, is$multiple, entrySuccessFn, uniqueFn, uniqueMethod, uniqueTracker } = opts;
     if (is$once) {
         const responseInner = get(store);
         store.set(Object.assign(responseInner, {
@@ -605,14 +653,13 @@ async function endpointReponse(o) {
     }
     delete responseInner?.abort;
     delete _tracker?.abortController;
-    if (prefillSSR === true) {
-        for (let key in methodsFns) {
-            responseInner[key] = noop;
-        }
-    }
-    if (hasRemove) {
-        responseInner.remove = isBrowser ? removeCallFn({ store, opts, _tracker }) : noop;
-    }
+    // Methods not required for ssr from tests
+    // Commented for now unless behaviour changes
+    // if (prefillSSR === true) {
+    //     for (let key in methodsFns) {
+    //         responseInner[key] = noop;
+    //     }
+    // }
     if (isSuccess && entrySuccessFn) {
         responseInner.entry = entrySuccessFn(data);
     }
@@ -624,24 +671,31 @@ async function endpointReponse(o) {
     });
     if (isSuccess && typeof uniqueFn === "function") {
         const newKey = uniqueFn(undefined, data);
-        if (newKey) {
+        if (newKey !== undefined) {
             const previousKey = _tracker?.uniqueKey;
-            const find_tracker = findUniqueTracker(newKey, uniqueTracker);
+            const trackerFound = findUniqueTracker(newKey, uniqueTracker);
             _tracker.uniqueKey = newKey;
-            if (find_tracker && find_tracker !== _tracker) {
-                removeCall({ store, opts, _tracker: find_tracker });
-                uniqueTracker.push([newKey, _tracker]);
+            if (trackerFound && trackerFound !== _tracker) {
+                if (uniqueMethod === "remove") {
+                    removeCall({ store, opts, _tracker: trackerFound });
+                } //
+                else {
+                    const oldIndex = trackerFound.index;
+                    removeCall({ store, opts, _tracker: trackerFound });
+                    const responseInner = storeInner.responses.splice(_tracker.index, 1);
+                    storeInner.responses.splice(oldIndex, 0, responseInner[0]);
+                    for (let i = oldIndex, iLen = storeInner.responses.length; i < iLen; i++) {
+                        storeInner.responses[i]._tracker.index = i;
+                    }
+                }
             } //
-            else if (previousKey && !equal(newKey, previousKey)) {
+            if (!equal(newKey, previousKey)) {
                 removeUniqueTracker(previousKey, uniqueTracker);
-                uniqueTracker.push([newKey, _tracker]);
-            } //
-            else {
                 uniqueTracker.push([newKey, _tracker]);
             }
         }
     }
-    store.set(storeInner);
+    responseChanged(o, responseInner);
     if (_tracker?.isLastPrefill) {
         delete _tracker?.isLastPrefill;
         //@ts-ignore
@@ -649,7 +703,7 @@ async function endpointReponse(o) {
         //@ts-ignore
         delete o?.opts?.prefillFn;
     }
-    if (is$multiple) {
+    if (isBrowser && is$multiple) {
         checkForLoading({ store, opts });
     }
 }

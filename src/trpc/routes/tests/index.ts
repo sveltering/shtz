@@ -44,7 +44,7 @@ export default t.router({
         }),
 
     friends: t.procedure.input(z.object({ friend1: z.string(), friend2: z.string() })).mutation(async function ({ input }) {
-        await sleep(10, 50);
+        await sleep(0.3, 1.5);
         return {
             date: new Date().toLocaleString("en-GB"),
             ...input,
