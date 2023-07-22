@@ -52,6 +52,8 @@ TEST: Data should already fill store<br />
             date: {item.date}<br />
             item: {item.item}<br />
             <button on:click={response.test}>Test</button>
+            <button on:click={response.wontwork}>Test</button>
+            <button on:click={response.testssr}>Test</button>
             <br />
             <br />
         {:else}

@@ -189,7 +189,17 @@
         zod: z.object({ friend1: z.string().max(8), friend2: z.string().max(8) }),
         uniqueMethod: "replace",
         changeTimer: 1000,
+        abortOnRemove: true,
+        entry: function (input) {
+            return input;
+        },
         unique: function (input, response) {
+            if (input) {
+                let { friend1, friend2 } = input;
+                friend1 = friend1.toLocaleLowerCase();
+                friend2 = friend2.toLocaleLowerCase();
+                return { friend1, friend2 };
+            }
             if (response) {
                 let { friend1, friend2 } = response;
                 friend1 = friend1.toLocaleLowerCase();
@@ -230,7 +240,15 @@
     </thead>
     <tbody>
         {#each $store.responses as response}
-            {#if response.success}
+            {#if response.loading}
+                {@const entry = response.entry}
+                <tr class:successed={response.changed && response.success}>
+                    <td>{entry.friend1}</td>
+                    <td>{entry.friend2}</td>
+                    <td>Adding <LoadingDots /></td>
+                    <td><button on:click={response.remove}>remove</button></td>
+                </tr>
+            {:else if response.success}
                 {@const data = response.data}
                 <tr class:successed={response.changed && response.success}>
                     <td>{data.friend1}</td>

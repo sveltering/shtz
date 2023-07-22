@@ -2,6 +2,7 @@
     import LoadingDots from "$component/loading-dots.svelte";
     import { storeClient } from "$trpc/browserClient";
 
+    import { sleep } from "$trpc/functions";
     const multiple = storeClient.tests.addToList.mutate.$multiple({
         loading: true,
         //working
@@ -23,6 +24,7 @@
         },
         methods: {
             test: function (response) {
+                // await sleep(2, 3);
                 if (response.success) {
                     response.data.date = "POOOOOP";
                     return true;

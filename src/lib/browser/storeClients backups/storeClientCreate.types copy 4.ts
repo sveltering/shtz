@@ -465,5 +465,5 @@ export type CallTracker = {
     abortController?: undefined | AbortController;
     isLastPrefill?: boolean;
     uniqueKey?: any;
-    timeout?: number | null;
+    timeout?: number;
 };

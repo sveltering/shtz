@@ -142,14 +142,11 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 if (storeOptArg?.abortOnRemove === true) {
                     hasRemove = true;
                 }
-
-                // Methods not required for ssr from tests
-                // Commented for now unless behaviour changes
-                // if (typeof storeOptArg?.methods === "object") {
-                //     for (let key in storeOptArg?.methods) {
-                //         methodsFns[key] = noop;
-                //     }
-                // }
+                if (typeof storeOptArg?.methods === "object") {
+                    for (let key in storeOptArg?.methods) {
+                        methodsFns[key] = noop;
+                    }
+                }
             }
 
             const storeOpts: StoreOpts = {
@@ -414,24 +411,33 @@ function callEndpoint(o: CallEndpointOpts) {
         const storeInner = get(store as any) as any;
 
         //ADD METHODS TO RESPONSE
+
         addResponseMethods({ responseInner, store, opts, _tracker });
-        if (!prefillHandle) {
+        if (prefillHandle) {
+            if (hasAbort) {
+                responseInner.abort = noop;
+            }
+            if (hasRemove) {
+                responseInner.remove = noop;
+            }
+        } //
+        else {
             if (hasAbort || hasAbortOnRemove) {
                 _tracker.abortController = new AbortController();
                 endpointArgs[0] = endpointArgs?.[0];
                 endpointArgs[1] = endpointArgs.hasOwnProperty(1) ? endpointArgs[1] : {};
                 endpointArgs[1].signal = _tracker.abortController.signal;
             }
+            if (hasAbort) {
+                responseInner.aborted = false;
+                responseInner.abort = abortCallFn({ store, opts, _tracker, fromRemove: false });
+            }
+            if (hasRemove) {
+                responseInner.remove = removeCallFn({ store, opts, _tracker });
+            }
             if (typeof entryFn === "function") {
                 responseInner.entry = entryFn(endpointArgs?.[0]);
             }
-        }
-        if (hasAbort) {
-            responseInner.aborted = false;
-            responseInner.abort = abortCallFn({ store, opts, _tracker, fromRemove: false });
-        }
-        if (hasRemove) {
-            responseInner.remove = removeCallFn({ store, opts, _tracker });
         }
         // UPDATE STORES
         if (is$many) {
@@ -529,17 +535,16 @@ function getResponseInner(o: GetResponseInnerOpts) {
 }
 
 function responseChanged(o: GetResponseInnerOpts, responseInner: any) {
-    const { store, opts } = o;
+    const { store, opts, _tracker } = o;
     const { is$many, changeTimer } = opts;
 
     const storeInner: any = is$many ? undefined : get(store as any);
-    if (!isBrowser || !changeTimer) {
+
+    if (!changeTimer) {
         store.set(is$many ? responseInner : storeInner);
         return;
     }
-
-    const { _tracker } = o;
-    if (_tracker?.timeout !== null) {
+    if (_tracker?.timeout) {
         clearTimeout(_tracker?.timeout);
     }
     responseInner.changed = true;
@@ -547,7 +552,7 @@ function responseChanged(o: GetResponseInnerOpts, responseInner: any) {
     _tracker.timeout = setTimeout(function () {
         responseInner.changed = false;
         store.set(is$many ? responseInner : storeInner);
-        _tracker.timeout = null;
+        delete _tracker.timeout;
     }, changeTimer) as any as number;
 }
 
@@ -560,34 +565,33 @@ type AddResponseMethodsOpts = {
 
 const removeObj = { remove: "REMOVE" as const };
 const removeFn = () => removeObj;
-function reponseMethodCall(o: AddResponseMethodsOpts, key: string, isAsync: boolean) {
+async function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
     const { opts, _tracker } = o;
     let { responseInner, allResponses } = getResponseInner(o);
     if (responseInner === null) {
         return;
     }
     const { methodsFns, is$many } = opts;
-    return callAsync(methodsFns[key])(responseInner, removeFn).then(function (response: any) {
-        if (response === removeObj) {
-            removeCall(o);
-            return;
-        }
-        if (response === false) {
-            return;
-        }
-        if (response === true) {
+    let response = await methodsFns[key](responseInner, removeFn);
+    if (response === removeObj) {
+        removeCall(o);
+        return;
+    }
+    if (response === false) {
+        return;
+    }
+    if (response === true) {
+        responseChanged(o, responseInner);
+        return;
+    }
+    if (response !== undefined) {
+        if (is$many) {
             responseChanged(o, responseInner);
-            return;
+        } else {
+            allResponses[_tracker.index] = response;
+            responseChanged(o, responseInner);
         }
-        if (response !== undefined) {
-            if (is$many) {
-                responseChanged(o, responseInner);
-            } else {
-                allResponses[_tracker.index] = response;
-                responseChanged(o, responseInner);
-            }
-        }
-    });
+    }
 }
 
 function addResponseMethods(o: AddResponseMethodsOpts) {
@@ -597,10 +601,14 @@ function addResponseMethods(o: AddResponseMethodsOpts) {
     } = o;
     for (let key in methodsFns) {
         if (typeof methodsFns[key] !== "function") continue;
+        if (!isBrowser) {
+            methodsFns[key] = noop;
+            continue;
+        }
         if (methodsFns[key]?.constructor?.name === "AsyncFunction") {
-            responseInner[key] = async () => await reponseMethodCall(o, key, true);
+            responseInner[key] = async () => await reponseMethodCall(o, key);
         } else {
-            responseInner[key] = () => reponseMethodCall(o, key, false);
+            responseInner[key] = () => reponseMethodCall(o, key);
         }
     }
 }
@@ -619,7 +627,7 @@ function removeCall(o: RemoveCallFnOpts) {
     if (_tracker.removed === true) {
         return;
     }
-    abortCall({ store, opts, _tracker, fromRemove: true });
+    abortCallFn({ store, opts, _tracker, fromRemove: true })();
     _tracker.removed = true;
     delete _tracker?.abortController;
     if (_tracker?.timeout) {
@@ -642,15 +650,16 @@ function removeCall(o: RemoveCallFnOpts) {
         );
     } //
     else if (typeof _tracker.index === "number") {
-        const responseIndex = _tracker.index;
         let response = allResponses.splice(_tracker.index, 1)?.[0];
         for (let key in response) {
             response[key] = null;
             delete response[key];
         }
+
         _tracker.index = null as any;
-        for (let i = responseIndex, iLen = allResponses.length; i < iLen; i++) {
-            allResponses[i]._tracker.index = i;
+        for (let i = 0, iLen = allResponses.length; i < iLen; i++) {
+            const response = allResponses[i];
+            response._tracker.index = i;
         }
         store.set(storeInner as any);
         checkForLoading({ store, opts });
@@ -687,7 +696,7 @@ function abortCall(o: AbortCallFnOpts) {
     const { store, opts } = o;
     const { is$many, is$multiple, hasAbort } = opts;
 
-    _tracker.abortController?.abort?.();
+    _tracker.abortController?.abort();
     delete _tracker.abortController;
     _tracker.skip = true;
 
@@ -807,7 +816,7 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
     }
 
     const { isSuccess, store, opts, data } = o;
-    const { is$once, is$multiple, entrySuccessFn, uniqueFn, uniqueMethod, uniqueTracker } = opts;
+    const { is$once, is$multiple, hasRemove, entrySuccessFn, methodsFns, uniqueFn, uniqueMethod, uniqueTracker } = opts;
 
     if (is$once) {
         const responseInner = get(store as any) as any;
@@ -831,13 +840,15 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
     delete responseInner?.abort;
     delete _tracker?.abortController;
 
-    // Methods not required for ssr from tests
-    // Commented for now unless behaviour changes
-    // if (prefillSSR === true) {
-    //     for (let key in methodsFns) {
-    //         responseInner[key] = noop;
-    //     }
-    // }
+    if (prefillSSR === true) {
+        for (let key in methodsFns) {
+            responseInner[key] = noop;
+        }
+    }
+
+    if (hasRemove) {
+        responseInner.remove = isBrowser ? removeCallFn({ store, opts, _tracker }) : noop;
+    }
 
     if (isSuccess && entrySuccessFn) {
         responseInner.entry = entrySuccessFn(data);
