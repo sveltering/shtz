@@ -1,7 +1,6 @@
 <script lang="ts">
     import LoadingDots from "$component/loading-dots.svelte";
     import { storeClient } from "$trpc/browserClient";
-    import { error } from "@sveltejs/kit";
     import { z } from "zod";
     console.clear();
     const nameList = [
@@ -188,7 +187,7 @@
         loading: true,
         remove: true,
         zod: z.object({ friend1: z.string().max(8), friend2: z.string().max(8) }),
-        // uniqueMethod: "replace",
+        uniqueMethod: "replace",
         changeTimer: 1000,
         unique: function (input, response) {
             if (response) {
