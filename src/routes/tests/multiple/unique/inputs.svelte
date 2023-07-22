@@ -195,12 +195,8 @@
     });
 
     function addFriends(e: SubmitEvent) {
-        const target = e.target as any;
-
         const friend1 = friend1TS.value;
         const friend2 = friend2TS.value;
-
-        console.log(friend1);
 
         friend1T.value = name();
         friend1TS.value = friend1T.value;
@@ -260,8 +256,9 @@
         }
     }
 
-    function clicked(e: TrackEvent) {
-        e.target.select();
+    function clicked(e: MouseEvent) {
+        const target: HTMLInputElement = e.target as HTMLInputElement;
+        target.select();
     }
 </script>
 

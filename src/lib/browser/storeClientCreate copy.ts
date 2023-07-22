@@ -88,7 +88,6 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
             let entrySuccessFn = undefined;
             let uniqueFn = undefined;
             let uniqueMethod = undefined;
-            let addMethod = undefined;
             let hasLoading = false;
             let hasRemove = false;
             let hasAbort = false;
@@ -119,8 +118,7 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                     entryFn = typeof storeOptArg?.entry === "function" ? storeOptArg.entry : undefined;
                     entrySuccessFn = typeof storeOptArg?.entrySuccess === "function" ? storeOptArg.entrySuccess : undefined;
                     uniqueFn = typeof storeOptArg?.unique === "function" ? storeOptArg.unique : undefined;
-                    uniqueMethod = storeOptArg?.uniqueMethod === "replace" ? ("replace" as const) : ("remove" as const);
-                    addMethod = storeOptArg?.addMethod === "start" ? ("start" as const) : ("end" as const);
+                    uniqueMethod = storeOptArg?.uniqueMethod === "replace" ? "replace" : "remove";
                 }
 
                 hasAbort = storeOptArg?.abort === true ? true : false;
@@ -170,7 +168,6 @@ function outerProxy(callback: any, path: string[], options: StoreClientOpt): any
                 entrySuccessFn,
                 uniqueFn,
                 uniqueMethod,
-                addMethod,
                 hasLoading,
                 hasRemove,
                 hasAbort,
@@ -400,7 +397,6 @@ function callEndpoint(o: CallEndpointOpts) {
         beforeCallFn,
         uniqueFn,
         uniqueMethod,
-        addMethod,
         uniqueTracker,
         zod,
     } = opts;
@@ -472,17 +468,8 @@ function callEndpoint(o: CallEndpointOpts) {
             }
 
             if (pushResponse) {
-                if (addMethod === "end") {
-                    _tracker.index = storeInner.responses.length;
-                    storeInner.responses.push(responseInner);
-                } //
-                else {
-                    _tracker.index = 0;
-                    storeInner.responses.unshift(responseInner);
-                    for (let i = 0, iLen = storeInner.responses.length; i < iLen; i++) {
-                        storeInner.responses[i]._tracker.index = i;
-                    }
-                }
+                _tracker.index = storeInner.responses.length;
+                storeInner.responses.push(responseInner);
             }
             responseChanged(o, responseInner);
         }

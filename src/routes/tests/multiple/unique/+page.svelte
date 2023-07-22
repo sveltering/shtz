@@ -10,6 +10,7 @@
         remove: true,
         zod: z.object({ friend1: z.string().max(8), friend2: z.string().max(8) }),
         uniqueMethod: "replace",
+        addMethod: "start",
         changeTimer: 1000,
         abortOnRemove: true,
         entry: function (input) {

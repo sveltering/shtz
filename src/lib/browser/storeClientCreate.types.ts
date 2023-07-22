@@ -177,6 +177,7 @@ type $MultipleOpts<Input, Data> = {
     beforeCall?: BeforeCallFn<Input>;
     zod?: ZodAny;
     uniqueMethod?: "remove" | "replace";
+    addMethod?: "start" | "end";
     changeTimer?: number;
 };
 type $MultipleExtension<Input, Data, Opts extends $MultipleOpts<Input, Data>> = (Opts["remove"] extends true
@@ -354,7 +355,8 @@ export type StoreOpts = {
     readonly entryFn: undefined | ((input: object) => object);
     readonly entrySuccessFn: undefined | ((response: object) => object);
     readonly uniqueFn: undefined | ((input: any, response: any) => any);
-    readonly uniqueMethod: undefined | string;
+    readonly uniqueMethod: undefined | "remove" | "replace";
+    readonly addMethod: undefined | "start" | "end";
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
@@ -382,6 +384,7 @@ export type $OnceStoreOpts = {
     readonly entrySuccessFn: undefined;
     readonly uniqueFn: undefined;
     readonly uniqueMethod: undefined;
+    readonly addMethod: undefined;
     readonly hasLoading: false;
     readonly hasRemove: false;
     readonly hasAbort: false;
@@ -409,6 +412,7 @@ export type $ManyStoreOpts = {
     readonly entrySuccessFn: undefined;
     readonly uniqueFn: undefined;
     readonly uniqueMethod: undefined;
+    readonly addMethod: undefined;
     readonly entryUnique: false;
     readonly hasLoading: false;
     readonly hasRemove: boolean;
@@ -437,6 +441,7 @@ export type $MultipleStoreOpts = {
     readonly entrySuccessFn: undefined | ((response: object) => object);
     readonly uniqueFn: undefined | ((input: any, response: any) => any);
     readonly uniqueMethod: "remove" | "replace";
+    readonly addMethod: "start" | "end";
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
