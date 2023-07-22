@@ -9,7 +9,7 @@
         loading: true,
         remove: true,
         zod: z.object({ friend1: z.string().max(8), friend2: z.string().max(8) }),
-        // uniqueMethod: "replace",
+        uniqueMethod: "replace",
         changeTimer: 1000,
         abortOnRemove: true,
         entry: function (input) {
@@ -36,7 +36,7 @@
     Adding Friends <LoadingDots />
 {/if}
 <Inputs {store} />
-
+<br />
 <table border={1}>
     <thead>
         <tr>
@@ -50,7 +50,7 @@
         {#each $store.responses as response}
             {#if response.loading}
                 {@const entry = response.entry}
-                <tr class:successed={response.changed && response.success}>
+                <tr class:loading={response.changed && response.loading}>
                     <td>{entry.friend1}</td>
                     <td>{entry.friend2}</td>
                     <td>Adding <LoadingDots /></td>
@@ -78,3 +78,26 @@
         {/each}
     </tbody>
 </table>
+
+<style>
+    tr {
+        background-color: transparent;
+        transition: background-color 1s linear;
+    }
+    tr.loading {
+        background-color: rgb(167, 216, 240);
+        transition: background-color 1s linear;
+    }
+    tr.successed {
+        background-color: rgb(163, 233, 163);
+        transition: background-color 1s linear;
+    }
+    tr.errored {
+        background-color: rgb(251, 129, 105);
+        transition: background-color 1s linear;
+    }
+    tr td,
+    tr th {
+        padding: 5px;
+    }
+</style>

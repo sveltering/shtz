@@ -1,4 +1,6 @@
 <script lang="ts">
+    import { onMount } from "svelte";
+
     export let store;
     const nameList = [
         "Time",
@@ -181,12 +183,19 @@
         return nameList[Math.floor(Math.random() * nameList.length)];
     }
 
+    let friend1T: HTMLInputElement;
+    let friend1TS: HTMLInputElement;
+    let friend2T: HTMLInputElement;
+    let friend2TS: HTMLInputElement;
+    onMount(() => {
+        friend1T = document.getElementsByName("first")[0] as HTMLInputElement;
+        friend1TS = friend1T.nextElementSibling as HTMLInputElement;
+        friend2T = document.getElementsByName("second")[0] as HTMLInputElement;
+        friend2TS = friend2T.nextElementSibling as HTMLInputElement;
+    });
+
     function addFriends(e: SubmitEvent) {
         const target = e.target as any;
-        const friend1T = document.getElementsByName("first")[0];
-        const friend1TS = friend1T.nextElementSibling;
-        const friend2T = document.getElementsByName("second")[0];
-        const friend2TS = friend2T.nextElementSibling;
 
         const friend1 = friend1TS.value;
         const friend2 = friend2TS.value;
@@ -240,15 +249,19 @@
                 e.preventDefault();
                 target.value = sibling.value;
                 if (target.name === "first") {
-                    document.getElementsByName("second")[0].focus();
-                    document.getElementsByName("second")[0].select();
+                    friend2T.focus();
+                    friend2T.select();
                 } else {
-                    document.getElementsByName("first")[0].focus();
-                    document.getElementsByName("first")[0].select();
+                    friend1T.focus();
+                    friend1T.select();
                 }
                 return;
             }
         }
+    }
+
+    function clicked(e: TrackEvent) {
+        e.target.select();
     }
 </script>
 
@@ -256,14 +269,14 @@
     <div class="hide-behind">
         {#if true}
             {@const value = name()}
-            <input type="text" {value} on:keyup={typing} on:keydown={typingd} name="first" required />
+            <input type="text" {value} on:keyup={typing} on:keydown={typingd} on:click={clicked} name="first" required />
             <input type="text" {value} />
         {/if}
     </div>
     <div class="hide-behind">
         {#if true}
             {@const value = name()}
-            <input type="text" {value} on:keyup={typing} on:keydown={typingd} name="second" required />
+            <input type="text" {value} on:keyup={typing} on:keydown={typingd} on:click={clicked} name="second" required />
             <input type="text" {value} />
         {/if}
     </div>
@@ -271,31 +284,25 @@
 </form>
 
 <style>
-    tr {
-        background-color: transparent;
-        transition: background-color 1s linear;
-    }
-    tr.successed {
-        background-color: rgb(163, 233, 163);
-        transition: background-color 1s linear;
-    }
-    tr.errored {
-        background-color: rgb(251, 129, 105);
-        transition: background-color 1s linear;
-    }
-    tr td,
-    tr th {
-        padding: 5px;
-    }
     .hide-behind {
         display: inline-block;
         position: relative;
     }
     .hide-behind input {
+        box-sizing: border-box;
         background: transparent;
         position: relative;
         z-index: 1;
         color: #000;
+        padding: 5px;
+        outline: none;
+        border: 1px solid #000;
+        font-size: 1rem;
+        border-radius: 2px;
+    }
+    .hide-behind input:focus {
+        padding: 4px;
+        border: 2px solid #000;
     }
     .hide-behind input:last-child {
         position: absolute;
