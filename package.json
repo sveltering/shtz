@@ -1,6 +1,6 @@
 {
 	"name": "@sveltering/trpc",
-	"version": "0.0.12",
+	"version": "0.0.13",
 	"scripts": {
 		"dev": "vite dev --port 5001",
 		"build": "svelte-kit sync && svelte-package",

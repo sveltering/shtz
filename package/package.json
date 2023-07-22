@@ -1,6 +1,6 @@
 {
   "name": "@sveltering/trpc",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "type": "module",
   "repository": {
     "type": "git",
@@ -11,11 +11,8 @@
   },
   "exports": {
     "./package.json": "./package.json",
-    "./.DS_Store": "./.DS_Store",
-    "./browser/.DS_Store": "./browser/.DS_Store",
     "./browser/browserClientCreate": "./browser/browserClientCreate.js",
     "./browser/loadClientCreate": "./browser/loadClientCreate.js",
-    "./browser/storeClientCreate copy": "./browser/storeClientCreate copy.js",
     "./browser/storeClientCreate": "./browser/storeClientCreate.js",
     "./browser/storeClientCreate.types": "./browser/storeClientCreate.types.js",
     "./browser/types": "./browser/types.js",
