@@ -187,8 +187,8 @@
     const store = storeClient.tests.friends.mutate.$multiple({
         loading: true,
         remove: true,
-        // zod: z.object({ friend1: z.string().max(6), friend2: z.string() }),
-        uniqueMethod: "replace",
+        zod: z.object({ friend1: z.string().max(8), friend2: z.string().max(8) }),
+        // uniqueMethod: "replace",
         changeTimer: 1000,
         unique: function (input, response) {
             if (response) {
@@ -233,15 +233,20 @@
         {#each $store.responses as response}
             {#if response.success}
                 {@const data = response.data}
-                <tr class:changed={response.changed}>
+                <tr class:successed={response.changed && response.success}>
                     <td>{data.friend1}</td>
                     <td>{data.friend2}</td>
                     <td>{data.date}</td>
                     <td><button on:click={response.remove}>remove</button></td>
                 </tr>
-            {:else if response.error}
-                <tr>
-                    <td colspan="3">{response.error.message}</td>
+            {:else if response.error && response.error.name === "ZodError"}
+                {@const error = response.error}
+                <tr class:errored={response.changed && response.error}>
+                    <td colspan="3">
+                        {#each error.issues as issue}
+                            {issue.message}<br />
+                        {/each}
+                    </td>
                     <td><button on:click={response.remove}>remove</button></td>
                 </tr>
             {/if}
@@ -254,8 +259,12 @@
         background-color: transparent;
         transition: background-color 1s linear;
     }
-    tr.changed {
+    tr.successed {
         background-color: rgb(163, 233, 163);
+        transition: background-color 1s linear;
+    }
+    tr.errored {
+        background-color: rgb(251, 129, 105);
         transition: background-color 1s linear;
     }
 </style>

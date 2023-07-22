@@ -442,7 +442,9 @@ function callEndpoint(o: CallEndpointOpts) {
         }
         // UPDATE STORES
         if (is$many) {
-            responseChanged(o, Object.assign(storeInner, responseInner));
+            Object.assign(storeInner, responseInner);
+            responseChanged(o);
+            store.set(storeInner);
         } // is$multiple
         else {
             if (hasLoading) {
@@ -476,12 +478,12 @@ function callEndpoint(o: CallEndpointOpts) {
                     }
                 }
             }
-            responseChanged(o, responseInner);
+            responseChanged(o);
+            store.set(storeInner);
         }
         if (zod) {
             const parse = zod.safeParse(endpointArgs?.[0]);
             if (parse?.error) {
-                console.dir(parse.error);
                 endpointReponse({
                     isSuccess: false,
                     isError: true,
@@ -537,16 +539,16 @@ function getResponseInner(o: GetResponseInnerOpts) {
     return { storeInner, responseInner, allResponses };
 }
 
-function responseChanged(o: GetResponseInnerOpts, responseInner: any) {
-    const { store, opts, _tracker } = o;
-    const { is$many, changeTimer } = opts;
-
-    const storeInner: any = is$many ? undefined : get(store as any);
-
+function responseChanged(o: GetResponseInnerOpts) {
+    const {
+        opts: { changeTimer },
+    } = o;
     if (!changeTimer) {
-        store.set(is$many ? responseInner : storeInner);
         return;
     }
+    const { store, opts, _tracker } = o;
+    const { is$multiple, is$many } = opts;
+    const { storeInner, responseInner, allResponses } = getResponseInner(o);
     if (_tracker?.timeout) {
         clearTimeout(_tracker?.timeout);
     }
@@ -557,6 +559,13 @@ function responseChanged(o: GetResponseInnerOpts, responseInner: any) {
         store.set(is$many ? responseInner : storeInner);
         delete _tracker.timeout;
     }, changeTimer) as any as number;
+    /*
+     *
+     *
+     *
+     *
+     *
+     */
 }
 
 type AddResponseMethodsOpts = {
@@ -569,8 +578,8 @@ type AddResponseMethodsOpts = {
 const removeObj = { remove: "REMOVE" as const };
 const removeFn = () => removeObj;
 async function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
-    const { opts, _tracker } = o;
-    let { responseInner, allResponses } = getResponseInner(o);
+    const { store, opts, _tracker } = o;
+    let { storeInner, responseInner, allResponses } = getResponseInner(o);
     if (responseInner === null) {
         return;
     }
@@ -584,15 +593,18 @@ async function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
         return;
     }
     if (response === true) {
-        responseChanged(o, responseInner);
+        responseChanged(o);
+        store.set(storeInner);
         return;
     }
     if (response !== undefined) {
         if (is$many) {
-            responseChanged(o, responseInner);
+            responseChanged(o);
+            store.set(response);
         } else {
             allResponses[_tracker.index] = response;
-            responseChanged(o, responseInner);
+            responseChanged(o);
+            store.set(storeInner);
         }
     }
 }
@@ -643,8 +655,8 @@ function removeCall(o: RemoveCallFnOpts) {
         delete _tracker?.uniqueKey;
     }
     if (is$many) {
-        responseChanged(
-            o,
+        responseChanged(o);
+        store.set(
             Object.assign(responseInner, {
                 loading: false,
                 success: false,
@@ -704,8 +716,8 @@ function abortCall(o: AbortCallFnOpts) {
 
     if (is$many) {
         const responseInner = get(store as any) as any;
-        responseChanged(
-            o,
+        responseChanged(o);
+        store.set(
             Object.assign(responseInner, {
                 loading: false,
                 success: false,
@@ -714,7 +726,6 @@ function abortCall(o: AbortCallFnOpts) {
                 ...(hasAbort ? { aborted: true } : {}),
             })
         );
-
         return;
     }
 
@@ -724,10 +735,10 @@ function abortCall(o: AbortCallFnOpts) {
 
     if (is$multiple) {
         const storeInner = get(store as any) as any;
-        const responseInner = storeInner.responses[_tracker.index];
-        responseInner.aborted = true;
-        responseInner.loading = false;
-        responseChanged(o, responseInner);
+        storeInner.responses[_tracker.index].aborted = true;
+        storeInner.responses[_tracker.index].loading = false;
+        responseChanged(o);
+        store.set(storeInner);
         checkForLoading({ store, opts });
     }
 }
@@ -895,7 +906,8 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
         }
     }
 
-    responseChanged(o, responseInner);
+    responseChanged(o);
+    store.set(storeInner);
 
     if (_tracker?.isLastPrefill) {
         delete _tracker?.isLastPrefill;
