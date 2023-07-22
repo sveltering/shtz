@@ -472,16 +472,16 @@ function callEndpoint(o: CallEndpointOpts) {
             }
 
             if (pushResponse) {
-                if (addMethod === "end") {
-                    _tracker.index = storeInner.responses.length;
-                    storeInner.responses.push(responseInner);
-                } //
-                else {
+                if (addMethod === "start") {
                     _tracker.index = 0;
                     storeInner.responses.unshift(responseInner);
                     for (let i = 0, iLen = storeInner.responses.length; i < iLen; i++) {
                         storeInner.responses[i]._tracker.index = i;
                     }
+                } //
+                else {
+                    _tracker.index = storeInner.responses.length;
+                    storeInner.responses.push(responseInner);
                 }
             }
             responseChanged(o, responseInner);

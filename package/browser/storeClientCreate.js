@@ -58,6 +58,7 @@ function outerProxy(callback, path, options) {
             let entrySuccessFn = undefined;
             let uniqueFn = undefined;
             let uniqueMethod = undefined;
+            let addMethod = undefined;
             let hasLoading = false;
             let hasRemove = false;
             let hasAbort = false;
@@ -87,6 +88,7 @@ function outerProxy(callback, path, options) {
                     entrySuccessFn = typeof storeOptArg?.entrySuccess === "function" ? storeOptArg.entrySuccess : undefined;
                     uniqueFn = typeof storeOptArg?.unique === "function" ? storeOptArg.unique : undefined;
                     uniqueMethod = storeOptArg?.uniqueMethod === "replace" ? "replace" : "remove";
+                    addMethod = storeOptArg?.addMethod === "start" ? "start" : "end";
                 }
                 hasAbort = storeOptArg?.abort === true ? true : false;
                 if (storeOptArg?.abortOnRemove === true) {
@@ -131,6 +133,7 @@ function outerProxy(callback, path, options) {
                 entrySuccessFn,
                 uniqueFn,
                 uniqueMethod,
+                addMethod,
                 hasLoading,
                 hasRemove,
                 hasAbort,
@@ -328,7 +331,7 @@ function callEndpoint(o) {
     }
     const { store, opts, endpointArgs, prefillHandle } = o;
     let { _tracker } = o;
-    const { endpoint, is$many, has$call, entryFn, hasLoading, hasRemove, hasAbort, hasAbortOnRemove, beforeCallFn, uniqueFn, uniqueMethod, uniqueTracker, zod, } = opts;
+    const { endpoint, is$many, has$call, entryFn, hasLoading, hasRemove, hasAbort, hasAbortOnRemove, beforeCallFn, uniqueFn, uniqueMethod, addMethod, uniqueTracker, zod, } = opts;
     if (has$call) {
         const responseInner = {
             _tracker,
@@ -391,8 +394,17 @@ function callEndpoint(o) {
                 }
             }
             if (pushResponse) {
-                _tracker.index = storeInner.responses.length;
-                storeInner.responses.push(responseInner);
+                if (addMethod === "start") {
+                    _tracker.index = 0;
+                    storeInner.responses.unshift(responseInner);
+                    for (let i = 0, iLen = storeInner.responses.length; i < iLen; i++) {
+                        storeInner.responses[i]._tracker.index = i;
+                    }
+                } //
+                else {
+                    _tracker.index = storeInner.responses.length;
+                    storeInner.responses.push(responseInner);
+                }
             }
             responseChanged(o, responseInner);
         }

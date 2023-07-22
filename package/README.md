@@ -51,6 +51,7 @@ A lot of the concepts and features of tRPC are very circular. Kind of like the c
 
    **`./src/trpc/init.ts`**
    ```ts
+	/// file: ./src/trpc/init.ts
     import { TRPC } from '@sveltering/trpc/server';
     import { getUser } from 'made-up-functions-which-dont-exist';
 
