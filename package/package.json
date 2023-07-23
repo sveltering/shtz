@@ -1,10 +1,16 @@
 {
-  "name": "@sveltering/trpc",
-  "version": "0.0.14",
+  "name": "@sveltering/shtz",
+  "version": "0.0.20",
+  "author": {
+    "name": "Yusaf Khaliq"
+  },
+  "devDependencies": {
+    "zod": "^3.21.4"
+  },
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/sveltering/trpc"
+    "url": "https://github.com/sveltering/shitz"
   },
   "dependencies": {
     "fast-deep-equal": "^3.1.3"

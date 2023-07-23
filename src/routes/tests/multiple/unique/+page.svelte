@@ -1,20 +1,24 @@
 <script lang="ts">
     import LoadingDots from "$component/loading-dots.svelte";
     import { storeClient } from "$trpc/browserClient";
-    import { z } from "zod";
+    import { ZodError, z } from "zod";
     import Inputs from "./inputs.svelte";
     console.clear();
 
     const store = storeClient.tests.friends.mutate.$multiple({
         loading: true,
         remove: true,
-        zod: z.object({ friend1: z.string().max(8), friend2: z.string().max(8) }),
-        uniqueMethod: "replace",
-        addMethod: "start",
-        changeTimer: 1000,
         abortOnRemove: true,
+        zod: z.object({ friend1: z.string().max(8), friend2: z.string().max(8) }),
+        uniqueResponse: "replace",
+        addResponse: "start",
+        changeTimer: 1000,
         entry: function (input) {
             return input;
+        },
+        entrySuccess: function (response, lastEntry) {
+            console.log(lastEntry);
+            return response;
         },
         unique: function (input, response) {
             if (input) {
@@ -67,14 +71,16 @@
                 </tr>
             {:else if response.error && response.error.name === "ZodError"}
                 {@const error = response.error}
-                <tr class:errored={response.changed && response.error}>
-                    <td colspan="3">
-                        {#each error?.issues as issue}
-                            {issue.message}<br />
-                        {/each}
-                    </td>
-                    <td><button on:click={response.remove}>remove</button></td>
-                </tr>
+                {#if error instanceof ZodError}
+                    <tr class:errored={response.changed && response.error}>
+                        <td colspan="3">
+                            {#each error.issues as issue}
+                                {issue.message}<br />
+                            {/each}
+                        </td>
+                        <td><button on:click={response.remove}>remove</button></td>
+                    </tr>
+                {/if}
             {/if}
         {/each}
     </tbody>

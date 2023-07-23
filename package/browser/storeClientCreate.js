@@ -1,7 +1,7 @@
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { get, writable } from "svelte/store";
-import { browser as isBrowser } from "$app/environment";
 import equal from "fast-deep-equal";
+const isBrowser = typeof window !== "undefined" && typeof window.document !== "undefined";
 function storeClientCreate(options) {
     const { url, batchLinkOptions, transformer } = options;
     const proxyClient = isBrowser
@@ -16,7 +16,7 @@ function noop() { }
 function pseudoProxyClient() {
     return new Proxy(noop, {
         get: () => pseudoProxyClient(),
-        apply: () => undefined,
+        apply: noop,
     });
 }
 function outerProxy(callback, path, options) {
@@ -57,8 +57,8 @@ function outerProxy(callback, path, options) {
             let entryFn = undefined;
             let entrySuccessFn = undefined;
             let uniqueFn = undefined;
-            let uniqueMethod = undefined;
-            let addMethod = undefined;
+            let uniqueResponse = undefined;
+            let addResponse = undefined;
             let hasLoading = false;
             let hasRemove = false;
             let hasAbort = false;
@@ -75,6 +75,9 @@ function outerProxy(callback, path, options) {
                 beforeCallFn = typeof storeOptArg?.beforeCall === "function" ? storeOptArg.beforeCall : undefined;
                 methodsFns = typeof storeOptArg?.methods === "object" ? storeOptArg.methods : {};
                 changeTimer = typeof storeOptArg.changeTimer === "number" ? storeOptArg.changeTimer : undefined;
+                entryFn = typeof storeOptArg?.entry === "function" ? storeOptArg.entry : undefined;
+                entrySuccessFn = typeof storeOptArg?.entrySuccess === "function" ? storeOptArg.entrySuccess : undefined;
+                hasAbort = storeOptArg?.abort === true ? true : false;
                 const prefillType = typeof storeOptArg?.prefill;
                 if (prefillType === "function") {
                     prefillFn = storeOptArg.prefill;
@@ -84,13 +87,10 @@ function outerProxy(callback, path, options) {
                 }
                 if (is$multiple) {
                     hasLoading = storeOptArg?.loading === true ? true : false;
-                    entryFn = typeof storeOptArg?.entry === "function" ? storeOptArg.entry : undefined;
-                    entrySuccessFn = typeof storeOptArg?.entrySuccess === "function" ? storeOptArg.entrySuccess : undefined;
                     uniqueFn = typeof storeOptArg?.unique === "function" ? storeOptArg.unique : undefined;
-                    uniqueMethod = storeOptArg?.uniqueMethod === "replace" ? "replace" : "remove";
-                    addMethod = storeOptArg?.addMethod === "start" ? "start" : "end";
+                    uniqueResponse = storeOptArg?.uniqueResponse === "replace" ? "replace" : "remove";
+                    addResponse = storeOptArg?.addResponse === "start" ? "start" : "end";
                 }
-                hasAbort = storeOptArg?.abort === true ? true : false;
                 if (storeOptArg?.abortOnRemove === true) {
                     hasRemove = true;
                     hasAbortOnRemove = true;
@@ -132,8 +132,8 @@ function outerProxy(callback, path, options) {
                 entryFn,
                 entrySuccessFn,
                 uniqueFn,
-                uniqueMethod,
-                addMethod,
+                uniqueResponse,
+                addResponse,
                 hasLoading,
                 hasRemove,
                 hasAbort,
@@ -331,7 +331,7 @@ function callEndpoint(o) {
     }
     const { store, opts, endpointArgs, prefillHandle } = o;
     let { _tracker } = o;
-    const { endpoint, is$many, has$call, entryFn, hasLoading, hasRemove, hasAbort, hasAbortOnRemove, beforeCallFn, uniqueFn, uniqueMethod, addMethod, uniqueTracker, zod, } = opts;
+    const { endpoint, is$many, has$call, entryFn, hasLoading, hasRemove, hasAbort, hasAbortOnRemove, beforeCallFn, uniqueFn, uniqueResponse, addResponse, uniqueTracker, zod, } = opts;
     if (has$call) {
         const responseInner = {
             _tracker,
@@ -377,7 +377,7 @@ function callEndpoint(o) {
                     const trackerFound = findUniqueTracker(uniqueKey, uniqueTracker);
                     _tracker.uniqueKey = uniqueKey;
                     if (trackerFound) {
-                        if (uniqueMethod === "remove") {
+                        if (uniqueResponse === "remove") {
                             removeCall({ store, opts, _tracker: trackerFound });
                         } //
                         else {
@@ -394,7 +394,7 @@ function callEndpoint(o) {
                 }
             }
             if (pushResponse) {
-                if (addMethod === "start") {
+                if (addResponse === "start") {
                     _tracker.index = 0;
                     storeInner.responses.unshift(responseInner);
                     for (let i = 0, iLen = storeInner.responses.length; i < iLen; i++) {
@@ -411,7 +411,6 @@ function callEndpoint(o) {
         if (zod) {
             const parse = zod.safeParse(endpointArgs?.[0]);
             if (parse?.error) {
-                console.dir(parse.error);
                 endpointReponse({
                     isSuccess: false,
                     isError: true,
@@ -648,7 +647,7 @@ async function endpointReponse(o) {
         return;
     }
     const { isSuccess, store, opts, data } = o;
-    const { is$once, is$multiple, entrySuccessFn, uniqueFn, uniqueMethod, uniqueTracker } = opts;
+    const { is$once, is$multiple, entrySuccessFn, uniqueFn, uniqueResponse, uniqueTracker } = opts;
     if (is$once) {
         const responseInner = get(store);
         store.set(Object.assign(responseInner, {
@@ -673,7 +672,7 @@ async function endpointReponse(o) {
     //     }
     // }
     if (isSuccess && entrySuccessFn) {
-        responseInner.entry = entrySuccessFn(data);
+        responseInner.entry = entrySuccessFn(data, responseInner?.entry);
     }
     Object.assign(responseInner, {
         loading: false,
@@ -688,7 +687,7 @@ async function endpointReponse(o) {
             const trackerFound = findUniqueTracker(newKey, uniqueTracker);
             _tracker.uniqueKey = newKey;
             if (trackerFound && trackerFound !== _tracker) {
-                if (uniqueMethod === "remove") {
+                if (uniqueResponse === "remove") {
                     removeCall({ store, opts, _tracker: trackerFound });
                 } //
                 else {

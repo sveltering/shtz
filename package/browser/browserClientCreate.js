@@ -1,7 +1,8 @@
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
+const isBrowser = typeof window !== "undefined" && typeof window.document !== "undefined";
 function browserClientCreate(options) {
     const { url, batchLinkOptions, browserOnly, transformer } = options;
-    if (browserOnly !== false && typeof window === "undefined") {
+    if (browserOnly === true && !isBrowser) {
         return browserPseudoClient();
     }
     return createTRPCProxyClient({

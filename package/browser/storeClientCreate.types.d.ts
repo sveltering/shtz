@@ -1,7 +1,8 @@
 import type { Writable } from "svelte/store";
 import type { Prettify, Combine, FirstNotEmpty, ArgumentTypes, FunctionType, AsyncFunctionType, AsyncReturnType, OneOf, EmptyObject, KeyValueObject } from "../types.js";
-type ZodAny = import("zod").ZodTypeAny;
-type ResponseObject<Loading extends boolean, Success extends boolean, Err extends false | Error, Data extends any, Ext extends {}> = Prettify<{
+import type { ZodTypeAny, ZodError } from "zod";
+import type { TRPCClientError } from "@trpc/client";
+type ResponseObject<Loading extends boolean, Success extends boolean, Err extends false | ErrorTypes, Data extends any, Ext extends {}> = Prettify<{
     loading: Loading;
     success: Success;
     error: Err;
@@ -9,10 +10,11 @@ type ResponseObject<Loading extends boolean, Success extends boolean, Err extend
 } & {
     [Key in keyof Ext]: Ext[Key];
 }>;
+type ErrorTypes = Error | ZodError | TRPCClientError<any>;
 type StaleReponse<Ext extends {} = {}> = ResponseObject<false, false, false, undefined, Ext>;
 type LoadingResponse<Ext extends {} = {}, Data = undefined> = ResponseObject<true, false, false, Data, Ext>;
 type SuccessResponse<Data, Ext extends {} = {}> = ResponseObject<false, true, false, Data, Ext>;
-type ErrorResponse<Ext extends {} = {}, Data = undefined> = ResponseObject<false, false, Error, Data, Ext>;
+type ErrorResponse<Ext extends {} = {}, Data = undefined> = ResponseObject<false, false, ErrorTypes, Data, Ext>;
 type AbortedResponse<Ext extends {} = {}> = StaleReponse<{
     aborted: true;
 } & Omit<Ext, "aborted">>;
@@ -43,7 +45,7 @@ type $ManyOpts<Input, Data> = {
     abort?: boolean;
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
-    zod?: ZodAny;
+    zod?: ZodTypeAny;
 };
 type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts["remove"] extends true ? {
     remove: () => Promise<void>;
@@ -75,7 +77,7 @@ type $ManyInner<Args extends any[], Input, EntryLoading extends {}, EntrySuccess
 type $ManyStore<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $ManyOpts<Input, Data>, DEBUG> = Writable<$ManyInner<Args, Input, EntryLoading, EntrySuccess, Data, Methods, Opts, DEBUG>>;
 type $ManyFn<Args extends any[], Data> = <Input extends Args[0], EntryLoading extends {}, EntrySuccess extends {}, AndEntryLoading extends {}, OrEntryLoading extends {}, AndEntrySuccess extends {}, OrEntrySuccess extends {}, AndData extends {}, OrData extends {}, EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>, EntrySuccessFinal extends $TypeMake<FirstNotEmpty<EntrySuccess, EntryLoading>, AndEntrySuccess, OrEntrySuccess>, DataFinal extends $TypeMake<Data, AndData, OrData>, Response extends $ManyResponse<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts>, Opts extends $ManyOpts<Args[0], DataFinal>, Methods extends {}, MethodsFinal extends AdditionalMethodsFinal<Methods>, DEBUG extends {}>(options?: Opts & {
     entry?: (input: Input) => EntryLoading;
-    entrySuccess?: (response: DataFinal) => EntrySuccess;
+    entrySuccess?: (response: DataFinal, lastEntry: EntryLoadingFinal extends EmptyObject ? undefined : EntryLoadingFinal) => EntrySuccess;
     methods?: Methods & {
         [key: string]: AdditionalMethodFn<Response>;
     };
@@ -97,9 +99,9 @@ type $MultipleOpts<Input, Data> = {
     abort?: boolean;
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
-    zod?: ZodAny;
-    uniqueMethod?: "remove" | "replace";
-    addMethod?: "start" | "end";
+    zod?: ZodTypeAny;
+    uniqueResponse?: "remove" | "replace";
+    addResponse?: "start" | "end";
     changeTimer?: number;
 };
 type $MultipleExtension<Input, Data, Opts extends $MultipleOpts<Input, Data>> = (Opts["remove"] extends true ? {
@@ -126,7 +128,7 @@ type $MultipleResponseInner<Input, EntryLoading extends {}, EntrySuccess extends
     entry: EntryLoading;
 }>);
 type $MultipleInner<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $MultipleOpts<Input, Data>, DEBUG> = {
-    prefillError?: Error;
+    prefillError?: ErrorTypes;
     responses: $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Methods, Opts>[];
     call: (...args: Args) => void;
     readonly DEBUG: DEBUG;
@@ -137,7 +139,7 @@ type $MultipleStore<Args extends any[], Input, EntryLoading extends {}, EntrySuc
 type $TypeMake<OriginalType, AndType extends {}, OrType extends {}> = OriginalType extends KeyValueObject ? AndType extends EmptyObject ? OrType extends EmptyObject ? OriginalType : OriginalType | Combine<OriginalType, OrType> : Combine<OriginalType, AndType> : OriginalType;
 type $MultipleFn<Args extends any[], Data> = <Input extends Args[0], EntryLoading extends {}, EntrySuccess extends {}, AndEntryLoading extends {}, OrEntryLoading extends {}, AndEntrySuccess extends {}, OrEntrySuccess extends {}, AndData extends {}, OrData extends {}, EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>, EntrySuccessFinal extends $TypeMake<FirstNotEmpty<EntrySuccess, EntryLoading>, AndEntrySuccess, OrEntrySuccess>, DataFinal extends $TypeMake<Data, AndData, OrData>, Opts extends $MultipleOpts<Input, DataFinal>, Response extends $MultipleResponseInner<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, {}, Opts>, Methods extends {}, MethodsFinal extends AdditionalMethodsFinal<Methods>, DEBUG extends {}>(options?: Opts & {
     entry?: (input: Input) => EntryLoading;
-    entrySuccess?: (response: DataFinal) => EntrySuccess;
+    entrySuccess?: (response: DataFinal, lastEntry: EntryLoadingFinal extends EmptyObject ? undefined : EntryLoadingFinal) => EntrySuccess;
     methods?: Methods & {
         [key: string]: AdditionalMethodFn<Response>;
     };
@@ -177,10 +179,10 @@ export type StoreOpts = {
     readonly prefillData: undefined | any;
     readonly prefillFn: undefined | (() => any | Promise<any>);
     readonly entryFn: undefined | ((input: object) => object);
-    readonly entrySuccessFn: undefined | ((response: object) => object);
+    readonly entrySuccessFn: undefined | ((response: {}, lastEntry: undefined | {}) => {});
     readonly uniqueFn: undefined | ((input: any, response: any) => any);
-    readonly uniqueMethod: undefined | "remove" | "replace";
-    readonly addMethod: undefined | "start" | "end";
+    readonly uniqueResponse: undefined | "remove" | "replace";
+    readonly addResponse: undefined | "start" | "end";
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
@@ -205,8 +207,8 @@ export type $OnceStoreOpts = {
     readonly entryFn: undefined;
     readonly entrySuccessFn: undefined;
     readonly uniqueFn: undefined;
-    readonly uniqueMethod: undefined;
-    readonly addMethod: undefined;
+    readonly uniqueResponse: undefined;
+    readonly addResponse: undefined;
     readonly hasLoading: false;
     readonly hasRemove: false;
     readonly hasAbort: false;
@@ -231,8 +233,8 @@ export type $ManyStoreOpts = {
     readonly entryFn: undefined;
     readonly entrySuccessFn: undefined;
     readonly uniqueFn: undefined;
-    readonly uniqueMethod: undefined;
-    readonly addMethod: undefined;
+    readonly uniqueResponse: undefined;
+    readonly addResponse: undefined;
     readonly entryUnique: false;
     readonly hasLoading: false;
     readonly hasRemove: boolean;
@@ -256,10 +258,10 @@ export type $MultipleStoreOpts = {
     readonly prefillData: undefined | any[];
     readonly prefillFn: undefined | (() => any[] | Promise<any[]>);
     readonly entryFn: (input: object) => object;
-    readonly entrySuccessFn: undefined | ((response: object) => object);
+    readonly entrySuccessFn: undefined | ((response: {}, lastEntry: undefined | {}) => {});
     readonly uniqueFn: undefined | ((input: any, response: any) => any);
-    readonly uniqueMethod: "remove" | "replace";
-    readonly addMethod: "start" | "end";
+    readonly uniqueResponse: "remove" | "replace";
+    readonly addResponse: "start" | "end";
     readonly hasLoading: boolean;
     readonly hasRemove: boolean;
     readonly hasAbort: boolean;
