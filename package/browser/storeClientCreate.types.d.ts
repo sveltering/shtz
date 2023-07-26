@@ -72,7 +72,7 @@ type $ManyResponse<Input, EntryLoading extends {}, EntrySuccess extends {}, Data
 }>);
 type $ManyInner<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $ManyOpts<Input, Data>, DEBUG> = {
     call: (...args: Args) => void;
-    readonly DEBUG?: DEBUG;
+    fill: (data: Data | (() => Data) | (() => Promise<Data | undefined>)) => void;
 } & Methods & $ManyResponse<Input, EntryLoading, EntrySuccess, Data, Opts>;
 type $ManyStore<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $ManyOpts<Input, Data>, DEBUG> = Writable<$ManyInner<Args, Input, EntryLoading, EntrySuccess, Data, Methods, Opts, DEBUG>>;
 type $ManyFn<Args extends any[], Data> = <Input extends Args[0], EntryLoading extends {}, EntrySuccess extends {}, AndEntryLoading extends {}, OrEntryLoading extends {}, AndEntrySuccess extends {}, OrEntrySuccess extends {}, AndData extends {}, OrData extends {}, EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>, EntrySuccessFinal extends $TypeMake<FirstNotEmpty<EntrySuccess, EntryLoading>, AndEntrySuccess, OrEntrySuccess>, DataFinal extends $TypeMake<Data, AndData, OrData>, Response extends $ManyResponse<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, Opts>, Opts extends $ManyOpts<Args[0], DataFinal>, Methods extends {}, MethodsFinal extends AdditionalMethodsFinal<Methods>, DEBUG extends {}>(options?: Opts & {
@@ -131,8 +131,8 @@ type $MultipleInner<Args extends any[], Input, EntryLoading extends {}, EntrySuc
     prefillError?: ErrorTypes;
     responses: $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Methods, Opts>[];
     call: (...args: Args) => void;
-    readonly DEBUG: DEBUG;
-} & Methods & (Opts["loading"] extends true ? {
+    fill: (data: Data | Data[] | (() => Data | Data[]) | (() => Promise<Data | Data[] | undefined>)) => void;
+} & (Opts["loading"] extends true ? {
     loading: false;
 } : {});
 type $MultipleStore<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $MultipleOpts<Input, Data>, DEBUG> = Writable<$MultipleInner<Args, Input, EntryLoading, EntrySuccess, Data, Methods, Opts, DEBUG>>;

@@ -20,8 +20,8 @@
 			  "$trpc/*": ["./src/trpc/*"],
 			  "$component": ["./src/component"],
 			  "$component/*": ["./src/component/*"],
-			"@sveltering/trpc": ["./src/lib"],
-			"@sveltering/trpc/*": ["./src/lib/*"]
+			"@sveltering/shtz": ["./src/lib"],
+			"@sveltering/shtz/*": ["./src/lib/*"]
 		  },
 		
 	}

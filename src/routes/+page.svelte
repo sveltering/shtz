@@ -1,17 +1,17 @@
 <script lang="ts">
-	import { writable } from 'svelte/store';
+	import { browserClient, type ProcedureReturnType } from "$trpc/browserClient";
 
-	console.clear();
-	let hi = {
-		hi: 1
-	};
-
-	let store = writable(hi);
-
-	$: console.log(hi);
-
-	setTimeout(() => {
-		hi.hello = 'HELLO';
-		store.update((val) => val);
-	}, 3000);
+	let welcome: ProcedureReturnType<typeof browserClient.welcome.query>;
+	(async function () {
+		welcome = await browserClient.welcome.query();
+	})();
 </script>
+
+{#if welcome}
+	{welcome}
+{:else}
+	<h1>Welcome to SvelteKit</h1>
+{/if}
+<p>
+	Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation
+</p>

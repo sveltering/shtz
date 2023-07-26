@@ -7,7 +7,7 @@ function storeClientCreate(options) {
     const proxyClient = isBrowser
         ? createTRPCProxyClient({
             links: [httpBatchLink({ ...batchLinkOptions, url })],
-            transformer: transformer,
+            transformer,
         })
         : pseudoProxyClient();
     return outerProxy(proxyClient, [], options);
@@ -71,12 +71,28 @@ function outerProxy(callback, path, options) {
             const storeOptArg = hasArguments ? args[0] : false;
             if (isBrowser && storeOptArg && has$call) {
                 hasRemove = storeOptArg?.remove === true ? true : false;
-                zod = typeof storeOptArg?.zod?.safeParse === "function" ? storeOptArg.zod : undefined;
-                beforeCallFn = typeof storeOptArg?.beforeCall === "function" ? storeOptArg.beforeCall : undefined;
-                methodsFns = typeof storeOptArg?.methods === "object" ? storeOptArg.methods : {};
-                changeTimer = typeof storeOptArg.changeTimer === "number" ? storeOptArg.changeTimer : undefined;
-                entryFn = typeof storeOptArg?.entry === "function" ? storeOptArg.entry : undefined;
-                entrySuccessFn = typeof storeOptArg?.entrySuccess === "function" ? storeOptArg.entrySuccess : undefined;
+                zod =
+                    typeof storeOptArg?.zod?.safeParse === "function"
+                        ? storeOptArg.zod
+                        : undefined;
+                beforeCallFn =
+                    typeof storeOptArg?.beforeCall === "function"
+                        ? storeOptArg.beforeCall
+                        : undefined;
+                methodsFns =
+                    typeof storeOptArg?.methods === "object" ? storeOptArg.methods : {};
+                changeTimer =
+                    typeof storeOptArg.changeTimer === "number"
+                        ? storeOptArg.changeTimer
+                        : undefined;
+                entryFn =
+                    typeof storeOptArg?.entry === "function"
+                        ? storeOptArg.entry
+                        : undefined;
+                entrySuccessFn =
+                    typeof storeOptArg?.entrySuccess === "function"
+                        ? storeOptArg.entrySuccess
+                        : undefined;
                 hasAbort = storeOptArg?.abort === true ? true : false;
                 const prefillType = typeof storeOptArg?.prefill;
                 if (prefillType === "function") {
@@ -87,9 +103,18 @@ function outerProxy(callback, path, options) {
                 }
                 if (is$multiple) {
                     hasLoading = storeOptArg?.loading === true ? true : false;
-                    uniqueFn = typeof storeOptArg?.unique === "function" ? storeOptArg.unique : undefined;
-                    uniqueResponse = storeOptArg?.uniqueResponse === "replace" ? "replace" : "remove";
-                    addResponse = storeOptArg?.addResponse === "start" ? "start" : "end";
+                    uniqueFn =
+                        typeof storeOptArg?.unique === "function"
+                            ? storeOptArg.unique
+                            : undefined;
+                    uniqueResponse =
+                        storeOptArg?.uniqueResponse === "replace"
+                            ? "replace"
+                            : "remove";
+                    addResponse =
+                        storeOptArg?.addResponse === "start"
+                            ? "start"
+                            : "end";
                 }
                 if (storeOptArg?.abortOnRemove === true) {
                     hasRemove = true;
@@ -104,8 +129,14 @@ function outerProxy(callback, path, options) {
                 }
                 if (is$multiple) {
                     hasLoading = storeOptArg?.loading === true ? true : false;
-                    entrySuccessFn = typeof storeOptArg?.entrySuccess === "function" ? storeOptArg.entrySuccess : undefined;
-                    uniqueFn = typeof storeOptArg?.unique === "function" ? storeOptArg.unique : undefined;
+                    entrySuccessFn =
+                        typeof storeOptArg?.entrySuccess === "function"
+                            ? storeOptArg.entrySuccess
+                            : undefined;
+                    uniqueFn =
+                        typeof storeOptArg?.unique === "function"
+                            ? storeOptArg.unique
+                            : undefined;
                 }
                 if (storeOptArg?.abortOnRemove === true) {
                     hasRemove = true;
@@ -177,6 +208,11 @@ const storeClientMethods = {
                     callEndpoint({ store, opts, endpointArgs, _tracker });
                 }
                 : noop,
+            fill: isBrowser
+                ? (data) => {
+                    handlePrefill(store, opts, data);
+                }
+                : noop,
         });
         handlePrefill(store, opts);
         return store;
@@ -192,18 +228,34 @@ const storeClientMethods = {
                     callEndpoint({ store, opts, endpointArgs, _tracker });
                 }
                 : noop,
+            fill: isBrowser
+                ? (data) => {
+                    handlePrefill(store, opts, data);
+                }
+                : noop,
         });
         handlePrefill(store, opts);
         return store;
     },
 };
-function handlePrefill(store, opts) {
-    const { prefillData, prefillFn, is$many, is$multiple, hasLoading } = opts;
-    if (!prefillData && !prefillFn) {
-        return;
-    }
+function handlePrefill(store, opts, prefillDataOrFn) {
+    const { is$many, is$multiple, hasLoading } = opts;
+    let { prefillData, prefillFn } = opts;
     if (prefillData === undefined && !isBrowser) {
         return;
+    }
+    if (typeof prefillDataOrFn !== "undefined") {
+        if (typeof prefillDataOrFn === "function") {
+            prefillFn = prefillDataOrFn;
+        }
+        else {
+            prefillData = prefillDataOrFn;
+        }
+    } //
+    else {
+        if (!prefillData && !prefillFn) {
+            return;
+        }
     }
     if (!isBrowser && is$many) {
         const _tracker = { isLastPrefill: true };
@@ -236,7 +288,9 @@ function handlePrefill(store, opts) {
         const startingIndex = storeInner.responses.length;
         const data = Array.isArray(prefillData) ? prefillData : [prefillData];
         for (let i = 0, iLen = data.length; i < iLen; i++) {
-            const _tracker = { index: startingIndex + i };
+            const _tracker = {
+                index: startingIndex + i,
+            };
             if (i === iLen - 1) {
                 _tracker.isLastPrefill = true;
             }
@@ -268,7 +322,9 @@ function handlePrefill(store, opts) {
             storeInner.loading = true;
             store.set(storeInner);
         }
-        const prefillFunction = prefillFn ? callAsync(prefillFn) : async () => prefillData;
+        const prefillFunction = prefillFn
+            ? callAsync(prefillFn)
+            : async () => prefillData;
         prefillFunction()
             .then(function (data) {
             data = Array.isArray(data) ? data : [data];
@@ -357,7 +413,12 @@ function callEndpoint(o) {
         }
         if (hasAbort) {
             responseInner.aborted = false;
-            responseInner.abort = abortCallFn({ store, opts, _tracker, fromRemove: false });
+            responseInner.abort = abortCallFn({
+                store,
+                opts,
+                _tracker,
+                fromRemove: false,
+            });
         }
         if (hasRemove) {
             responseInner.remove = removeCallFn({ store, opts, _tracker });
@@ -424,7 +485,9 @@ function callEndpoint(o) {
         }
     }
     if (prefillHandle) {
-        prefillHandle().then(endpointSuccess({ store, opts, _tracker })).catch(endpointError({ store, opts, _tracker }));
+        prefillHandle()
+            .then(endpointSuccess({ store, opts, _tracker }))
+            .catch(endpointError({ store, opts, _tracker }));
     } //
     else if (typeof beforeCallFn === "function") {
         callAsync(beforeCallFn)(endpointArgs?.[0], function (newInput) {
@@ -451,7 +514,11 @@ function getResponseInner(o) {
     const { is$multiple, is$many } = opts;
     const storeInner = get(store);
     const allResponses = is$multiple ? storeInner.responses : undefined;
-    const responseInner = is$many ? storeInner : allResponses.hasOwnProperty(_tracker.index) ? allResponses[_tracker.index] : null;
+    const responseInner = is$many
+        ? storeInner
+        : allResponses.hasOwnProperty(_tracker.index)
+            ? allResponses[_tracker.index]
+            : null;
     return { storeInner, responseInner, allResponses };
 }
 function responseChanged(o, responseInner) {
@@ -647,7 +714,7 @@ async function endpointReponse(o) {
         return;
     }
     const { isSuccess, store, opts, data } = o;
-    const { is$once, is$multiple, entrySuccessFn, uniqueFn, uniqueResponse, uniqueTracker } = opts;
+    const { is$once, is$multiple, entrySuccessFn, uniqueFn, uniqueResponse, uniqueTracker, } = opts;
     if (is$once) {
         const responseInner = get(store);
         store.set(Object.assign(responseInner, {

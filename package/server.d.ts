@@ -10,7 +10,7 @@ export declare class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
     _routes?: AnyRouter;
     tRPCInner: TRPCInner<Ctx>;
     localsKeySet: boolean;
-    constructor(options: TRPCOpts<Ctx, LocalsKey, LocalsType>);
+    constructor(options?: TRPCOpts<Ctx, LocalsKey, LocalsType>);
     get router(): <TProcRouterRecord extends import("@trpc/server").ProcedureRouterRecord>(procedures: TProcRouterRecord) => import("@trpc/server").CreateRouterInner<import("@trpc/server").RootConfig<{
         ctx: import("@trpc/server").FlatOverwrite<object, {
             ctx: import("@trpc/server").Unwrap<Ctx>;

@@ -1,5 +1,5 @@
 import { initTRPC, TRPCError } from "@trpc/server";
-import { resolveHTTPResponse, getHTTPStatusCodeFromError, TRPC_ERROR_CODES_BY_NUMBER } from "@trpc/server/http";
+import { resolveHTTPResponse, getHTTPStatusCodeFromError, TRPC_ERROR_CODES_BY_NUMBER, } from "@trpc/server/http";
 const TRPC_ERROR_CODES_BY_KEY = Object.fromEntries(Object.entries(TRPC_ERROR_CODES_BY_NUMBER).map(([key, value]) => [value, key]));
 export class TRPC {
     options;
@@ -26,7 +26,9 @@ export class TRPC {
         if (path[path.length - 1] === "/") {
             throw new Error(`path "${path}" can not end with trailing "/"`);
         }
-        this.tRPCInner = initTRPC.context().create(this.options?.createOptions || {});
+        this.tRPCInner = initTRPC
+            .context()
+            .create(this.options?.createOptions || {});
         return this;
     }
     get router() {
@@ -52,7 +54,7 @@ export class TRPC {
     hookCreate(router) {
         this._routes = router;
         const options = this.options;
-        const { path, localsKey, locals, beforeResolve, beforeResponse, context, resolveOptions } = options;
+        const { path, localsKey, locals, beforeResolve, beforeResponse, context, resolveOptions, } = options;
         const pathTrailingSlash = path + "/";
         const hasLocals = typeof locals === "string" || this.localsKeySet;
         let localsAlways = locals === "always";
@@ -80,9 +82,15 @@ export class TRPC {
             }
             let result, dotPath = "";
             if (beforeResolve) {
-                dotPath = pathName?.substring?.(path.length + 1)?.replaceAll?.("/", ".");
+                dotPath = pathName
+                    ?.substring?.(path.length + 1)
+                    ?.replaceAll?.("/", ".");
                 try {
-                    const maybeResult = await beforeResolve({ dotPath, event, pipe });
+                    const maybeResult = await beforeResolve({
+                        dotPath,
+                        event,
+                        pipe,
+                    });
                     if (maybeResult !== undefined) {
                         result = maybeResult;
                     }
@@ -107,9 +115,16 @@ export class TRPC {
                 });
             }
             if (beforeResponse) {
-                dotPath = !!dotPath ? dotPath : pathName?.substring?.(path.length + 1)?.replaceAll?.("/", ".");
+                dotPath = !!dotPath
+                    ? dotPath
+                    : pathName?.substring?.(path.length + 1)?.replaceAll?.("/", ".");
                 try {
-                    const maybeResult = await beforeResponse({ dotPath, event, pipe, result });
+                    const maybeResult = await beforeResponse({
+                        dotPath,
+                        event,
+                        pipe,
+                        result,
+                    });
                     if (maybeResult !== undefined) {
                         result = maybeResult;
                     }

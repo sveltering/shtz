@@ -4,8 +4,8 @@ function loadClientCreate(options) {
     return function (event) {
         const { fetch } = event;
         return createTRPCProxyClient({
-            links: [httpBatchLink({ ...batchLinkOptions, url, fetch: fetch })],
-            transformer: transformer,
+            links: [httpBatchLink({ ...batchLinkOptions, url, fetch })],
+            transformer,
         });
     };
 }
