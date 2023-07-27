@@ -328,6 +328,10 @@ function handlePrefill(store, opts, prefillDataOrFn) {
         prefillFunction()
             .then(function (data) {
             data = Array.isArray(data) ? data : [data];
+            if (hasLoading && !data.length) {
+                storeInner.loading = false;
+                store.set(storeInner);
+            }
             for (let i = 0, iLen = data.length; i < iLen; i++) {
                 const _tracker = {};
                 if (i === iLen - 1) {

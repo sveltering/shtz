@@ -390,6 +390,10 @@ function handlePrefill(
 		prefillFunction()
 			.then(function (data: any) {
 				data = Array.isArray(data) ? data : [data];
+				if (hasLoading && !data.length) {
+					storeInner.loading = false;
+					store.set(storeInner);
+				}
 				for (let i = 0, iLen = data.length; i < iLen; i++) {
 					const _tracker: CallTracker = {} as CallTracker;
 					if (i === iLen - 1) {
