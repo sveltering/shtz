@@ -78,12 +78,11 @@ type BeforeCallFn<Input> = (
 
 type AdditionalMethodFn<Response> = (
 	response: Response,
-	remove: () => { remove: "REMOVE" }
-) =>
-	| Response
-	| boolean
-	| { remove: "REMOVE" }
-	| Promise<Response | boolean | { remove: "REMOVE" }>;
+	actions: {
+		remove: () => void;
+		update: () => void;
+	}
+) => undefined | void;
 
 type AdditionalMethods<Methods extends {}, Response> = {
 	[key in keyof Methods]: AdditionalMethodFn<Response>;

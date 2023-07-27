@@ -657,41 +657,29 @@ type AddResponseMethodsOpts = {
 	_tracker: CallTracker;
 };
 
-const removeObj = { remove: "REMOVE" as const };
-const removeFn = () => removeObj;
-function reponseMethodCall(
-	o: AddResponseMethodsOpts,
-	key: string,
-	isAsync: boolean
-) {
-	const { opts, _tracker } = o;
+const updateCall = (o: AddResponseMethodsOpts) => {
 	let { responseInner, allResponses } = getResponseInner(o);
+	const {
+		opts: { is$many },
+		_tracker,
+	} = o;
+	if (is$many) {
+		responseChanged(o, responseInner);
+	} else {
+		allResponses[_tracker.index] = responseInner;
+		responseChanged(o, allResponses);
+	}
+};
+
+function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
+	let { responseInner } = getResponseInner(o);
 	if (responseInner === null) {
 		return;
 	}
-	const { methodsFns, is$many } = opts;
-	return callAsync(methodsFns[key])(responseInner, removeFn).then(function (
-		response: any
-	) {
-		if (response === removeObj) {
-			removeCall(o);
-			return;
-		}
-		if (response === false) {
-			return;
-		}
-		if (response === true) {
-			responseChanged(o, responseInner);
-			return;
-		}
-		if (response !== undefined) {
-			if (is$many) {
-				responseChanged(o, responseInner);
-			} else {
-				allResponses[_tracker.index] = response;
-				responseChanged(o, responseInner);
-			}
-		}
+	const { methodsFns } = o.opts;
+	return methodsFns[key](responseInner, {
+		remove: () => removeCall(o),
+		update: () => updateCall(o),
 	});
 }
 
@@ -703,9 +691,9 @@ function addResponseMethods(o: AddResponseMethodsOpts) {
 	for (let key in methodsFns) {
 		if (typeof methodsFns[key] !== "function") continue;
 		if (methodsFns[key]?.constructor?.name === "AsyncFunction") {
-			responseInner[key] = async () => await reponseMethodCall(o, key, true);
+			responseInner[key] = async () => await reponseMethodCall(o, key);
 		} else {
-			responseInner[key] = () => reponseMethodCall(o, key, false);
+			responseInner[key] = () => reponseMethodCall(o, key);
 		}
 	}
 }
@@ -748,7 +736,7 @@ function removeCall(o: RemoveCallFnOpts) {
 	} //
 	else if (typeof _tracker.index === "number") {
 		const responseIndex = _tracker.index;
-		let response = allResponses.splice(_tracker.index, 1)?.[0];
+		let response = allResponses?.splice(_tracker.index, 1)?.[0] || {};
 		for (let key in response) {
 			response[key] = null;
 			delete response[key];
