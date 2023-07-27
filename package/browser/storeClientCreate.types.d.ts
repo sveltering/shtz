@@ -20,13 +20,10 @@ type AbortedResponse<Ext extends {} = {}> = StaleReponse<{
 } & Omit<Ext, "aborted">>;
 type ReplaceInputFn<Input> = (newInput: Input) => Input;
 type BeforeCallFn<Input> = (input: Input, replaceInput: ReplaceInputFn<Input>) => boolean | void | Promise<boolean | void>;
-type AdditionalMethodFn<Response> = (response: Response, remove: () => {
-    remove: "REMOVE";
-}) => Response | boolean | {
-    remove: "REMOVE";
-} | Promise<Response | boolean | {
-    remove: "REMOVE";
-}>;
+type AdditionalMethodFn<Response> = (response: Response, actions: {
+    remove: () => void;
+    update: () => void;
+}) => undefined | void;
 type AdditionalMethods<Methods extends {}, Response> = {
     [key in keyof Methods]: AdditionalMethodFn<Response>;
 };
