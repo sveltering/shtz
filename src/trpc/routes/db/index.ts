@@ -1,3 +1,4 @@
+import { sleep } from "$trpc/functions";
 import { t } from "$trpc/init";
 import { z } from "zod";
 
@@ -37,6 +38,17 @@ export default t.router({
 			return item;
 		}),
 });
+/*
+ *
+ *
+ *
+ *
+ *
+ *
+ *
+ * STRING DB :)
+ * THE NEXT GEN DATABASE TO TAKE OVER THE WORLD!
+ */
 declare global {
 	var stringDBStore: undefined | string[];
 }
@@ -61,21 +73,11 @@ let stringDB = {
 		if (Math.random() < 0.1) {
 			throw new Error("Failed to insert");
 		}
-		if (!this.data.includes(addItem)) {
-			this.data.push(addItem);
+		if (this.data.includes(addItem)) {
+			this.data = this.data.filter((item) => item !== addItem);
 		}
+		this.data.push(addItem);
 		global.stringDBStore = this.data;
 		return addItem;
 	},
 };
-function sleep(tMin: number, tMax?: number, inS: boolean = true) {
-	tMin = tMin * (inS ? 1000 : 1);
-	tMax = tMax ? tMax * (inS ? 1000 : 1) : undefined;
-	const ms =
-		tMax !== undefined && tMax > tMin
-			? Math.floor(Math.random() * (tMax - tMin + 1)) + tMin
-			: tMin;
-	return new Promise((resolve) => {
-		setTimeout(resolve, ms);
-	});
-}

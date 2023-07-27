@@ -133,10 +133,6 @@ function outerProxy(callback, path, options) {
                         typeof storeOptArg?.entrySuccess === "function"
                             ? storeOptArg.entrySuccess
                             : undefined;
-                    uniqueFn =
-                        typeof storeOptArg?.unique === "function"
-                            ? storeOptArg.unique
-                            : undefined;
                 }
                 if (storeOptArg?.abortOnRemove === true) {
                     hasRemove = true;
@@ -311,9 +307,9 @@ function handlePrefill(store, opts, prefillDataOrFn) {
                 _tracker,
                 data: data[i],
             });
-            //@ts-ignore
-            delete opts.prefillData;
         }
+        //@ts-ignore
+        delete opts.prefillData;
         return;
     }
     if (isBrowser && is$multiple) {
@@ -686,15 +682,15 @@ function checkForLoading(o) {
 }
 function endpointSuccess(o) {
     return async function (data) {
-        await endpointReponse({ isSuccess: true, isError: false, data, ...o });
+        endpointReponse({ isSuccess: true, isError: false, data, ...o });
     };
 }
 function endpointError(o) {
     return async function (error) {
-        await endpointReponse({ isSuccess: false, isError: true, error, ...o });
+        endpointReponse({ isSuccess: false, isError: true, error, ...o });
     };
 }
-async function endpointReponse(o) {
+function endpointReponse(o) {
     const { error, isError } = o;
     let { _tracker } = o;
     if (_tracker?.removed) {
@@ -741,7 +737,7 @@ async function endpointReponse(o) {
         error: isError ? error : false,
         data: isSuccess ? data : undefined,
     });
-    if (isSuccess && typeof uniqueFn === "function") {
+    if (isBrowser && isSuccess && typeof uniqueFn === "function") {
         const newKey = uniqueFn(undefined, data);
         if (newKey !== undefined) {
             const previousKey = _tracker?.uniqueKey;

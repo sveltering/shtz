@@ -180,10 +180,6 @@ function outerProxy(
 						typeof storeOptArg?.entrySuccess === "function"
 							? storeOptArg.entrySuccess
 							: undefined;
-					uniqueFn =
-						typeof storeOptArg?.unique === "function"
-							? storeOptArg.unique
-							: undefined;
 				}
 				if (storeOptArg?.abortOnRemove === true) {
 					hasRemove = true;
@@ -372,9 +368,9 @@ function handlePrefill(
 				_tracker,
 				data: data[i],
 			});
-			//@ts-ignore
-			delete opts.prefillData;
 		}
+		//@ts-ignore
+		delete opts.prefillData;
 		return;
 	}
 
@@ -712,7 +708,6 @@ function removeCall(o: RemoveCallFnOpts) {
 	const { is$many } = opts;
 
 	const { storeInner, responseInner, allResponses } = getResponseInner(o);
-
 	if (_tracker.removed === true) {
 		return;
 	}
@@ -851,12 +846,12 @@ type EndpointSuccessOrError = {
 };
 function endpointSuccess(o: EndpointSuccessOrError) {
 	return async function (data: any) {
-		await endpointReponse({ isSuccess: true, isError: false, data, ...o });
+		endpointReponse({ isSuccess: true, isError: false, data, ...o });
 	};
 }
 function endpointError(o: EndpointSuccessOrError) {
 	return async function (error: any) {
-		await endpointReponse({ isSuccess: false, isError: true, error, ...o });
+		endpointReponse({ isSuccess: false, isError: true, error, ...o });
 	};
 }
 
@@ -890,9 +885,9 @@ type EndpointResponseOpts = {
 	data?: any;
 	error?: Error;
 };
-async function endpointReponse(o: EndpointSuccessOpts): Promise<void>;
-async function endpointReponse(o: EndpointErrorOpts): Promise<void>;
-async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
+function endpointReponse(o: EndpointSuccessOpts): void;
+function endpointReponse(o: EndpointErrorOpts): void;
+function endpointReponse(o: EndpointResponseOpts): void {
 	const { error, isError } = o;
 	let { _tracker } = o;
 
@@ -958,7 +953,7 @@ async function endpointReponse(o: EndpointResponseOpts): Promise<void> {
 		data: isSuccess ? data : undefined,
 	});
 
-	if (isSuccess && typeof uniqueFn === "function") {
+	if (isBrowser && isSuccess && typeof uniqueFn === "function") {
 		const newKey = uniqueFn(undefined, data);
 		if (newKey !== undefined) {
 			const previousKey = _tracker?.uniqueKey;

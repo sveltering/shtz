@@ -6,8 +6,9 @@
 
 	let list = storeClient.db.addToList.mutate.$multiple({
 		loading: true,
-		prefill: function () {
-			return storeClient.db.getList.query.call();
+		prefill: data.prefill,
+		unique(input, data) {
+			return input ? input : data;
 		},
 	});
 
