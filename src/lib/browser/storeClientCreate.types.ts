@@ -82,7 +82,7 @@ type AdditionalMethodFn<Response> = (
 		remove: () => void;
 		update: () => void;
 	}
-) => undefined | void;
+) => undefined | void | Promise<undefined | void>;
 
 type AdditionalMethods<Methods extends {}, Response> = {
 	[key in keyof Methods]: AdditionalMethodFn<Response>;
@@ -91,6 +91,21 @@ type AdditionalMethods<Methods extends {}, Response> = {
 type AdditionalMethodsFinal<Methods extends { [key: string]: FunctionType }> = {
 	[key in keyof Methods]: () => void | Promise<void>;
 };
+
+interface UniqueFunction<Input extends {}, Data> {
+	(input: undefined, data: Data):
+		| void
+		| undefined
+		| string
+		| number
+		| KeyValueObject;
+	(input: Input, data: undefined):
+		| void
+		| undefined
+		| string
+		| number
+		| KeyValueObject;
+}
 
 /*
  * CALL
@@ -263,7 +278,7 @@ type $ManyFn<Args extends any[], Data> = <
 >;
 
 /*
- * ENTRIES STORE
+ * MULTIPLE STORE
  */
 
 type $MultipleOpts<Input, Data> = {
@@ -430,7 +445,7 @@ type $MultipleFn<Args extends any[], Data> = <
 	>,
 	Methods extends {},
 	MethodsFinal extends AdditionalMethodsFinal<Methods>,
-	DEBUG extends {}
+	DEBUG extends EntrySuccessFinal
 >(
 	options?: Opts & {
 		entry?: (input: Input) => EntryLoading;
@@ -443,10 +458,7 @@ type $MultipleFn<Args extends any[], Data> = <
 		methods?: Methods & {
 			[key: string]: AdditionalMethodFn<Response>;
 		};
-		unique?: (
-			input?: Input,
-			data?: DataFinal
-		) => void | undefined | string | number | KeyValueObject;
+		unique?: UniqueFunction<Input, DataFinal>;
 		types?: OneOf<{
 			orData?: OrData;
 			andData?: AndData;

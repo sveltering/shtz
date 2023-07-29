@@ -23,7 +23,7 @@ type BeforeCallFn<Input> = (input: Input, replaceInput: ReplaceInputFn<Input>) =
 type AdditionalMethodFn<Response> = (response: Response, actions: {
     remove: () => void;
     update: () => void;
-}) => undefined | void;
+}) => undefined | void | Promise<undefined | void>;
 type AdditionalMethods<Methods extends {}, Response> = {
     [key in keyof Methods]: AdditionalMethodFn<Response>;
 };
@@ -32,6 +32,10 @@ type AdditionalMethodsFinal<Methods extends {
 }> = {
     [key in keyof Methods]: () => void | Promise<void>;
 };
+interface UniqueFunction<Input extends {}, Data> {
+    (input: undefined, data: Data): void | undefined | string | number | KeyValueObject;
+    (input: Input, data: undefined): void | undefined | string | number | KeyValueObject;
+}
 type $CallFn<Args extends any[], Data> = (...args: Args) => Promise<Data | undefined>;
 type $OnceInner<Data> = LoadingResponse | SuccessResponse<Data> | ErrorResponse;
 type $OnceStore<Data> = Writable<$OnceInner<Data>>;
@@ -134,13 +138,13 @@ type $MultipleInner<Args extends any[], Input, EntryLoading extends {}, EntrySuc
 } : {});
 type $MultipleStore<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $MultipleOpts<Input, Data>, DEBUG> = Writable<$MultipleInner<Args, Input, EntryLoading, EntrySuccess, Data, Methods, Opts, DEBUG>>;
 type $TypeMake<OriginalType, AndType extends {}, OrType extends {}> = OriginalType extends KeyValueObject ? AndType extends EmptyObject ? OrType extends EmptyObject ? OriginalType : OriginalType | Combine<OriginalType, OrType> : Combine<OriginalType, AndType> : OriginalType;
-type $MultipleFn<Args extends any[], Data> = <Input extends Args[0], EntryLoading extends {}, EntrySuccess extends {}, AndEntryLoading extends {}, OrEntryLoading extends {}, AndEntrySuccess extends {}, OrEntrySuccess extends {}, AndData extends {}, OrData extends {}, EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>, EntrySuccessFinal extends $TypeMake<FirstNotEmpty<EntrySuccess, EntryLoading>, AndEntrySuccess, OrEntrySuccess>, DataFinal extends $TypeMake<Data, AndData, OrData>, Opts extends $MultipleOpts<Input, DataFinal>, Response extends $MultipleResponseInner<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, {}, Opts>, Methods extends {}, MethodsFinal extends AdditionalMethodsFinal<Methods>, DEBUG extends {}>(options?: Opts & {
+type $MultipleFn<Args extends any[], Data> = <Input extends Args[0], EntryLoading extends {}, EntrySuccess extends {}, AndEntryLoading extends {}, OrEntryLoading extends {}, AndEntrySuccess extends {}, OrEntrySuccess extends {}, AndData extends {}, OrData extends {}, EntryLoadingFinal extends $TypeMake<EntryLoading, AndEntryLoading, OrEntryLoading>, EntrySuccessFinal extends $TypeMake<FirstNotEmpty<EntrySuccess, EntryLoading>, AndEntrySuccess, OrEntrySuccess>, DataFinal extends $TypeMake<Data, AndData, OrData>, Opts extends $MultipleOpts<Input, DataFinal>, Response extends $MultipleResponseInner<Input, EntryLoadingFinal, EntrySuccessFinal, DataFinal, {}, Opts>, Methods extends {}, MethodsFinal extends AdditionalMethodsFinal<Methods>, DEBUG extends EntrySuccessFinal>(options?: Opts & {
     entry?: (input: Input) => EntryLoading;
     entrySuccess?: (response: DataFinal, lastEntry: EntryLoadingFinal extends EmptyObject ? undefined : EntryLoadingFinal) => EntrySuccess;
     methods?: Methods & {
         [key: string]: AdditionalMethodFn<Response>;
     };
-    unique?: (input?: Input, data?: DataFinal) => void | undefined | string | number | KeyValueObject;
+    unique?: UniqueFunction<Input, DataFinal>;
     types?: OneOf<{
         orData?: OrData;
         andData?: AndData;

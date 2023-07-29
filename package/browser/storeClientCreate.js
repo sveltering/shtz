@@ -469,19 +469,19 @@ function callEndpoint(o) {
             }
             responseChanged(o, responseInner);
         }
-        if (zod) {
-            const parse = zod.safeParse(endpointArgs?.[0]);
-            if (parse?.error) {
-                endpointReponse({
-                    isSuccess: false,
-                    isError: true,
-                    store,
-                    opts,
-                    _tracker,
-                    error: parse.error,
-                });
-                return;
-            }
+    }
+    if (!prefillHandle && zod) {
+        const parse = zod.safeParse(endpointArgs?.[0]);
+        if (parse?.error) {
+            endpointReponse({
+                isSuccess: false,
+                isError: true,
+                store,
+                opts,
+                _tracker,
+                error: parse.error,
+            });
+            return;
         }
     }
     if (prefillHandle) {
@@ -549,7 +549,7 @@ const updateCall = (o) => {
     }
     else {
         allResponses[_tracker.index] = responseInner;
-        responseChanged(o, allResponses);
+        responseChanged(o, responseInner);
     }
 };
 function reponseMethodCall(o, key) {
