@@ -157,7 +157,7 @@ export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 					newCookies.push([
 						cookieName,
 						"",
-						{ httpOnly: true, path: "/", maxAge: 0 },
+						{ ...argumentsList?.[1], maxAge: 0 },
 					]);
 				},
 			});
