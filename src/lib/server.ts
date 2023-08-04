@@ -8,6 +8,7 @@ import type {
 	CreateContextType,
 	KeyValueObject,
 	StringLiteral,
+	ArgumentTypes,
 } from "./types.js";
 import { initTRPC, TRPCError, type AnyRouter } from "@trpc/server";
 import {
@@ -136,6 +137,31 @@ export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 			let result: HTTPResponse | undefined,
 				dotPath: string = "";
 
+			// const cookiesBefore = event.cookies.getAll();
+
+			type CookieSetArgs = ArgumentTypes<typeof event.cookies.set>;
+			type CookieDeleteArgs = ArgumentTypes<typeof event.cookies.delete>;
+			const newCookies: CookieSetArgs[] = [];
+
+			event.cookies.set = new Proxy(event.cookies.set, {
+				apply: function (target, thisArg, argumentsList: CookieSetArgs) {
+					target.apply(thisArg, argumentsList);
+					newCookies.push(argumentsList);
+				},
+			});
+
+			event.cookies.delete = new Proxy(event.cookies.delete, {
+				apply: function (target, thisArg, argumentsList: CookieDeleteArgs) {
+					const cookieName = argumentsList[0];
+					target.apply(thisArg, argumentsList);
+					newCookies.push([
+						cookieName,
+						"",
+						{ httpOnly: true, path: "/", maxAge: 0 },
+					]);
+				},
+			});
+
 			if (beforeResolve) {
 				dotPath = pathName
 					?.substring?.(path.length + 1)
@@ -187,6 +213,23 @@ export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 				} catch (err: any) {
 					result = TRPCErrorToResponse(err, dotPath);
 				}
+			}
+
+			if (newCookies.length) {
+				if (!result.headers) {
+					result.headers = {};
+				}
+				const serialize = event.cookies.serialize;
+				let setCookie = result.headers?.["Set-Cookie"] as string[];
+				if (typeof setCookie === "undefined") {
+					setCookie = [];
+				} else if (typeof setCookie === "string") {
+					setCookie = [setCookie];
+				}
+				for (let i = 0, iLen = newCookies.length; i < iLen; i++) {
+					setCookie.push(serialize(...newCookies[i]));
+				}
+				result.headers["Set-Cookie"] = setCookie;
 			}
 
 			return new Response(result.body, {

@@ -132,8 +132,8 @@ type ResolveOptions = ArgumentTypes<typeof resolveHTTPResponse>[0];
 type CreateOptions = ArgumentTypes<typeof initTRPC.create>[0];
 
 export type CreateContextType<Ctx extends KeyValueObject> = (
-	event?: RequestEvent,
-	pipe?: false | KeyValueObject
+	event: RequestEvent,
+	pipe: false | KeyValueObject
 ) => Promise<Ctx>;
 
 type BeforeResolve = (arg: {

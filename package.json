@@ -1,6 +1,6 @@
 {
 	"name": "@sveltering/shtz",
-	"version": "0.0.30",
+	"version": "0.0.31",
 	"author": {"name": "Yusaf Khaliq"},
 	"scripts": {
 		"dev": "vite dev --port 5001",

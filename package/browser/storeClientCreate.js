@@ -600,6 +600,7 @@ function removeCall(o) {
             success: false,
             error: false,
             data: undefined,
+            entry: {},
         }));
     } //
     else if (typeof _tracker.index === "number") {

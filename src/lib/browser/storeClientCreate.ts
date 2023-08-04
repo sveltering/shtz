@@ -730,6 +730,7 @@ function removeCall(o: RemoveCallFnOpts) {
 				success: false,
 				error: false,
 				data: undefined,
+				entry: {},
 			})
 		);
 	} //

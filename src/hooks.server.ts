@@ -1,4 +1,4 @@
-import { handleHook, handlefetchHook } from '$trpc/hooks';
+import { handleHook, handlefetchHook } from "$trpc/hooks";
 
 export async function handle({ event, resolve }) {
 	const TRPCResponse = await handleHook(event);
