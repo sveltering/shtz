@@ -227,13 +227,6 @@ function outerProxy(
 	});
 }
 
-function callNoop() {
-	return {
-		get: noop,
-		remove: noop,
-		update: noop,
-	};
-}
 const storeClientMethods = {
 	$once: function (opts: $OnceStoreOpts) {
 		const _tracker: CallTracker = {} as CallTracker;
@@ -260,19 +253,9 @@ const storeClientMethods = {
 			call: isBrowser
 				? (...endpointArgs: any[]) => {
 						const _tracker: CallTracker = {} as CallTracker;
-						const o = callEndpoint({
-							store,
-							opts,
-							endpointArgs,
-							_tracker,
-						}) as any as MethodUtilityOpts;
-						return {
-							get: () => getCall(o),
-							remove: () => removeCall(o),
-							update: () => updateCall(o),
-						};
+						callEndpoint({ store, opts, endpointArgs, _tracker });
 				  }
-				: callNoop,
+				: noop,
 			fill: isBrowser
 				? (data: any) => {
 						handlePrefill(store, opts, data);
@@ -290,19 +273,9 @@ const storeClientMethods = {
 			call: isBrowser
 				? (...endpointArgs: any[]) => {
 						const _tracker: CallTracker = {} as CallTracker;
-						const o = callEndpoint({
-							store,
-							opts,
-							endpointArgs,
-							_tracker,
-						}) as any as MethodUtilityOpts;
-						return {
-							get: () => getCall(o),
-							remove: () => removeCall(o),
-							update: () => updateCall(o),
-						};
+						callEndpoint({ store, opts, endpointArgs, _tracker });
 				  }
-				: callNoop,
+				: noop,
 			fill: isBrowser
 				? (data: any) => {
 						handlePrefill(store, opts, data);
@@ -504,16 +477,16 @@ function callEndpoint(o: CallEndpointOpts) {
 		zod,
 	} = opts;
 
-	let _responseInner: any;
 	if (has$call) {
-		const responseInner: any = (_responseInner = {
+		const responseInner: any = {
 			_tracker,
 			loading: true,
 			success: false,
 			error: false,
 			data: undefined,
 			entry: {},
-		});
+		};
+
 		const storeInner = get(store as any) as any;
 
 		//ADD METHODS TO RESPONSE
@@ -634,12 +607,6 @@ function callEndpoint(o: CallEndpointOpts) {
 			.then(endpointSuccess({ store, opts, _tracker }))
 			.catch(endpointError({ store, opts, _tracker }));
 	}
-	return {
-		responseInner: _responseInner,
-		store,
-		opts: o,
-		_tracker,
-	};
 }
 
 type GetResponseInnerOpts = {
@@ -689,6 +656,33 @@ type AddResponseMethodsOpts = {
 	opts: AnyStoreOpts;
 	_tracker: CallTracker;
 };
+
+const updateCall = (o: AddResponseMethodsOpts) => {
+	let { responseInner, allResponses } = getResponseInner(o);
+	const {
+		opts: { is$many },
+		_tracker,
+	} = o;
+	if (is$many) {
+		responseChanged(o, responseInner);
+	} else {
+		allResponses[_tracker.index] = responseInner;
+		responseChanged(o, responseInner);
+	}
+};
+
+function reponseMethodCall(o: AddResponseMethodsOpts, key: string) {
+	let { responseInner } = getResponseInner(o);
+	if (responseInner === null) {
+		return;
+	}
+	const { methodsFns } = o.opts;
+	return methodsFns[key](responseInner, {
+		remove: () => removeCall(o),
+		update: () => updateCall(o),
+	});
+}
+
 function addResponseMethods(o: AddResponseMethodsOpts) {
 	const {
 		opts: { methodsFns },
@@ -704,44 +698,12 @@ function addResponseMethods(o: AddResponseMethodsOpts) {
 	}
 }
 
-type MethodUtilityOpts = {
+type RemoveCallFnOpts = {
 	store: AnyStore;
 	opts: AnyStoreOpts;
 	_tracker: CallTracker;
 };
-
-const getCall = (o: MethodUtilityOpts) => {
-	let { responseInner } = getResponseInner(o);
-	return responseInner;
-};
-
-const updateCall = (o: MethodUtilityOpts) => {
-	let { responseInner, allResponses } = getResponseInner(o);
-	const {
-		opts: { is$many },
-		_tracker,
-	} = o;
-	if (is$many) {
-		responseChanged(o, responseInner);
-	} else {
-		allResponses[_tracker.index] = responseInner;
-		responseChanged(o, responseInner);
-	}
-};
-
-function reponseMethodCall(o: MethodUtilityOpts, key: string) {
-	let { responseInner } = getResponseInner(o);
-	if (responseInner === null) {
-		return;
-	}
-	const { methodsFns } = o.opts;
-	return methodsFns[key](responseInner, {
-		remove: () => removeCall(o),
-		update: () => updateCall(o),
-	});
-}
-
-function removeCall(o: MethodUtilityOpts) {
+function removeCall(o: RemoveCallFnOpts) {
 	const { store, opts, _tracker } = o;
 	const { is$many } = opts;
 
@@ -788,7 +750,7 @@ function removeCall(o: MethodUtilityOpts) {
 	}
 }
 
-function removeCallFn(o: MethodUtilityOpts) {
+function removeCallFn(o: RemoveCallFnOpts) {
 	return function () {
 		removeCall(o);
 	};

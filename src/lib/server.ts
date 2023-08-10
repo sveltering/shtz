@@ -134,7 +134,7 @@ export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 				return false;
 			}
 
-			let result: HTTPResponse | undefined,
+			let response: HTTPResponse | undefined,
 				dotPath: string = "";
 
 			// const cookiesBefore = event.cookies.getAll();
@@ -167,22 +167,22 @@ export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 					?.substring?.(path.length + 1)
 					?.replaceAll?.("/", ".");
 				try {
-					const maybeResult = await beforeResolve({
+					const maybeResponse = await beforeResolve({
 						dotPath,
 						event,
 						pipe,
 					});
-					if (maybeResult !== undefined) {
-						result = maybeResult;
+					if (maybeResponse !== undefined) {
+						response = maybeResponse;
 					}
 				} catch (e: any) {
-					result = TRPCErrorToResponse(e, dotPath);
+					response = TRPCErrorToResponse(e, dotPath);
 				}
 			}
 
-			if (!result) {
+			if (!response) {
 				const request = event.request;
-				result = await resolveHTTPResponse({
+				response = await resolveHTTPResponse({
 					createContext: async () => await context(event, pipe),
 					path: pathName.substring(path.length + 1),
 					req: {
@@ -201,26 +201,26 @@ export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 					? dotPath
 					: pathName?.substring?.(path.length + 1)?.replaceAll?.("/", ".");
 				try {
-					const maybeResult = await beforeResponse({
+					const maybeResponse = await beforeResponse({
 						dotPath,
 						event,
 						pipe,
-						result,
+						response,
 					});
-					if (maybeResult !== undefined) {
-						result = maybeResult;
+					if (maybeResponse !== undefined) {
+						response = maybeResponse;
 					}
 				} catch (err: any) {
-					result = TRPCErrorToResponse(err, dotPath);
+					response = TRPCErrorToResponse(err, dotPath);
 				}
 			}
 
 			if (newCookies.length) {
-				if (!result.headers) {
-					result.headers = {};
+				if (!response.headers) {
+					response.headers = {};
 				}
 				const serialize = event.cookies.serialize;
-				let setCookie = result.headers?.["Set-Cookie"] as string[];
+				let setCookie = response.headers?.["Set-Cookie"] as string[];
 				if (typeof setCookie === "undefined") {
 					setCookie = [];
 				} else if (typeof setCookie === "string") {
@@ -229,12 +229,12 @@ export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 				for (let i = 0, iLen = newCookies.length; i < iLen; i++) {
 					setCookie.push(serialize(...newCookies[i]));
 				}
-				result.headers["Set-Cookie"] = setCookie;
+				response.headers["Set-Cookie"] = setCookie;
 			}
 
-			return new Response(result.body, {
-				headers: result.headers as HeadersInit,
-				status: result.status,
+			return new Response(response.body, {
+				headers: response.headers as HeadersInit,
+				status: response.status,
 			});
 		};
 	}

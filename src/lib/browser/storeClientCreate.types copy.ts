@@ -183,12 +183,7 @@ type $ManyInner<
 	Opts extends $ManyOpts<Input, Data>,
 	DEBUG
 > = {
-	call: (...args: Args) => {
-		get: () => $ManyResponse<Input, EntryLoading, EntrySuccess, Data, Opts> &
-			Methods;
-		remove: () => void;
-		update: () => void;
-	};
+	call: (...args: Args) => void;
 	fill: (data: Data | (() => Data) | (() => Promise<Data | undefined>)) => void;
 	// readonly DEBUG?: DEBUG;
 } & Methods &
@@ -375,19 +370,7 @@ type $MultipleInner<
 		Methods,
 		Opts
 	>[];
-	call: (...args: Args) => {
-		get: () => $MultipleResponseInner<
-			Input,
-			EntryLoading,
-			EntrySuccess,
-			Data,
-			Methods,
-			Opts
-		> &
-			Methods;
-		remove: () => void;
-		update: () => void;
-	};
+	call: (...args: Args) => void;
 	fill: (
 		data:
 			| Data

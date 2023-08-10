@@ -19,7 +19,7 @@
 		},
 	});
 
-	$many.call({
+	let test = $many.call({
 		item: "Test " + (shouldError ? "error" : ""),
 		qty: 20,
 	});

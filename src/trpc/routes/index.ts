@@ -21,15 +21,14 @@ export default t.router({
 			httpOnly: false,
 		});
 		ctx.cookies.set("test3", randInt(1, 10) + "_cookie", {
-			path: "/tests",
+			path: "/",
 			httpOnly: false,
 		});
 	}),
 	cookieDelete: t.procedure.query(function ({ ctx }) {
-		// options must be same to remove cookie
+		// options must be same in set as delete remove cookie
 		ctx.cookies.delete("test3", {
-			path: "/tests",
-			httpOnly: false,
+			path: "/",
 		});
 	}),
 });

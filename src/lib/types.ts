@@ -145,7 +145,7 @@ type BeforeResponse = (arg: {
 	dotPath: string;
 	event: RequestEvent;
 	pipe: KeyValueObject;
-	result: HTTPResponse;
+	response: HTTPResponse;
 }) => Promise<void | HTTPResponse>;
 
 type LocalsAllowedOptions = "always" | "callable" | undefined;
