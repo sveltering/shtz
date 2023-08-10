@@ -109,6 +109,12 @@ export declare class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
     get context(): CreateContextType<Ctx>;
     error(message: TRPCErrorOpts): TRPCError;
     error(message: string, code?: TRPCErrorOpts["code"]): TRPCError;
+    issue(message: string, path?: string | string[], code?: string): TRPCError;
+    issues(issues: {
+        message: string;
+        path?: string | string[];
+        code?: string;
+    }[]): TRPCError;
     hookCreate(router: AnyRouter): (event: RequestEvent) => Promise<false | Response>;
     handleFetchCreate(): (request: Request) => Request;
 }

@@ -47,6 +47,7 @@ type $ManyOpts<Input, Data> = {
     abortOnRemove?: boolean;
     beforeCall?: BeforeCallFn<Input>;
     zod?: ZodTypeAny;
+    changeTimer?: number;
 };
 type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts["remove"] extends true ? {
     remove: () => Promise<void>;
@@ -54,6 +55,8 @@ type $ManyExtension<Input, Data, Opts extends $ManyOpts<Input, Data>> = (Opts["r
     remove: () => Promise<void>;
 } : {}) & (Opts["abort"] extends true ? {
     aborted: false;
+} : {}) & (Opts["changeTimer"] extends number ? {
+    changed: boolean;
 } : {});
 type $ManyResponse<Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Opts extends $ManyOpts<Input, Data>> = StaleReponse<$ManyExtension<Input, Data, Opts> & {
     entry: {};
@@ -72,7 +75,11 @@ type $ManyResponse<Input, EntryLoading extends {}, EntrySuccess extends {}, Data
     entry: EntryLoading;
 }>);
 type $ManyInner<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $ManyOpts<Input, Data>, DEBUG> = {
-    call: (...args: Args) => void;
+    call: (...args: Args) => {
+        get: () => $ManyResponse<Input, EntryLoading, EntrySuccess, Data, Opts> & Methods;
+        remove: () => void;
+        update: () => void;
+    };
     fill: (data: Data | (() => Data) | (() => Promise<Data | undefined>)) => void;
 } & Methods & $ManyResponse<Input, EntryLoading, EntrySuccess, Data, Opts>;
 type $ManyStore<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $ManyOpts<Input, Data>, DEBUG> = Writable<$ManyInner<Args, Input, EntryLoading, EntrySuccess, Data, Methods, Opts, DEBUG>>;
@@ -131,7 +138,11 @@ type $MultipleResponseInner<Input, EntryLoading extends {}, EntrySuccess extends
 type $MultipleInner<Args extends any[], Input, EntryLoading extends {}, EntrySuccess extends {}, Data, Methods, Opts extends $MultipleOpts<Input, Data>, DEBUG> = {
     prefillError?: ErrorTypes;
     responses: $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Methods, Opts>[];
-    call: (...args: Args) => void;
+    call: (...args: Args) => {
+        get: () => $MultipleResponseInner<Input, EntryLoading, EntrySuccess, Data, Methods, Opts> & Methods;
+        remove: () => void;
+        update: () => void;
+    };
     fill: (data: Data | Data[] | (() => Data | Data[]) | (() => Promise<Data | Data[] | undefined>)) => void;
 } & (Opts["loading"] extends true ? {
     loading: false;

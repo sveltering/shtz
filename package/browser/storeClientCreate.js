@@ -175,6 +175,13 @@ function outerProxy(callback, path, options) {
         },
     });
 }
+function callNoop() {
+    return {
+        get: noop,
+        remove: noop,
+        update: noop,
+    };
+}
 const storeClientMethods = {
     $once: function (opts) {
         const _tracker = {};
@@ -201,9 +208,19 @@ const storeClientMethods = {
             call: isBrowser
                 ? (...endpointArgs) => {
                     const _tracker = {};
-                    callEndpoint({ store, opts, endpointArgs, _tracker });
+                    const o = callEndpoint({
+                        store,
+                        opts,
+                        endpointArgs,
+                        _tracker,
+                    });
+                    return {
+                        get: () => getCall(o),
+                        remove: () => removeCall(o),
+                        update: () => updateCall(o),
+                    };
                 }
-                : noop,
+                : callNoop,
             fill: isBrowser
                 ? (data) => {
                     handlePrefill(store, opts, data);
@@ -221,9 +238,19 @@ const storeClientMethods = {
             call: isBrowser
                 ? (...endpointArgs) => {
                     const _tracker = {};
-                    callEndpoint({ store, opts, endpointArgs, _tracker });
+                    const o = callEndpoint({
+                        store,
+                        opts,
+                        endpointArgs,
+                        _tracker,
+                    });
+                    return {
+                        get: () => getCall(o),
+                        remove: () => removeCall(o),
+                        update: () => updateCall(o),
+                    };
                 }
-                : noop,
+                : callNoop,
             fill: isBrowser
                 ? (data) => {
                     handlePrefill(store, opts, data);
@@ -388,15 +415,16 @@ function callEndpoint(o) {
     const { store, opts, endpointArgs, prefillHandle } = o;
     let { _tracker } = o;
     const { endpoint, is$many, has$call, entryFn, hasLoading, hasRemove, hasAbort, hasAbortOnRemove, beforeCallFn, uniqueFn, uniqueResponse, addResponse, uniqueTracker, zod, } = opts;
+    let _responseInner;
     if (has$call) {
-        const responseInner = {
+        const responseInner = (_responseInner = {
             _tracker,
             loading: true,
             success: false,
             error: false,
             data: undefined,
             entry: {},
-        };
+        });
         const storeInner = get(store);
         //ADD METHODS TO RESPONSE
         addResponseMethods({ responseInner, store, opts, _tracker });
@@ -508,6 +536,12 @@ function callEndpoint(o) {
             .then(endpointSuccess({ store, opts, _tracker }))
             .catch(endpointError({ store, opts, _tracker }));
     }
+    return {
+        responseInner: _responseInner,
+        store,
+        opts: o,
+        _tracker,
+    };
 }
 function getResponseInner(o) {
     const { store, opts, _tracker } = o;
@@ -541,6 +575,23 @@ function responseChanged(o, responseInner) {
         _tracker.timeout = null;
     }, changeTimer);
 }
+function addResponseMethods(o) {
+    const { opts: { methodsFns }, responseInner, } = o;
+    for (let key in methodsFns) {
+        if (typeof methodsFns[key] !== "function")
+            continue;
+        if (methodsFns[key]?.constructor?.name === "AsyncFunction") {
+            responseInner[key] = async () => await reponseMethodCall(o, key);
+        }
+        else {
+            responseInner[key] = () => reponseMethodCall(o, key);
+        }
+    }
+}
+const getCall = (o) => {
+    let { responseInner } = getResponseInner(o);
+    return responseInner;
+};
 const updateCall = (o) => {
     let { responseInner, allResponses } = getResponseInner(o);
     const { opts: { is$many }, _tracker, } = o;
@@ -562,19 +613,6 @@ function reponseMethodCall(o, key) {
         remove: () => removeCall(o),
         update: () => updateCall(o),
     });
-}
-function addResponseMethods(o) {
-    const { opts: { methodsFns }, responseInner, } = o;
-    for (let key in methodsFns) {
-        if (typeof methodsFns[key] !== "function")
-            continue;
-        if (methodsFns[key]?.constructor?.name === "AsyncFunction") {
-            responseInner[key] = async () => await reponseMethodCall(o, key);
-        }
-        else {
-            responseInner[key] = () => reponseMethodCall(o, key);
-        }
-    }
 }
 function removeCall(o) {
     const { store, opts, _tracker } = o;

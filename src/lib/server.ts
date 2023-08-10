@@ -87,6 +87,29 @@ export class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
 		);
 	}
 
+	issue(
+		message: string,
+		path: string | string[] = [],
+		code: string = "custom"
+	) {
+		return this.error(
+			JSON.stringify([
+				{ message, path: typeof path === "string" ? [path] : path, code },
+			])
+		);
+	}
+
+	issues(
+		issues: { message: string; path?: string | string[]; code?: string }[]
+	) {
+		issues = issues.map(({ message, path, code }) => ({
+			message,
+			path: typeof path === "string" ? [path] : path || [],
+			code: code || "custom",
+		}));
+		return this.error(JSON.stringify(issues));
+	}
+
 	hookCreate(router: AnyRouter) {
 		this._routes = router;
 		const options = this.options;

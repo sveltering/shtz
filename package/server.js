@@ -51,6 +51,19 @@ export class TRPC {
             }
             : message);
     }
+    issue(message, path = [], code = "custom") {
+        return this.error(JSON.stringify([
+            { message, path: typeof path === "string" ? [path] : path, code },
+        ]));
+    }
+    issues(issues) {
+        issues = issues.map(({ message, path, code }) => ({
+            message,
+            path: typeof path === "string" ? [path] : path || [],
+            code: code || "custom",
+        }));
+        return this.error(JSON.stringify(issues));
+    }
     hookCreate(router) {
         this._routes = router;
         const options = this.options;
@@ -80,7 +93,7 @@ export class TRPC {
                 }
                 return false;
             }
-            let result, dotPath = "";
+            let response, dotPath = "";
             const newCookies = [];
             event.cookies.set = new Proxy(event.cookies.set, {
                 apply: function (target, thisArg, argumentsList) {
@@ -104,22 +117,22 @@ export class TRPC {
                     ?.substring?.(path.length + 1)
                     ?.replaceAll?.("/", ".");
                 try {
-                    const maybeResult = await beforeResolve({
+                    const maybeResponse = await beforeResolve({
                         dotPath,
                         event,
                         pipe,
                     });
-                    if (maybeResult !== undefined) {
-                        result = maybeResult;
+                    if (maybeResponse !== undefined) {
+                        response = maybeResponse;
                     }
                 }
                 catch (e) {
-                    result = TRPCErrorToResponse(e, dotPath);
+                    response = TRPCErrorToResponse(e, dotPath);
                 }
             }
-            if (!result) {
+            if (!response) {
                 const request = event.request;
-                result = await resolveHTTPResponse({
+                response = await resolveHTTPResponse({
                     createContext: async () => await context(event, pipe),
                     path: pathName.substring(path.length + 1),
                     req: {
@@ -137,26 +150,26 @@ export class TRPC {
                     ? dotPath
                     : pathName?.substring?.(path.length + 1)?.replaceAll?.("/", ".");
                 try {
-                    const maybeResult = await beforeResponse({
+                    const maybeResponse = await beforeResponse({
                         dotPath,
                         event,
                         pipe,
-                        result,
+                        response,
                     });
-                    if (maybeResult !== undefined) {
-                        result = maybeResult;
+                    if (maybeResponse !== undefined) {
+                        response = maybeResponse;
                     }
                 }
                 catch (err) {
-                    result = TRPCErrorToResponse(err, dotPath);
+                    response = TRPCErrorToResponse(err, dotPath);
                 }
             }
             if (newCookies.length) {
-                if (!result.headers) {
-                    result.headers = {};
+                if (!response.headers) {
+                    response.headers = {};
                 }
                 const serialize = event.cookies.serialize;
-                let setCookie = result.headers?.["Set-Cookie"];
+                let setCookie = response.headers?.["Set-Cookie"];
                 if (typeof setCookie === "undefined") {
                     setCookie = [];
                 }
@@ -166,11 +179,11 @@ export class TRPC {
                 for (let i = 0, iLen = newCookies.length; i < iLen; i++) {
                     setCookie.push(serialize(...newCookies[i]));
                 }
-                result.headers["Set-Cookie"] = setCookie;
+                response.headers["Set-Cookie"] = setCookie;
             }
-            return new Response(result.body, {
-                headers: result.headers,
-                status: result.status,
+            return new Response(response.body, {
+                headers: response.headers,
+                status: response.status,
             });
         };
     }
