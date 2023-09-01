@@ -1,3 +1,4 @@
+/// <reference types="svelte" />
 import type { Writable } from "svelte/store";
 import type { Prettify, Combine, FirstNotEmpty, ArgumentTypes, FunctionType, AsyncFunctionType, AsyncReturnType, OneOf, EmptyObject, KeyValueObject } from "../types.js";
 import type { ZodTypeAny, ZodError } from "zod";

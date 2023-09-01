@@ -1,3 +1,4 @@
+import { building } from "$app/environment";
 import { initTRPC, TRPCError } from "@trpc/server";
 import { resolveHTTPResponse, getHTTPStatusCodeFromError, TRPC_ERROR_CODES_BY_NUMBER, } from "@trpc/server/http";
 const TRPC_ERROR_CODES_BY_KEY = Object.fromEntries(Object.entries(TRPC_ERROR_CODES_BY_NUMBER).map(([key, value]) => [value, key]));
@@ -204,6 +205,9 @@ No origin or bypass origin has been set, are you sure you need to handle fetch?`
     }
 }
 export const serverClientCreate = function (t) {
+    if (building) {
+        return undefined;
+    }
     if (!t?._routes) {
         throw new Error(`You must set your final routes by creating hooks with \`t.hooks(routes)\``);
     }

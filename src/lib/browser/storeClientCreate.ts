@@ -1,3 +1,4 @@
+import { building } from "$app/environment";
 import type { AnyRouter } from "@trpc/server";
 import type {
 	ArgumentTypes,
@@ -29,6 +30,10 @@ const isBrowser =
 function storeClientCreate<Router extends AnyRouter>(
 	options: StoreClientOpt
 ): StoreCC<Router> {
+	if (building) {
+		return undefined as any as StoreCC<Router>;
+	}
+
 	const { url, batchLinkOptions, transformer } = options;
 
 	const proxyClient = isBrowser
@@ -637,7 +642,7 @@ function callEndpoint(o: CallEndpointOpts) {
 	return {
 		responseInner: _responseInner,
 		store,
-		opts: o,
+		opts,
 		_tracker,
 	};
 }
@@ -652,6 +657,7 @@ function getResponseInner(o: GetResponseInnerOpts) {
 	const { is$multiple, is$many } = opts;
 	const storeInner = get(store as any) as any;
 	const allResponses = is$multiple ? storeInner.responses : undefined;
+
 	const responseInner = is$many
 		? storeInner
 		: allResponses.hasOwnProperty(_tracker.index)

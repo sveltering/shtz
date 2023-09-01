@@ -1,3 +1,4 @@
+import { building } from "$app/environment";
 import type { AnyRouter } from "@trpc/server";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 
@@ -18,6 +19,9 @@ function browserClientCreate<T extends AnyRouter>(
 	options: BrowserClientOpt
 ): BrowserOCC<T>; //browser only
 function browserClientCreate<T extends AnyRouter>(options: BrowserClientOpt) {
+	if (building) {
+		return undefined as any as BrowserACC<T>;
+	}
 	const { url, batchLinkOptions, transformer } = options;
 	let browserOnly = options?.browserOnly === false ? false : true;
 	if (browserOnly === true && !isBrowser) {

@@ -1,3 +1,4 @@
+import { building } from "$app/environment";
 import type { RequestEvent, ServerLoadEvent } from "@sveltejs/kit";
 import type { HTTPHeaders } from "@trpc/client";
 import type {
@@ -287,11 +288,16 @@ No origin or bypass origin has been set, are you sure you need to handle fetch?`
 	}
 }
 
+type serverClientCreateR<R extends AnyRouter> = (
+	event: RequestEvent | ServerLoadEvent
+) => Promise<ReturnType<R["createCaller"]>>;
+
 export const serverClientCreate = function <R extends AnyRouter>(
 	t: TRPC<any, any, any>
-): (
-	event: RequestEvent | ServerLoadEvent
-) => Promise<ReturnType<R["createCaller"]>> {
+): serverClientCreateR<R> {
+	if (building) {
+		return undefined as any as serverClientCreateR<R>;
+	}
 	if (!t?._routes) {
 		throw new Error(
 			`You must set your final routes by creating hooks with \`t.hooks(routes)\``

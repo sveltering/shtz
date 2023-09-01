@@ -1,8 +1,12 @@
+import { building } from "$app/environment";
 import { createTRPCProxyClient, httpBatchLink } from "@trpc/client";
 import { get, writable } from "svelte/store";
 import equal from "fast-deep-equal";
 const isBrowser = typeof window !== "undefined" && typeof window.document !== "undefined";
 function storeClientCreate(options) {
+    if (building) {
+        return undefined;
+    }
     const { url, batchLinkOptions, transformer } = options;
     const proxyClient = isBrowser
         ? createTRPCProxyClient({
@@ -539,7 +543,7 @@ function callEndpoint(o) {
     return {
         responseInner: _responseInner,
         store,
-        opts: o,
+        opts,
         _tracker,
     };
 }

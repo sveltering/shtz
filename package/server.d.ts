@@ -118,4 +118,6 @@ export declare class TRPC<Ctx extends KeyValueObject, LocalsKey, LocalsType> {
     hookCreate(router: AnyRouter): (event: RequestEvent) => Promise<false | Response>;
     handleFetchCreate(): (request: Request) => Request;
 }
-export declare const serverClientCreate: <R extends AnyRouter>(t: TRPC<any, any, any>) => (event: RequestEvent | ServerLoadEvent) => Promise<ReturnType<R["createCaller"]>>;
+type serverClientCreateR<R extends AnyRouter> = (event: RequestEvent | ServerLoadEvent) => Promise<ReturnType<R["createCaller"]>>;
+export declare const serverClientCreate: <R extends AnyRouter>(t: TRPC<any, any, any>) => serverClientCreateR<R>;
+export {};
